@@ -1,6 +1,45 @@
+# ==============================================================================
+# ctxvault Local Repository Configuration
+# ==============================================================================
 name = "ctxvault"
 path = "."
 mode = "read-write"
+index_mode = "full"
+
+[docs]
+# Glob patterns promoting rich non-markdown files (.html, .pdf, .docx) to doc projections
+# (Native *.md files are always documentation notes; code files are auto-discovered)
+patterns = [
+    "docs/**",
+    "wiki/**",
+    "architecture/**"
+]
+
+[exclude]
+# Explicit file and directory exclusion patterns (gitignore syntax)
+# Seeded from .gitignore during initialization; this list is the single source of truth.
+patterns = [
+    "target/**",
+    "dist/**",
+    "build/**",
+    "out/**",
+    "bin/**",
+    ".venv/**",
+    "venv/**",
+    "__pycache__/**",
+    "tests/**",
+    "test/**",
+    "*.test.*",
+    "*.spec.*",
+    "*.exe",
+    "*.dll",
+    "*.so",
+    "*.dylib",
+    "*.wasm"
+]
+
+[templates]
+dir = "docs/.templates"
 
 [chunking]
 strategy = "heading"

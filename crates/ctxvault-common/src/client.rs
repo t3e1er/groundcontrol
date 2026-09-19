@@ -26,7 +26,7 @@ fn default_client_color() -> String {
 }
 
 /// Registry of known clients and authentication rules.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientsRegistry {
     /// List of registered client profiles.
     #[serde(default)]
@@ -261,46 +261,34 @@ pub fn save_clients_config(registry: &ClientsRegistry, path: &Path) -> std::io::
     Ok(())
 }
 
-/// Ensure central `clients.json` exists in central cache directory.
+/// Ensure central authentication and clients configuration exists in central config.toml.
 ///
 /// If `generate_if_missing` is true, generates a fresh `ClientsRegistry` populated with
-/// secure API keys for all supported agents and writes it to disk.
+/// secure API keys for all supported agents and writes it to central configuration.
 pub fn ensure_central_clients_config(
     generate_if_missing: bool,
     require_auth: bool,
 ) -> std::io::Result<(ClientsRegistry, PathBuf)> {
-    let central_path = get_central_clients_path();
+    let config_path = crate::config::get_config_path();
+    let mut global_cfg = crate::config::load_global_config();
 
-    if central_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&central_path) {
-            if let Ok(mut reg) = serde_json::from_str::<ClientsRegistry>(&content) {
-                let mut changed = false;
-                if require_auth && !reg.require_auth {
-                    reg.require_auth = true;
-                    changed = true;
-                }
-                if reg.daemon_key.is_none() {
-                    reg.daemon_key = Some(generate_token("daemon"));
-                    changed = true;
-                }
-                if changed {
-                    let _ = save_clients_config(&reg, &central_path);
-                }
-                return Ok((reg, central_path));
-            }
-        }
+    let mut changed = false;
+    if global_cfg.auth.clients.is_empty() && generate_if_missing {
+        global_cfg.auth = generate_default_config();
+        changed = true;
     }
-
-    if generate_if_missing {
-        let mut reg = generate_default_config();
-        if require_auth {
-            reg.require_auth = true;
-        }
-        save_clients_config(&reg, &central_path)?;
-        Ok((reg, central_path))
-    } else {
-        Ok((load_clients_config(Some(&central_path)), central_path))
+    if require_auth && !global_cfg.auth.require_auth {
+        global_cfg.auth.require_auth = true;
+        changed = true;
     }
+    if global_cfg.auth.daemon_key.is_none() {
+        global_cfg.auth.daemon_key = Some(generate_token("daemon"));
+        changed = true;
+    }
+    if changed {
+        let _ = crate::config::save_global_config(&global_cfg);
+    }
+    Ok((global_cfg.auth, config_path))
 }
 
 /// Load the clients registry from disk, falling back to built-in defaults.
@@ -316,6 +304,16 @@ pub fn load_clients_config(explicit_path: Option<&Path>) -> ClientsRegistry {
     } else {
         None
     };
+
+    if registry.is_none() {
+        let global_cfg = crate::config::load_global_config();
+        if !global_cfg.auth.clients.is_empty()
+            || global_cfg.auth.require_auth
+            || global_cfg.auth.daemon_key.is_some()
+        {
+            registry = Some(global_cfg.auth);
+        }
+    }
 
     if registry.is_none() {
         for candidate in get_client_config_candidates() {

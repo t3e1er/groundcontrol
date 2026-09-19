@@ -228,7 +228,7 @@ impl CorpusManager {
         }
 
         // Index storage: always central storage in ${CTXV_CACHE_DIR}/corpora/<name>
-        let local_config = canonical.join("corpus.toml");
+        let local_config = canonical.join("ctxvault.toml");
         let index_dir = ctxvault_common::config::get_corpus_index_dir(&name);
 
         // Auto-bootstrap from committed SCM artifact if central cache is empty
@@ -251,15 +251,13 @@ impl CorpusManager {
                 name: name.clone(),
                 path: canonical_str.clone(),
                 mode: ctxvault_common::config::CorpusMode::ReadWrite,
-                index_mode: global.index_mode,
+                index_mode: global.index_mode(),
                 chunking: ctxvault_common::config::ChunkingConfig::default(),
                 embedding: ctxvault_common::config::EmbeddingConfig::default(),
                 graph: ctxvault_common::config::GraphConfig::default(),
                 templates_dir: None,
                 exclude: ctxvault_common::config::ExcludeConfig::default(),
-                corpus_type: ctxvault_common::config::CorpusType::default(),
-                doc_patterns: Vec::new(),
-                code_patterns: Vec::new(),
+                docs: ctxvault_common::config::DocsConfig::default(),
             }
         };
 
@@ -388,9 +386,7 @@ impl CorpusManager {
             graph: ctxvault_common::config::GraphConfig::default(),
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: ctxvault_common::config::CorpusType::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         };
 
         self.add_corpus_with_index_dir(config, &target_index_dir)?;
@@ -1178,9 +1174,7 @@ mod tests {
             graph: GraphConfig { edge_types: Vec::new() },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: ctxvault_common::config::CorpusType::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         }
     }
 
@@ -1325,9 +1319,7 @@ mod tests {
             graph: GraphConfig { edge_types: vec![implements] },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: ctxvault_common::config::CorpusType::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         }
     }
 

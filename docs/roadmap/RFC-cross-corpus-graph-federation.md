@@ -45,7 +45,7 @@ Any implementation must conform to `ctxvault`'s architectural invariants (see [`
 | Concern | Current behaviour | Source |
 | :--- | :--- | :--- |
 | Scoping unit | One *corpus* = one indexed root with own BM25/vector/graph/SQLite. `CorpusManager` holds `HashMap<String, Engine>` routed by name. | `crates/ctxvault-core/src/corpus_manager.rs` |
-| Storage | Repo-local `.index/` when `.index` or `corpus.toml` exists, else central `${CTXV_CACHE_DIR}/corpora/<name>/`. | `corpus_manager.rs::ensure_corpus` |
+| Storage | Repo-local `.index/` when `.index` or `ctxvault.toml` exists, else central `${CTXV_CACHE_DIR}/corpora/<name>/`. | `corpus_manager.rs::ensure_corpus` |
 | Cross-corpus **search** | Read tools accept `corpus` (single) or `corpora` (array / `"all"`); `resolve_corpus_target` resolves the target **before** the tool runs (mode-agnostic); `fan_out_read` runs per corpus and merges with `rrf_fuse_cross_corpus` (RRF K=60, keyed by `(corpus, path)`, tagged with origin corpus). Write tools never fan out. | `crates/ctxvault-mcp/src/tools/mod.rs`, `crates/ctxvault-core/src/search/mod.rs` |
 | Modalities | BM25 (tantivy), semantic (Jina v2 base-code, 768-dim, INT8; the only live model — `bge` is a config-accepted string that falls back to Jina), plus `hybrid` (3-signal), `graph`, `explain`, `related`, `multihop`. | `search_service.rs`, `search/mod.rs`, `embedding.rs` |
 | Graph traversal | `KnowledgeGraph` = one `petgraph::DiGraph` per corpus; `traverse_bfs` walks **only that graph**. | `crates/ctxvault-core/src/graph/mod.rs` |

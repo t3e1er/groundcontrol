@@ -153,7 +153,7 @@ pub enum CodeSymbolType {
 }
 ```
 
-### 5.2 Extended Graph Edge Schema (`corpus.toml` & `ctxvault-core`)
+### 5.2 Extended Graph Edge Schema (`ctxvault.toml` & `ctxvault-core`)
 The graph engine is extended with code-specific and cross-modal relationship types:
 
 | Edge Type | Source Node | Target Node | Default Weight | Description |

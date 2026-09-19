@@ -17,9 +17,7 @@ fn corpus_config_round_trips_through_toml() {
         graph: GraphConfig::default(),
         templates_dir: Some(".templates".to_string()),
         exclude: ctxvault_common::config::ExcludeConfig::default(),
-        corpus_type: Default::default(),
-        doc_patterns: Vec::new(),
-        code_patterns: Vec::new(),
+        docs: ctxvault_common::config::DocsConfig::default(),
     };
 
     let toml_str = toml::to_string_pretty(&config).expect("serialize to toml");

@@ -121,6 +121,15 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Initialize a new repository configuration (ctxvault.toml) with migrated gitignore exclusions.
+    Init {
+        /// Target repository directory to initialize (defaults to current working directory).
+        #[arg(value_name = "PATH")]
+        path: Option<PathBuf>,
+        /// Force overwrite if ctxvault.toml already exists.
+        #[arg(long)]
+        force: bool,
+    },
     /// Auto-detect and configure installed coding agents with zero-arg ctxvault entries.
     Install {
         /// Target installation directory containing ctxvault binary.
@@ -375,6 +384,60 @@ async fn main() -> anyhow::Result<()> {
     // -----------------------------------------------------------------------
     if let Some(cmd) = &cli.command {
         match cmd {
+            Commands::Init { path, force } => {
+                let target_dir = match path {
+                    Some(p) => {
+                        let _ = std::fs::create_dir_all(p);
+                        p.canonicalize().unwrap_or_else(|_| p.clone())
+                    }
+                    None => std::env::current_dir()?,
+                };
+                let config_file = target_dir.join("ctxvault.toml");
+                if config_file.exists() && !*force {
+                    eprintln!(
+                        "[-] '{}' already exists. Use --force to overwrite.",
+                        config_file.display()
+                    );
+                    return Ok(());
+                }
+
+                let repo_name =
+                    target_dir.file_name().and_then(|n| n.to_str()).unwrap_or("repo").to_string();
+
+                let mut exclude = ctxvault_common::config::ExcludeConfig::default();
+                let gitignore_path = target_dir.join(".gitignore");
+                if gitignore_path.exists() {
+                    exclude.import_gitignore(&gitignore_path);
+                    println!("[+] Imported patterns from '{}'", gitignore_path.display());
+                }
+
+                let corpus_config = ctxvault_common::config::CorpusConfig {
+                    name: repo_name.clone(),
+                    path: ".".to_string(),
+                    mode: ctxvault_common::config::CorpusMode::ReadWrite,
+                    index_mode: ctxvault_common::config::IndexMode::Full,
+                    chunking: ctxvault_common::config::ChunkingConfig::default(),
+                    embedding: ctxvault_common::config::EmbeddingConfig::default(),
+                    graph: ctxvault_common::config::GraphConfig::default(),
+                    templates_dir: Some("docs/.templates".to_string()),
+                    exclude,
+                    docs: ctxvault_common::config::DocsConfig {
+                        patterns: vec![
+                            "docs/**".to_string(),
+                            "wiki/**".to_string(),
+                            "architecture/**".to_string(),
+                        ],
+                    },
+                };
+
+                let toml_str = toml::to_string_pretty(&corpus_config)?;
+                std::fs::write(&config_file, toml_str)?;
+                println!("[+] Initialized repository configuration at '{}'", config_file.display());
+                println!("    Corpus name: {}", repo_name);
+                println!("    Docs patterns: docs/**, wiki/**, architecture/**");
+                println!("    Exclusion rules count: {}", corpus_config.exclude.patterns.len());
+                return Ok(());
+            }
             Commands::Install { dir, yes, dry_run, rules, rules_dir, fast: _, agents, auth } => {
                 let current_dir = std::env::current_dir().ok();
                 let ws_dir = if *rules {
@@ -584,19 +647,31 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
             Commands::Graphview { bind, corpora_dir, daemon, daemon_key } => {
-                let effective_key = if let Some(ref k) = daemon_key {
-                    Some(k.clone())
-                } else {
-                    let config = ctxvault_common::client::load_clients_config(None);
-                    config.daemon_key
-                };
+                let global = ctxvault_common::config::load_global_config();
+                let effective_bind =
+                    if bind == "127.0.0.1:9091" && !global.graphview.bind.is_empty() {
+                        global.graphview.bind.as_str()
+                    } else {
+                        bind.as_str()
+                    };
+                let effective_daemon =
+                    if daemon == "http://127.0.0.1:9090" && !global.graphview.daemon.is_empty() {
+                        global.graphview.daemon.as_str()
+                    } else {
+                        daemon.as_str()
+                    };
+                let effective_key = daemon_key
+                    .clone()
+                    .or_else(|| global.graphview.daemon_key.clone())
+                    .or_else(|| global.auth.daemon_key.clone());
+
                 if let Some(ref k) = effective_key {
                     std::env::set_var("CTXV_INTERNAL_API_KEY", k);
                 }
                 ctxvault_graphview::run_graphview_server(
-                    bind,
+                    effective_bind,
                     corpora_dir.clone(),
-                    Some(daemon.clone()),
+                    Some(effective_daemon.to_string()),
                 )
                 .await?;
                 return Ok(());
@@ -1075,9 +1150,9 @@ fn parse_corpus_spec(spec: &str) -> (Option<String>, PathBuf, Option<String>) {
     (name, path, templates_override)
 }
 
-/// Load `corpus.toml` from the corpus directory, or create a default config.
+/// Load `ctxvault.toml` from the corpus directory, or create a default config.
 fn load_or_default_config(corpus_path: &Path) -> anyhow::Result<CorpusConfig> {
-    let config_path = corpus_path.join("corpus.toml");
+    let config_path = corpus_path.join("ctxvault.toml");
 
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path)?;
@@ -1124,9 +1199,7 @@ fn load_or_default_config(corpus_path: &Path) -> anyhow::Result<CorpusConfig> {
             },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: Default::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         })
     }
 }

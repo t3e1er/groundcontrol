@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Schema Validation & Taxonomy Enforcement"
 description: "How ctxvault validates note templates, catches broken wikilinks, and maintains corpus health."
 category: "trust"
@@ -18,7 +18,7 @@ To prevent documentation decay, `ctxvault` includes native schema validation too
 
 ## 1. Formal Note Templates (`.templates/`)
 
-Knowledge vaults define required frontmatter schemas in a `.templates/` directory (or via `corpus.toml`). For example, an Architectural Decision Record template:
+Knowledge vaults define required frontmatter schemas in a `.templates/` directory (or via `ctxvault.toml`). For example, an Architectural Decision Record template:
 
 ```markdown
 ---

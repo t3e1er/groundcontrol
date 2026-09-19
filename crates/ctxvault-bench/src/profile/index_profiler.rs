@@ -66,7 +66,7 @@ impl IndexProfiler {
         options: &IndexProfilerOptions,
     ) -> ctxvault_common::Result<IndexingProfileReport> {
         let index_dir = corpus_dir.join(".index");
-        let config_path = corpus_dir.join("corpus.toml");
+        let config_path = corpus_dir.join("ctxvault.toml");
 
         if options.clean_cold_start && index_dir.exists() {
             let _ = fs::remove_dir_all(&index_dir);
@@ -79,10 +79,10 @@ impl IndexProfiler {
 
         let mut config: CorpusConfig = if config_path.exists() {
             let config_str = fs::read_to_string(&config_path).map_err(|e| {
-                ctxvault_common::Error::Config(format!("Failed to read corpus.toml: {e}"))
+                ctxvault_common::Error::Config(format!("Failed to read ctxvault.toml: {e}"))
             })?;
             toml::from_str(&config_str).map_err(|e| {
-                ctxvault_common::Error::Config(format!("Failed to parse corpus.toml: {e}"))
+                ctxvault_common::Error::Config(format!("Failed to parse ctxvault.toml: {e}"))
             })?
         } else {
             CorpusConfig { path: corpus_dir.to_string_lossy().to_string(), ..Default::default() }

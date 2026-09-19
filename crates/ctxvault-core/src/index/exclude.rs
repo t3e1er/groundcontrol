@@ -1,11 +1,8 @@
 //! Gitignore-equivalent pattern matcher for file and directory indexing exclusion.
 //!
-//! Provides multi-layered exclusion matching across:
-//! 1. Built-in safety core (`.git`, `.index`, `node_modules`).
-//! 2. Base patterns configured in [`ctxvault_common::config::ExcludeConfig`].
-//! 3. Additional custom patterns.
-//! 4. Repository `.gitignore` and `.git/info/exclude`.
-//! 5. Dedicated project `.ctxvaultignore` (or `.cbmignore`) ignore files.
+//! Provides deterministic exclusion matching across:
+//! 1. Built-in non-negatable safety core (`.git`, `.index`, `node_modules`).
+//! 2. Explicit patterns configured in [`ctxvault_common::config::ExcludeConfig`] (`ctxvault.toml`).
 
 use std::path::{Path, PathBuf};
 
@@ -25,38 +22,8 @@ impl ExcludeMatcher {
     pub fn new(root: &Path, config: &ExcludeConfig) -> Self {
         let mut builder = GitignoreBuilder::new(root);
 
-        // 1. Base exclude patterns
         for pattern in &config.patterns {
             let _ = builder.add_line(None, pattern);
-        }
-
-        // 2. Additional exclude patterns
-        for pattern in &config.additional_patterns {
-            let _ = builder.add_line(None, pattern);
-        }
-
-        // 3. Root .gitignore & .git/info/exclude if enabled
-        if config.use_gitignore {
-            let gi = root.join(".gitignore");
-            if gi.is_file() {
-                let _ = builder.add(&gi);
-            }
-            let info_exclude = root.join(".git").join("info").join("exclude");
-            if info_exclude.is_file() {
-                let _ = builder.add(&info_exclude);
-            }
-        }
-
-        // 4. .ctxvaultignore / .cbmignore at root if enabled
-        if config.use_ctxvaultignore {
-            let ctxv = root.join(".ctxvaultignore");
-            if ctxv.is_file() {
-                let _ = builder.add(&ctxv);
-            }
-            let cbm = root.join(".cbmignore");
-            if cbm.is_file() {
-                let _ = builder.add(&cbm);
-            }
         }
 
         let matcher = builder.build().unwrap_or_else(|_| Gitignore::empty());
@@ -145,10 +112,8 @@ mod tests {
     #[test]
     fn test_negation_override() {
         let temp = TempDir::new().unwrap();
-        let config = ExcludeConfig {
-            additional_patterns: vec!["!tests/integration.rs".to_string()],
-            ..Default::default()
-        };
+        let mut config = ExcludeConfig::default();
+        config.patterns.push("!tests/integration.rs".to_string());
         let matcher = ExcludeMatcher::new(temp.path(), &config);
 
         // Standard test file is excluded
@@ -158,11 +123,12 @@ mod tests {
     }
 
     #[test]
-    fn test_gitignore_loading() {
+    fn test_gitignore_import_migration() {
         let temp = TempDir::new().unwrap();
-        fs::write(temp.path().join(".gitignore"), "secrets/\n*.secret\n").unwrap();
+        let gitignore_path = temp.path().join(".gitignore");
+        fs::write(&gitignore_path, "secrets/\n*.secret\n").unwrap();
 
-        let config = ExcludeConfig::default();
+        let config = ExcludeConfig::from_gitignore(&gitignore_path);
         let matcher = ExcludeMatcher::new(temp.path(), &config);
 
         assert!(matcher.is_excluded(&temp.path().join("secrets"), true));
@@ -170,24 +136,12 @@ mod tests {
     }
 
     #[test]
-    fn test_ctxvaultignore_loading() {
-        let temp = TempDir::new().unwrap();
-        fs::write(temp.path().join(".ctxvaultignore"), "custom_skip/\n").unwrap();
-
-        let config = ExcludeConfig::default();
-        let matcher = ExcludeMatcher::new(temp.path(), &config);
-
-        assert!(matcher.is_excluded(&temp.path().join("custom_skip"), true));
-    }
-
-    #[test]
     fn test_safety_core_non_negatable() {
         let temp = TempDir::new().unwrap();
         // Attempt to un-skip node_modules and .git
-        let config = ExcludeConfig {
-            additional_patterns: vec!["!node_modules/".to_string(), "!.git/".to_string()],
-            ..Default::default()
-        };
+        let mut config = ExcludeConfig::default();
+        config.patterns.push("!node_modules/".to_string());
+        config.patterns.push("!.git/".to_string());
         let matcher = ExcludeMatcher::new(temp.path(), &config);
 
         // Safety core remains excluded

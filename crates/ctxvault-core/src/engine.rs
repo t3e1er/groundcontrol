@@ -2433,9 +2433,7 @@ mod tests {
             },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: ctxvault_common::config::CorpusType::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         }
     }
 
@@ -2958,11 +2956,12 @@ class DataIngest:
         .unwrap();
         // Excluded build artifact
         fs::write(corpus_dir.join("target").join("debug").join("out.rs"), "fn out() {}").unwrap();
-        // .gitignore rule
+        // .gitignore rule migrated into config
         fs::write(corpus_dir.join(".gitignore"), "secrets.rs\n").unwrap();
         fs::write(corpus_dir.join("secrets.rs"), "fn secret() {}").unwrap();
 
         let mut config = test_config(&corpus_dir);
+        config.exclude.import_gitignore(&corpus_dir.join(".gitignore"));
         config.index_mode = ctxvault_common::config::IndexMode::Fast;
 
         let index_dir = tmp.path().join("index");

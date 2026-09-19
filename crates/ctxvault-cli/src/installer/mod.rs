@@ -506,6 +506,9 @@ pub fn run_install(
 
     if let Some(ref reg) = clients_registry {
         if !dry_run {
+            let mut global_cfg = ctxvault_common::config::load_global_config();
+            global_cfg.auth = reg.clone();
+            let _ = ctxvault_common::config::save_global_config(&global_cfg);
             let central_path = ctxvault_common::client::get_central_clients_path();
             let _ = ctxvault_common::client::save_clients_config(reg, &central_path);
         }
