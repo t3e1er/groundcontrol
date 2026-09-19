@@ -285,6 +285,10 @@ pub fn ensure_central_clients_config(
         global_cfg.auth.daemon_key = Some(generate_token("daemon"));
         changed = true;
     }
+    if global_cfg.graphview.daemon_key != global_cfg.auth.daemon_key {
+        global_cfg.graphview.daemon_key = global_cfg.auth.daemon_key.clone();
+        changed = true;
+    }
     if changed {
         let _ = crate::config::save_global_config(&global_cfg);
     }

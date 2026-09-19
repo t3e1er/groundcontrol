@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Installation & Standalone Binaries"
 description: "Installing native precompiled release binaries and the bundled ONNX embedding model sidecar."
 category: "building"
@@ -58,6 +58,42 @@ The executable expects the embedding model sidecar in one of three locations:
            └── tokenizer.json
    ```
 3. A relative `../models/` directory (used during development and `cargo test`).
+
+---
+
+## Automated Configuration Bootstrapping
+
+`ctxvault` eliminates static bundled configuration files in favor of **self-bootstrapping lazy generation on first run**:
+
+* **Central Machine Config**: Persisted at `${CTXV_CACHE_DIR}/config.toml` (managed via [`ensure_global_config`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/config.rs)).
+  - Generated automatically on first CLI command, agent touch, or installer execution.
+  - Generates secure random API keys for connected agents (`antigravity`, `claude`, `cursor`, `windsurf`, `vscode`, `zed`, `roo`, `kiro`) and an internal `daemon_key` for GraphView sidecar telemetry relay.
+  - Zero manual editing required; customizable at any time via `ctxvault config set <key> <val>`.
+* **Coding Agent Auto-Installer**: The installer scripts (`install.ps1` and `install.sh`) invoke `ctxvault install -y` via [`run_install`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-cli/src/installer/mod.rs).
+  - Detects installed editors (Antigravity IDE, Cursor, Claude Desktop, Windsurf, Zed, VS Code, Kiro CLI).
+  - Registers the zero-arg `ctxvault` executable in each agent's MCP configuration.
+  - Supports `--auth` to inject per-client `CTXV_API_KEY` credentials automatically.
+
+---
+
+## Repository Configuration Modes
+
+`ctxvault` strictly separates machine configuration from repository configuration:
+
+### 1. Zero-Config Indexing (Agent First-Touch)
+When an agent connects or `ctxvault index` is run on a repository without a `ctxvault.toml`:
+* Automatically reads the repository's `.gitignore` and merges it into default exclusions in-memory.
+* Indexes directly into central storage (`${CTXV_CACHE_DIR}/corpora/<name>/`) without polluting git working tree state or writing untracked files.
+* Registers the repository in central `config.toml` `[corpora.<name>]` so future runs mount it automatically.
+* Emits an advisory tip: `[i] No ctxvault.toml found. Indexed using defaults + local .gitignore. Run 'ctxvault init' to commit a local ctxvault.toml.`
+
+### 2. Explicit Repository Configuration (`ctxvault init`)
+To commit project-specific indexing rules, templates, and document patterns:
+```bash
+ctxvault init
+```
+* Generates a clean `<repo_root>/ctxvault.toml` populated with parsed `.gitignore` rules, standard safety exclusions (`.git`, `.index`, `node_modules`), document patterns (`docs/**`, `wiki/**`), and template schema paths.
+* Automatically registers the repository in central machine `config.toml` `[corpora.<name>]`.
 
 ---
 

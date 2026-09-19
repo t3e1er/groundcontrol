@@ -679,8 +679,12 @@ pub fn get_config_path() -> PathBuf {
     get_cache_dir().join("config.toml")
 }
 
-/// Load global configuration or return defaults.
-pub fn load_global_config() -> GlobalConfig {
+/// Ensure global configuration exists at `${CTXV_CACHE_DIR}/config.toml`.
+///
+/// If the file does not exist, a fresh configuration is generated with
+/// default server settings, generated client keys and `daemon_key`,
+/// default GraphView settings, and an empty corpora registry, then saved to disk.
+pub fn ensure_global_config() -> GlobalConfig {
     let path = get_config_path();
     if path.exists() {
         if let Ok(content) = std::fs::read_to_string(&path) {
@@ -689,7 +693,25 @@ pub fn load_global_config() -> GlobalConfig {
             }
         }
     }
-    GlobalConfig::default()
+
+    let auth = crate::client::generate_default_config();
+    let graphview =
+        GraphviewConfig { daemon_key: auth.daemon_key.clone(), ..GraphviewConfig::default() };
+    let cfg = GlobalConfig {
+        server: ServerConfig::default(),
+        auth,
+        graphview,
+        corpora: CorporaRegistry::default(),
+        cache_dir: None,
+    };
+
+    let _ = save_global_config(&cfg);
+    cfg
+}
+
+/// Load global configuration or return defaults, lazily bootstrapping on first run.
+pub fn load_global_config() -> GlobalConfig {
+    ensure_global_config()
 }
 
 /// Save global configuration to `${CTXV_CACHE_DIR}/config.toml`.
@@ -828,5 +850,25 @@ mod tests {
         assert!(config.exclude.patterns.contains(&"tests/".to_string()));
         assert!(config.exclude.patterns.contains(&"node_modules/".to_string()));
         assert!(config.exclude.patterns.contains(&"target/".to_string()));
+    }
+
+    #[test]
+    fn test_ensure_global_config_bootstraps_keys() {
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("CTXV_CACHE_DIR", temp.path());
+
+        let cfg = ensure_global_config();
+        assert_eq!(cfg.server.bind, "127.0.0.1:9090");
+        assert!(cfg.auth.daemon_key.is_some());
+        assert_eq!(cfg.auth.daemon_key, cfg.graphview.daemon_key);
+        assert!(!cfg.auth.clients.is_empty());
+        assert!(cfg.auth.clients.iter().any(|c| c.id == "antigravity" && c.key.is_some()));
+
+        let cfg_path = get_config_path();
+        assert!(cfg_path.exists());
+
+        // Verify re-loading loads the exact same config from disk
+        let loaded = load_global_config();
+        assert_eq!(loaded.auth.daemon_key, cfg.auth.daemon_key);
     }
 }

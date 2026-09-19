@@ -432,6 +432,25 @@ async fn main() -> anyhow::Result<()> {
 
                 let toml_str = toml::to_string_pretty(&corpus_config)?;
                 std::fs::write(&config_file, toml_str)?;
+
+                let mut global = ctxvault_common::config::load_global_config();
+                let abs_path = target_dir
+                    .canonicalize()
+                    .unwrap_or_else(|_| target_dir.clone())
+                    .to_string_lossy()
+                    .to_string();
+                global.corpora.registered.insert(
+                    repo_name.clone(),
+                    ctxvault_common::config::RegisteredCorpus {
+                        path: abs_path,
+                        index_mode: Some(corpus_config.index_mode),
+                    },
+                );
+                if global.corpora.default.is_none() {
+                    global.corpora.default = Some(repo_name.clone());
+                }
+                let _ = ctxvault_common::config::save_global_config(&global);
+
                 println!("[+] Initialized repository configuration at '{}'", config_file.display());
                 println!("    Corpus name: {}", repo_name);
                 println!("    Docs patterns: docs/**, wiki/**, architecture/**");
@@ -439,6 +458,7 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
             Commands::Install { dir, yes, dry_run, rules, rules_dir, fast: _, agents, auth } => {
+                let _ = ctxvault_common::config::ensure_global_config();
                 let current_dir = std::env::current_dir().ok();
                 let ws_dir = if *rules {
                     rules_dir.as_deref().or(current_dir.as_deref())
@@ -535,6 +555,12 @@ async fn main() -> anyhow::Result<()> {
                 let engine = manager.get_engine_mut(&active_name)?;
                 if *fast {
                     engine.config_mut().index_mode = ctxvault_common::config::IndexMode::Fast;
+                }
+
+                if !canonical.join("ctxvault.toml").exists() {
+                    println!(
+                        "[i] No ctxvault.toml found. Indexed using defaults + local .gitignore. Run 'ctxvault init' to commit a local ctxvault.toml."
+                    );
                 }
 
                 println!(

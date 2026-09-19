@@ -16,7 +16,12 @@ Written in 100% pure Rust (`unsafe_code = "forbid"`) for memory safety, zero C-r
 3. **Pure Rust sub-millisecond speed**: Multi-hop graph traversal and hybrid ranking operate in real time (lexical p50 ~2.2ms, graph BFS ~1.8ms) with no perceptible agent lag.
 4. **Multi-agent memory substrate**: A shared in-memory + on-disk semantic plane for specialized agent swarms (Scouts, Readers, Writers, Analysts).
 
-### Retrieval & Multi-Corpus Architecture
+### Retrieval, Configuration & Multi-Corpus Architecture
+- **Central vs Local Configuration Separation**:
+  - *Central Machine Config* (`${CTXV_CACHE_DIR}/config.toml`): Daemon host/port, client authentication registry, GraphView telemetry relay, and persistent corpus registry. Lazily generated on first run with cryptographic keys via [`ensure_global_config`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/config.rs).
+  - *Local Repository Config* (`<repo_root>/ctxvault.toml`): Authoritative per-repo rules (`[docs.patterns]`, `[exclude.patterns]`, `[templates]`, `[chunking]`, `[graph]`). Initialized via `ctxvault init` with automatic `.gitignore` importing.
+  - *Zero-Config Repository Indexing*: Unconfigured repositories dynamically import local `.gitignore` rules in memory and index directly into central storage (`${CTXV_CACHE_DIR}/corpora/<name>/`) without polluting git working trees.
+  - *Automated Agent Configuration*: `install.ps1`, `install.sh`, and `ctxvault install -y` auto-detect installed coding agents and configure zero-arg MCP entries with optional auth tokens via [`run_install`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-cli/src/installer/mod.rs).
 - **4-Modality Hybrid Retrieval**: Fused via 3-way Reciprocal Rank Fusion (RRF) across Tantivy Okapi BM25, dense ONNX embeddings (`jina-embeddings-v2-base-code`, 768-dim), and Petgraph typed graph traversal.
 - **Cross-Modal Linking**: Unifies documentation and polyglot source code (Rust, TS/JS, Python, Go, Java, C/C++) in a single graph.
 - **Multi-Corpus Serving**: A central MCP process serves $N$ index roots via `CorpusManager`. Tools accept optional `corpus` or fan-out `corpora` (`["a", "b"]` or `"all"`).
