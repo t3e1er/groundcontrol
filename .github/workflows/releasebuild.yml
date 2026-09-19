@@ -130,9 +130,9 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.use_cross }}" = "true" ]; then
-            cross build --release --locked --target ${{ matrix.target }} --bin ctxvault --bin ctxvault-graphview
+            cross build --release --locked --target ${{ matrix.target }} --bin ctxvault
           else
-            cargo build --release --locked --target ${{ matrix.target }} --bin ctxvault --bin ctxvault-graphview
+            cargo build --release --locked --target ${{ matrix.target }} --bin ctxvault
           fi
 
       - name: Package artifacts (POSIX)
@@ -142,7 +142,6 @@ jobs:
           STAGING="ctxvault-${{ github.ref_name }}-${{ matrix.target }}"
           mkdir -p "$STAGING"
           cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$STAGING/"
-          cp "target/${{ matrix.target }}/release/ctxvault-graphview" "$STAGING/" 2>/dev/null || true
           cp README.md LICENSE THIRD_PARTY_LICENSES.md "$STAGING/" 2>/dev/null || true
           cp -r examples "$STAGING/" 2>/dev/null || true
           # Sidecar: ship the embedding model next to the binary (<binary>/models/<model>/...).
@@ -157,7 +156,6 @@ jobs:
           $staging = "ctxvault-${{ github.ref_name }}-${{ matrix.target }}"
           New-Item -ItemType Directory -Force -Path $staging | Out-Null
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" -Destination $staging
-          if (Test-Path "target/${{ matrix.target }}/release/ctxvault-graphview.exe") { Copy-Item "target/${{ matrix.target }}/release/ctxvault-graphview.exe" -Destination $staging }
           if (Test-Path README.md) { Copy-Item README.md -Destination $staging }
           if (Test-Path LICENSE) { Copy-Item LICENSE -Destination $staging }
           if (Test-Path THIRD_PARTY_LICENSES.md) { Copy-Item THIRD_PARTY_LICENSES.md -Destination $staging }

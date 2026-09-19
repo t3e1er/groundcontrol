@@ -157,17 +157,12 @@ fi
 # Optional symlink for short shorthand alias `ctxv`
 ln -sf "$INSTALL_DIR/ctxvault" "$INSTALL_DIR/ctxv" 2>/dev/null || true
 
-# GraphView UI wrapper: allow direct invocation via `ctxvault-graphview`
-if [ -f "$EXTRACTED/ctxvault-graphview" ]; then
-    cp "$EXTRACTED/ctxvault-graphview" "$INSTALL_DIR/ctxvault-graphview"
-    chmod +x "$INSTALL_DIR/ctxvault-graphview"
-else
-    cat << 'EOF' > "$INSTALL_DIR/ctxvault-graphview"
+# GraphView convenience wrapper: allow direct invocation via `ctxvault-graphview`
+cat << 'EOF' > "$INSTALL_DIR/ctxvault-graphview"
 #!/bin/sh
 exec "$(dirname "$0")/ctxvault" graphview "$@"
 EOF
-    chmod +x "$INSTALL_DIR/ctxvault-graphview"
-fi
+chmod +x "$INSTALL_DIR/ctxvault-graphview"
 
 echo ""
 echo "[+] Successfully installed 'ctxvault' to $INSTALL_DIR/ctxvault"

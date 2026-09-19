@@ -197,7 +197,7 @@ The sidecar exposes a minimal Axum REST and SSE interface on port `7070` (config
 
 ## 6. Bidirectional Code Links & Module Provenance
 
-- **Sidecar Binary & Crate**: [`crates/ctxvault-graphview/src/main.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/main.rs)
+- **Visualizer Crate & CLI Command**: [`crates/ctxvault-graphview/src/lib.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/lib.rs) & [`crates/ctxvault-cli/src/main.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-cli/src/main.rs)
 - **Octree Layout**: [`crates/ctxvault-graphview/src/layout/octree.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/layout/octree.rs)
 - **Binary Serializer**: [`crates/ctxvault-graphview/src/wire/binary.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/wire/binary.rs)
 - **KnowledgeGraph Postcard Serialization**: [`crates/ctxvault-core/src/graph/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/mod.rs#L828-L864)

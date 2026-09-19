@@ -1,6 +1,6 @@
 [package]
 name = "ctxvault-graphview"
-description = "Standalone high-performance 3D knowledge graph visualizer and agent telemetry substrate"
+description = "High-performance 3D knowledge graph visualizer and agent telemetry substrate library"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,10 +12,6 @@ workspace = true
 [lib]
 name = "ctxvault_graphview"
 path = "src/lib.rs"
-
-[[bin]]
-name = "ctxvault-graphview"
-path = "src/main.rs"
 
 [dependencies]
 ctxvault-common = { path = "../ctxvault-common" }
@@ -44,6 +40,3 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
-
-# CLI
-clap = { workspace = true }
