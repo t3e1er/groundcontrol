@@ -1,21 +1,26 @@
 //! CLI entry point: argument parsing, mode selection, startup orchestration.
 
 mod artifacts;
+mod commands;
 mod config_cmd;
 mod installer;
 
-use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 
-use ctxvault_common::config::{get_logs_cache_dir, CorpusConfig};
+use ctxvault_common::config::get_logs_cache_dir;
 use ctxvault_core::corpus_manager::CorpusManager;
 use ctxvault_mcp::client::McpClient;
 use ctxvault_mcp::tools::MultiCorpusToolRegistry;
 use ctxvault_mcp::transport;
+
+use commands::client::{handle_client_autopopulate, handle_client_init, handle_client_list};
+use commands::index::{handle_index, handle_sync, prompt_bundle_extraction};
+use commands::init::handle_init;
+use commands::serve::{is_server_healthy, load_or_default_config, parse_corpus_spec, spawn_daemon};
 
 /// Enterprise semantic MCP server for markdown knowledge bases and codebases.
 #[derive(Parser, Debug)]
@@ -325,43 +330,6 @@ enum LogFormat {
     Json,
 }
 
-/// Prompt interactive user to extract compressed index bundle into central storage if present and unextracted.
-fn prompt_bundle_extraction(
-    corpus_root: &Path,
-    name: &str,
-    index_dir: &Path,
-) -> anyhow::Result<()> {
-    if let Some(bundle) = ctxvault_core::bundle::detect_bundle(corpus_root) {
-        if !index_dir.join("meta.db").exists() {
-            let should_extract = if std::io::stdin().is_terminal() {
-                print!(
-                    "[?] Found compressed index bundle for '{}' at '{}'. Extract into central storage? [Y/n]: ",
-                    name,
-                    bundle.display()
-                );
-                let _ = std::io::Write::flush(&mut std::io::stdout());
-                let mut input = String::new();
-                let _ = std::io::stdin().read_line(&mut input);
-                let trimmed = input.trim().to_lowercase();
-                trimmed.is_empty() || trimmed == "y" || trimmed == "yes"
-            } else {
-                true
-            };
-
-            if should_extract {
-                println!(
-                    "[*] Extracting bundle '{}' into central storage ({})...",
-                    bundle.display(),
-                    index_dir.display()
-                );
-                ctxvault_core::bundle::import_bundle(&bundle, index_dir, None, None)?;
-                println!("[+] Successfully extracted bundle into central storage.");
-            }
-        }
-    }
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Enable full backtraces on panic (writes to stderr, not stdout/JSON-RPC channel).
@@ -382,85 +350,15 @@ async fn main() -> anyhow::Result<()> {
     // -----------------------------------------------------------------------
     // Subcommand Execution
     // -----------------------------------------------------------------------
-    if let Some(cmd) = &cli.command {
+    if let Some(cmd) = cli.command {
         match cmd {
             Commands::Init { path, force } => {
-                let target_dir = match path {
-                    Some(p) => {
-                        let _ = std::fs::create_dir_all(p);
-                        p.canonicalize().unwrap_or_else(|_| p.clone())
-                    }
-                    None => std::env::current_dir()?,
-                };
-                let config_file = target_dir.join("ctxvault.toml");
-                if config_file.exists() && !*force {
-                    eprintln!(
-                        "[-] '{}' already exists. Use --force to overwrite.",
-                        config_file.display()
-                    );
-                    return Ok(());
-                }
-
-                let repo_name =
-                    target_dir.file_name().and_then(|n| n.to_str()).unwrap_or("repo").to_string();
-
-                let mut exclude = ctxvault_common::config::ExcludeConfig::default();
-                let gitignore_path = target_dir.join(".gitignore");
-                if gitignore_path.exists() {
-                    exclude.import_gitignore(&gitignore_path);
-                    println!("[+] Imported patterns from '{}'", gitignore_path.display());
-                }
-
-                let corpus_config = ctxvault_common::config::CorpusConfig {
-                    name: repo_name.clone(),
-                    path: ".".to_string(),
-                    mode: ctxvault_common::config::CorpusMode::ReadWrite,
-                    index_mode: ctxvault_common::config::IndexMode::Full,
-                    chunking: ctxvault_common::config::ChunkingConfig::default(),
-                    embedding: ctxvault_common::config::EmbeddingConfig::default(),
-                    graph: ctxvault_common::config::GraphConfig::default(),
-                    templates_dir: Some("docs/.templates".to_string()),
-                    exclude,
-                    docs: ctxvault_common::config::DocsConfig {
-                        patterns: vec![
-                            "docs/**".to_string(),
-                            "wiki/**".to_string(),
-                            "architecture/**".to_string(),
-                        ],
-                    },
-                };
-
-                let toml_str = toml::to_string_pretty(&corpus_config)?;
-                std::fs::write(&config_file, toml_str)?;
-
-                let mut global = ctxvault_common::config::load_global_config();
-                let abs_path = target_dir
-                    .canonicalize()
-                    .unwrap_or_else(|_| target_dir.clone())
-                    .to_string_lossy()
-                    .to_string();
-                global.corpora.registered.insert(
-                    repo_name.clone(),
-                    ctxvault_common::config::RegisteredCorpus {
-                        path: abs_path,
-                        index_mode: Some(corpus_config.index_mode),
-                    },
-                );
-                if global.corpora.default.is_none() {
-                    global.corpora.default = Some(repo_name.clone());
-                }
-                let _ = ctxvault_common::config::save_global_config(&global);
-
-                println!("[+] Initialized repository configuration at '{}'", config_file.display());
-                println!("    Corpus name: {}", repo_name);
-                println!("    Docs patterns: docs/**, wiki/**, architecture/**");
-                println!("    Exclusion rules count: {}", corpus_config.exclude.patterns.len());
-                return Ok(());
+                return handle_init(path, force);
             }
             Commands::Install { dir, yes, dry_run, rules, rules_dir, fast: _, agents, auth } => {
                 let _ = ctxvault_common::config::ensure_global_config();
                 let current_dir = std::env::current_dir().ok();
-                let ws_dir = if *rules {
+                let ws_dir = if rules {
                     rules_dir.as_deref().or(current_dir.as_deref())
                 } else {
                     rules_dir.as_deref()
@@ -473,14 +371,14 @@ async fn main() -> anyhow::Result<()> {
                 });
                 let summary = installer::run_install(
                     dir.as_deref(),
-                    *dry_run,
-                    *yes,
-                    *rules || rules_dir.is_some(),
+                    dry_run,
+                    yes,
+                    rules || rules_dir.is_some(),
                     ws_dir,
                     agent_filters.as_deref(),
-                    *auth,
+                    auth,
                 )?;
-                if *dry_run {
+                if dry_run {
                     println!("\n=== ctxvault Agent Configuration (DRY RUN) ===");
                     for line in summary.dry_run_detected {
                         println!("  [dry-run] {}", line);
@@ -505,11 +403,11 @@ async fn main() -> anyhow::Result<()> {
                     return Ok(());
                 }
                 ConfigAction::Get { key } => {
-                    config_cmd::handle_config_get(key)?;
+                    config_cmd::handle_config_get(&key)?;
                     return Ok(());
                 }
                 ConfigAction::Set { key, value } => {
-                    config_cmd::handle_config_set(key, value)?;
+                    config_cmd::handle_config_set(&key, &value)?;
                     return Ok(());
                 }
             },
@@ -535,142 +433,17 @@ async fn main() -> anyhow::Result<()> {
                 let name = corpus.as_deref().unwrap_or_else(|| {
                     cwd.file_name().and_then(|n| n.to_str()).unwrap_or("default")
                 });
-                let src_path =
-                    input.clone().unwrap_or_else(|| cwd.join(".ctxvault").join("vault.tar.zst"));
+                let src_path = input.unwrap_or_else(|| cwd.join(".ctxvault").join("vault.tar.zst"));
                 let dest_dir = ctxvault_common::config::get_corpus_index_dir(name);
                 let imported = artifacts::import_artifact(&src_path, &dest_dir)?;
                 println!("[+] Imported artifact into central storage: {}", imported.display());
                 return Ok(());
             }
             Commands::Index { path, name, reindex, fast, batch_size } => {
-                let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
-                let dir_name =
-                    canonical.file_name().and_then(|n| n.to_str()).unwrap_or("corpus").to_string();
-                let active_name = name.clone().unwrap_or(dir_name);
-                let index_dir = ctxvault_common::config::get_corpus_index_dir(&active_name);
-                prompt_bundle_extraction(&canonical, &active_name, &index_dir)?;
-
-                let mut manager = CorpusManager::new();
-                let active_name = manager.ensure_corpus_with_name(&canonical, name.as_deref())?;
-                let engine = manager.get_engine_mut(&active_name)?;
-                if *fast {
-                    engine.config_mut().index_mode = ctxvault_common::config::IndexMode::Fast;
-                }
-
-                if !canonical.join("ctxvault.toml").exists() {
-                    println!(
-                        "[i] No ctxvault.toml found. Indexed using defaults + local .gitignore. Run 'ctxvault init' to commit a local ctxvault.toml."
-                    );
-                }
-
-                println!(
-                    "[*] Indexing corpus '{}' ({}) into central storage...",
-                    active_name,
-                    canonical.display()
-                );
-                let start = Instant::now();
-                let initial_vectors = engine.vector_count();
-                let count = if *reindex {
-                    engine.full_reindex_paginated(*batch_size, false)?
-                } else {
-                    let delta = engine.delta_scan_paginated(*batch_size)?;
-                    println!(
-                        "[+] Delta scan: {} new, {} modified, {} deleted",
-                        delta.new_files.len(),
-                        delta.modified_files.len(),
-                        delta.deleted_files.len()
-                    );
-                    delta.new_files.len() + delta.modified_files.len()
-                };
-
-                let elapsed = start.elapsed();
-                let final_vectors = engine.vector_count();
-                let total_inserted = if *reindex {
-                    final_vectors
-                } else {
-                    final_vectors.saturating_sub(initial_vectors)
-                };
-
-                println!("[+] Successfully indexed '{}' ({} files processed)", active_name, count);
-
-                if engine.has_vector_index() && total_inserted > 0 {
-                    let chunks_per_sec = if elapsed.as_secs_f64() > 0.0 {
-                        total_inserted as f64 / elapsed.as_secs_f64()
-                    } else {
-                        0.0
-                    };
-
-                    println!();
-                    println!("  Embedding complete");
-                    println!("  ├─ Chunks embedded : {}", total_inserted);
-                    println!("  ├─ Elapsed         : {:.1}s", elapsed.as_secs_f64());
-                    println!("  ├─ Throughput      : {:.1} chunks/sec", chunks_per_sec);
-                    if chunks_per_sec < 5.0 && total_inserted > 100 {
-                        println!("  └─ Tip: slow throughput detected. Consider --mode docs-embed for faster indexing.");
-                        println!("         (skeleton mode embeds ~1 chunk/file; throughput will improve after reindex)");
-                    } else {
-                        println!("  └─ Hardware       : {}", engine.hardware_acceleration());
-                    }
-                }
-
-                return Ok(());
+                return handle_index(path, name, reindex, fast, batch_size);
             }
             Commands::Sync { corpus, batch_size } => {
-                let mut manager = CorpusManager::new();
-                let mounted = manager.mount_all_cached_corpora()?;
-                if mounted.is_empty() {
-                    println!("[-] No cached corpora found in central storage to sync.");
-                    return Ok(());
-                }
-
-                let targets: Vec<String> = if let Some(target) = corpus {
-                    if !manager.has_corpus(target) {
-                        anyhow::bail!("Corpus '{}' not found in central storage", target);
-                    }
-                    vec![target.clone()]
-                } else {
-                    mounted
-                };
-
-                for target_name in targets {
-                    println!("[*] Syncing corpus '{}'...", target_name);
-                    let start = Instant::now();
-                    let engine = manager.get_engine_mut(&target_name)?;
-                    let initial_vectors = engine.vector_count();
-                    let delta = engine.delta_scan_paginated(*batch_size)?;
-                    let elapsed = start.elapsed();
-                    let final_vectors = engine.vector_count();
-                    let total_inserted = final_vectors.saturating_sub(initial_vectors);
-
-                    println!(
-                        "[+] '{}': {} new, {} modified, {} deleted",
-                        target_name,
-                        delta.new_files.len(),
-                        delta.modified_files.len(),
-                        delta.deleted_files.len()
-                    );
-
-                    if engine.has_vector_index() && total_inserted > 0 {
-                        let chunks_per_sec = if elapsed.as_secs_f64() > 0.0 {
-                            total_inserted as f64 / elapsed.as_secs_f64()
-                        } else {
-                            0.0
-                        };
-
-                        println!();
-                        println!("  Embedding complete");
-                        println!("  ├─ Chunks embedded : {}", total_inserted);
-                        println!("  ├─ Elapsed         : {:.1}s", elapsed.as_secs_f64());
-                        println!("  ├─ Throughput      : {:.1} chunks/sec", chunks_per_sec);
-                        if chunks_per_sec < 5.0 && total_inserted > 100 {
-                            println!("  └─ Tip: slow throughput detected. Consider --mode docs-embed for faster indexing.");
-                            println!("         (skeleton mode embeds ~1 chunk/file; throughput will improve after reindex)");
-                        } else {
-                            println!("  └─ Hardware       : {}", engine.hardware_acceleration());
-                        }
-                    }
-                }
-                return Ok(());
+                return handle_sync(corpus, batch_size);
             }
             Commands::Graphview { bind, corpora_dir, daemon, daemon_key } => {
                 let global = ctxvault_common::config::load_global_config();
@@ -686,17 +459,15 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         daemon.as_str()
                     };
-                let effective_key = daemon_key
-                    .clone()
-                    .or_else(|| global.graphview.daemon_key.clone())
-                    .or_else(|| global.auth.daemon_key.clone());
+                let effective_key =
+                    daemon_key.or(global.graphview.daemon_key).or(global.auth.daemon_key);
 
                 if let Some(ref k) = effective_key {
                     std::env::set_var("CTXV_INTERNAL_API_KEY", k);
                 }
                 ctxvault_graphview::run_graphview_server(
                     effective_bind,
-                    corpora_dir.clone(),
+                    corpora_dir,
                     Some(effective_daemon.to_string()),
                 )
                 .await?;
@@ -704,79 +475,13 @@ async fn main() -> anyhow::Result<()> {
             }
             Commands::Client { action } => match action {
                 ClientAction::Init { force, path } => {
-                    let dest = path.clone().unwrap_or_else(|| PathBuf::from("clients.json"));
-                    if dest.exists() && !*force {
-                        eprintln!(
-                            "[-] '{}' already exists. Use --force to overwrite.",
-                            dest.display()
-                        );
-                        return Ok(());
-                    }
-                    let config = ctxvault_common::client::generate_default_config();
-                    let json_str = serde_json::to_string_pretty(&config)?;
-                    std::fs::write(&dest, json_str)?;
-                    println!("[+] Generated fresh client configuration at '{}'", dest.display());
-                    println!("    Auth mode: require_auth = false (default zero-auth)");
-                    println!("    Generated API keys:");
-                    for c in &config.clients {
-                        if let Some(ref k) = c.key {
-                            println!("    * {:<18} (ID: {:<12}) -> x-api-key: {}", c.name, c.id, k);
-                        }
-                    }
-                    if let Some(ref dk) = config.daemon_key {
-                        println!("    * Dedicated Daemon Relay Key           -> x-api-key: {}", dk);
-                    }
-                    return Ok(());
+                    return handle_client_init(force, path);
                 }
                 ClientAction::List => {
-                    let config = ctxvault_common::client::load_clients_config(None);
-                    println!("\n=== ctxvault Client Authentication Registry ===");
-                    println!(
-                        "  Authentication Required: {}",
-                        if config.require_auth { "YES (strict)" } else { "NO (default zero-auth)" }
-                    );
-                    if let Some(ref dk) = config.daemon_key {
-                        println!("  Daemon Relay Key:        {}", dk);
-                    } else {
-                        println!("  Daemon Relay Key:        None (open)");
-                    }
-                    println!("\n  Registered Clients ({}):", config.clients.len());
-                    for c in &config.clients {
-                        let key_display = c.key.as_deref().unwrap_or("<none>");
-                        println!(
-                            "  * {:<20} ID: {:<12} Color: {:<8} Key: {}",
-                            c.name, c.id, c.color, key_display
-                        );
-                    }
-                    return Ok(());
+                    return handle_client_list();
                 }
                 ClientAction::Autopopulate { dry_run, agents, dir } => {
-                    let agent_filters = agents.as_ref().map(|a| {
-                        a.split(',')
-                            .map(|s| s.trim().to_string())
-                            .filter(|s| !s.is_empty())
-                            .collect::<Vec<_>>()
-                    });
-                    let summary = installer::autopopulate_clients(
-                        dir.as_deref(),
-                        *dry_run,
-                        agent_filters.as_deref(),
-                    )?;
-                    if *dry_run {
-                        println!("\n=== ctxvault Client Credentials Autopopulate (DRY RUN) ===");
-                        for line in summary.dry_run_detected {
-                            println!("  [dry-run] {}", line);
-                        }
-                    } else {
-                        println!("\n=== ctxvault Client Credentials Autopopulate Complete ===");
-                        for line in summary.configured {
-                            println!("  [+] Autopopulated {}", line);
-                        }
-                    }
-                    for line in summary.skipped {
-                        println!("  [-] Skipped {}", line);
-                    }
-                    return Ok(());
+                    return handle_client_autopopulate(dry_run, agents, dir);
                 }
             },
         }
@@ -1078,154 +783,4 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-/// Check if a ctxvault server /health endpoint is alive.
-async fn is_server_healthy(server_url: &str) -> bool {
-    let health_url = format!("{}/health", server_url.trim_end_matches('/'));
-    let client = reqwest::Client::builder().timeout(Duration::from_millis(150)).build();
-    if let Ok(c) = client {
-        if let Ok(resp) = c.get(&health_url).send().await {
-            return resp.status().is_success();
-        }
-    }
-    false
-}
-
-/// Spawn the background server daemon in a detached process.
-fn spawn_daemon(
-    bind_addr: &str,
-    idle_timeout: u64,
-    log_level: &str,
-    watch: bool,
-    require_auth: bool,
-) -> anyhow::Result<()> {
-    let current_exe = std::env::current_exe()?;
-    let mut cmd = std::process::Command::new(current_exe);
-    cmd.args([
-        "--mode",
-        "server",
-        "--bind",
-        bind_addr,
-        "--daemon",
-        "--log-level",
-        log_level,
-        "--log-format",
-        "json",
-    ]);
-    if watch {
-        cmd.arg("--watch");
-    }
-    if idle_timeout > 0 {
-        cmd.arg(format!("--idle-timeout={}", idle_timeout));
-    }
-    if require_auth {
-        cmd.arg("--require-auth");
-    }
-
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        const DETACHED_PROCESS: u32 = 0x00000008;
-        cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
-    }
-    #[cfg(not(windows))]
-    {
-        cmd.stdin(std::process::Stdio::null());
-        cmd.stdout(std::process::Stdio::null());
-        let log_dir = get_logs_cache_dir();
-        let _ = std::fs::create_dir_all(&log_dir);
-        if let Ok(log_file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_dir.join("ctxvault-daemon.jsonl"))
-        {
-            cmd.stderr(log_file);
-        } else {
-            cmd.stderr(std::process::Stdio::null());
-        }
-    }
-
-    cmd.spawn()?;
-    Ok(())
-}
-
-/// Parse a `--corpus` spec of the form `name=path[,templates=rel_path]` or a bare `path`.
-fn parse_corpus_spec(spec: &str) -> (Option<String>, PathBuf, Option<String>) {
-    let mut parts = spec.split(',');
-    let first = parts.next().unwrap_or(spec);
-    let mut templates_override = None;
-
-    for opt in parts {
-        if let Some((k, v)) = opt.split_once('=') {
-            let key = k.trim();
-            if key == "templates" || key == "templates_dir" {
-                templates_override = Some(v.trim().to_string());
-            }
-        }
-    }
-
-    let (name, path) = match first.split_once('=') {
-        Some((name, path)) if !name.is_empty() => {
-            (Some(name.trim().to_string()), PathBuf::from(path.trim()))
-        }
-        _ => (None, PathBuf::from(first.trim())),
-    };
-
-    (name, path, templates_override)
-}
-
-/// Load `ctxvault.toml` from the corpus directory, or create a default config.
-fn load_or_default_config(corpus_path: &Path) -> anyhow::Result<CorpusConfig> {
-    let config_path = corpus_path.join("ctxvault.toml");
-
-    if config_path.exists() {
-        let content = std::fs::read_to_string(&config_path)?;
-        let mut config: CorpusConfig = toml::from_str(&content)?;
-        config.path = corpus_path.to_string_lossy().replace('\\', "/");
-        Ok(config)
-    } else {
-        Ok(CorpusConfig {
-            name: corpus_path.file_name().and_then(|n| n.to_str()).unwrap_or("default").to_string(),
-            path: corpus_path.to_string_lossy().to_string(),
-            mode: ctxvault_common::config::CorpusMode::ReadWrite,
-            index_mode: ctxvault_common::config::IndexMode::Full,
-            chunking: ctxvault_common::config::ChunkingConfig::default(),
-            embedding: ctxvault_common::config::EmbeddingConfig::default(),
-            graph: ctxvault_common::config::GraphConfig {
-                edge_types: vec![
-                    ctxvault_common::config::EdgeTypeConfig {
-                        name: "Wikilink".to_string(),
-                        source: ctxvault_common::config::EdgeSource::Wikilink,
-                        weight: 1.0,
-                        bidirectional: false,
-                        field: None,
-                        direction: None,
-                        max_frequency: None,
-                        class: None,
-                        description: Some("Direct wikilink connection between notes".to_string()),
-                        allowed_source_templates: None,
-                        allowed_target_templates: None,
-                    },
-                    ctxvault_common::config::EdgeTypeConfig {
-                        name: "SharedTag".to_string(),
-                        source: ctxvault_common::config::EdgeSource::Tag,
-                        weight: 0.5,
-                        bidirectional: true,
-                        field: None,
-                        direction: None,
-                        max_frequency: Some(15),
-                        class: None,
-                        description: Some("Shared thematic tag between notes".to_string()),
-                        allowed_source_templates: None,
-                        allowed_target_templates: None,
-                    },
-                ],
-            },
-            templates_dir: None,
-            exclude: ctxvault_common::config::ExcludeConfig::default(),
-            docs: ctxvault_common::config::DocsConfig::default(),
-        })
-    }
 }

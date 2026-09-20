@@ -1,7 +1,8 @@
 [build]
-# Cap parallel rustc jobs to avoid LLVM OOM on machines with <=8GB RAM.
-# This workspace links 40+ tree-sitter grammars; each test binary can consume 1-2GB.
-jobs = 2
+jobs = 4
+
+[env]
+RUST_TEST_THREADS = "4"
 
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "link-arg=/STACK:33554432"]

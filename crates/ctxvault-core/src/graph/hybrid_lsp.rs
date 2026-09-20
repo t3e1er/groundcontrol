@@ -7,7 +7,7 @@
 //!
 //! # Cross-corpus scope
 //!
-//! [`TypeEnvironment`] is an *intra-file* resolver: its scope frames and type
+//! `TypeEnvironment` is an *intra-file* resolver: its scope frames and type
 //! bindings are built and consumed while walking a single file's AST during
 //! extraction, and are not retained past that. It therefore has no cross-corpus
 //! symbol table of its own. The cross-corpus resolver trust ladder
