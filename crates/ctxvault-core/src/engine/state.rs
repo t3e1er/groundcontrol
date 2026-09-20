@@ -98,7 +98,7 @@ impl Engine {
         self.embedder.read().unwrap().clone()
     }
 
-    /// Construct a [`CoreSearchService`] borrowing all required ports from this engine.
+    /// Construct a [`crate::search_service::CoreSearchService`] borrowing all required ports from this engine.
     pub fn search_service(&self) -> crate::search_service::CoreSearchService<'_> {
         crate::search_service::CoreSearchService::new(
             &self.bm25,

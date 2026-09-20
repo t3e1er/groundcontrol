@@ -68,7 +68,7 @@ pub struct CorpusHop {
     pub corpus_depth: usize,
 }
 
-/// Result of a [`CorpusManager::federated_traverse`] call.
+/// Result of a `CorpusManager::federated_traverse` call.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FederatedTraversal {
     /// Intra-corpus nodes visited, tagged with their corpus and hop depth.

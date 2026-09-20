@@ -149,7 +149,7 @@ const MAX_FEDERATED_BOUND: usize = 10;
 /// corpora, returning corpus-tagged nodes and cross-corpus hop records.
 ///
 /// Parses the start point plus bounded depth/hop budgets (clamped to
-/// [`MAX_FEDERATED_BOUND`]), delegates to `CorpusManager::federated_traverse`,
+/// `MAX_FEDERATED_BOUND`), delegates to `CorpusManager::federated_traverse`,
 /// and serializes the resulting `FederatedTraversal` to JSON.
 pub fn handle_trace_cross_corpus(manager: &CorpusManager, args: Value) -> Result<Value> {
     let start_corpus = args

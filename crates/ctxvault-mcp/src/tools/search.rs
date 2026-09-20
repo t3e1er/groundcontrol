@@ -130,7 +130,7 @@ fn populate_top_snippets(
 /// resolves the retrieval backends internally) and delegates the mode dispatch
 /// to it via the [`SearchService`] port, then applies detail/verbosity shaping
 /// and JSON serialization. Every mode honors `modality` (docs|code|both) and
-/// `detail` (ids|default) via [`apply_detail`]. `explain` returns the
+/// `detail` (ids|default) via `apply_detail`. `explain` returns the
 /// score-breakdown shape ([`SearchService::explain`]) rather than a plain
 /// result array.
 pub fn handle_search(engine: &Engine, args: Value) -> Result<Value> {
