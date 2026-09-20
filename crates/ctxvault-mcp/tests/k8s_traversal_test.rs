@@ -29,9 +29,7 @@ fn test_kubernetes_traversal_with_code_edge_class() {
         graph: GraphConfig::default(),
         templates_dir: None,
         exclude: ctxvault_common::config::ExcludeConfig::default(),
-        corpus_type: Default::default(),
-        doc_patterns: Vec::new(),
-        code_patterns: Vec::new(),
+        docs: ctxvault_common::config::DocsConfig::default(),
     };
 
     let start_open = std::time::Instant::now();

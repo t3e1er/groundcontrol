@@ -3,7 +3,7 @@ title: "Auto-Daemon & Shared Server Deployment"
 description: "Deploying ctxvault as a background daemon, hosting multi-corpus servers, and script automation."
 category: "building"
 status: "active"
-tags: ["daemon", "server", "http", "sse", "multi-corpus", "concurrency"]
+tags: ["daemon", "server", "http", "sse", "multi-corpus", "concurrency", "config"]
 related:
   - "[[docs/architecture/building/index]]"
   - "[[docs/architecture/implementation/cross-corpus-federation]]"
@@ -36,7 +36,7 @@ ctxvault --corpus /path/to/project --daemon
 For team environments, sandboxed CI agents, or multi-agent swarms, run `ctxvault` as a persistent standalone service hosting $N$ distinct index roots:
 
 ```bash
-ctxvault --mode server --bind 0.0.0.0:9090 \
+ctxvault --mode server --bind 0.0.70:9090 \
   --corpus docs=/opt/knowledge/docs \
   --corpus backend=/opt/services/backend \
   --corpus frontend=/opt/services/frontend \
@@ -52,7 +52,58 @@ ctxvault --mode server --bind 0.0.0.0:9090 \
 
 ---
 
-## 3. Scripted CLI Client Mode
+## 3. Central Configuration (`${CTXV_CACHE_DIR}/config.toml`)
+
+All machine-wide settings (daemon port, authentication keys, GraphView telemetry relay, and persistent corpus mounts) are consolidated into a single central configuration file:
+
+```toml
+# ==============================================================================
+# ctxvault Central Machine Configuration (${CTXV_CACHE_DIR}/config.toml)
+# ==============================================================================
+
+[server]
+bind = "127.0.0.1:9090"
+idle_timeout_mins = 30
+log_level = "info"
+auto_index = true
+index_mode = "full"
+
+[auth]
+# Require valid x-api-key on incoming HTTP MCP requests (/v1/mcp, /v1/sse)
+require_auth = false
+# Shared secret for core daemon-to-graphview telemetry relay
+daemon_key = "ctxv_relay_sec_89dfa8"
+
+[[auth.clients]]
+id = "antigravity"
+name = "Antigravity Agent"
+key = "ag_sec_908f9a"
+color = "#38bdf8"
+
+[graphview]
+bind = "127.0.0.1:9091"
+daemon = "http://127.0.0.1:9090"
+daemon_key = "ctxv_relay_sec_89dfa8"
+
+[corpora]
+default = "ctxvault"
+
+[corpora.ctxvault]
+path = "C:/dev/ctx/ctxvault"
+index_mode = "full"
+```
+
+Configure these settings interactively via the CLI:
+```bash
+ctxvault config list
+ctxvault config get server.bind
+ctxvault config set server.idle_timeout_mins 60
+ctxvault config set auth.require_auth true
+```
+
+---
+
+## 4. Scripted CLI Client Mode
 
 Interact with a running daemon or local engine directly from shell scripts or CI pipelines without an MCP editor:
 
@@ -70,11 +121,14 @@ ctxvault --mode client --server http://127.0.0.1:9090 \
 
 ---
 
-## 4. Direct CLI Indexing & Incremental Sync
+## 5. Direct CLI Indexing & Incremental Sync
 
 In addition to serving MCP connections, the `ctxvault` CLI provides direct subcommands for building and updating central index stores without launching a daemon:
 
 ```bash
+# Initialize a new repository with ctxvault.toml & gitignore migration
+ctxvault init
+
 # Index a repository into central storage (~/.cache/ctxvault/corpora/<name>)
 ctxvault index /path/to/project
 
@@ -90,7 +144,7 @@ ctxvault sync --corpus project
 
 ---
 
-## 5. Central Storage & SCM Control
+## 6. Central Storage & SCM Control
 
 * **Zero Repository Pollution**: Index artifacts default to `${CTXV_CACHE_DIR}/corpora/<name>/` (`meta.db`, `tantivy/`, `vectors.bin`, `graph.bin`), keeping git repositories clean. Local `.index/` is used only if already present on disk.
 * **SCM Team Sharing**: Export compact, reproducible index bundles into `.ctxvault/vault.tar.zst` for git tracking or CI artifacts:

@@ -2765,10 +2765,16 @@ fn handle_write_note(engine: &mut Engine, args: Value) -> Result<Value> {
     let full_path = corpus_path.join(&params.path);
 
     let classification = engine.classifier().classify(&full_path, None);
+    let ext = full_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     if let ctxvault_core::index::classifier::FileClassification::Document(fmt) = classification {
         return Err(Error::NotPermitted(format!(
             "write_note cannot modify document format '{fmt}': documents are strictly read-only. Author markdown notes derived from them with 'derived_from' frontmatter."
         )));
+    }
+    if ext == "docx" || ext == "pdf" {
+        return Err(Error::NotPermitted(
+            "write_note cannot modify document format: documents are strictly read-only. Author markdown notes derived from them with 'derived_from' frontmatter.".to_string(),
+        ));
     }
 
     let mode = params.mode.as_deref().unwrap_or("create");
@@ -3327,9 +3333,7 @@ mod tests {
             },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: Default::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         }
     }
 
@@ -3907,9 +3911,7 @@ mod tests {
             graph: GraphConfig { edge_types: Vec::new() },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: Default::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         };
         add_test_corpus(&mut manager, config);
 
@@ -3959,9 +3961,7 @@ mod tests {
             graph: GraphConfig { edge_types: Vec::new() },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: Default::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         };
         let docs_config = CorpusConfig {
             name: "docs".to_string(),
@@ -3973,9 +3973,7 @@ mod tests {
             graph: GraphConfig { edge_types: Vec::new() },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: Default::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         };
 
         add_test_corpus(&mut manager, wiki_config);
@@ -4061,9 +4059,7 @@ mod tests {
                 graph: GraphConfig { edge_types: Vec::new() },
                 templates_dir: None,
                 exclude: ctxvault_common::config::ExcludeConfig::default(),
-                corpus_type: Default::default(),
-                doc_patterns: Vec::new(),
-                code_patterns: Vec::new(),
+                docs: ctxvault_common::config::DocsConfig::default(),
             };
             add_test_corpus(&mut manager, config);
         }
@@ -4150,9 +4146,7 @@ mod tests {
             },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: Default::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         }
     }
 
@@ -4352,9 +4346,7 @@ mod tests {
             graph: GraphConfig { edge_types: Vec::new() },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: Default::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         };
         add_test_corpus(&mut manager, config);
 
@@ -4386,9 +4378,7 @@ mod tests {
             graph: GraphConfig { edge_types: Vec::new() },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: Default::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         };
         add_test_corpus(&mut manager, config);
 
@@ -5572,7 +5562,12 @@ pub fn process_payment(amount: u64) -> bool {
         fs::create_dir_all(&corpus_dir).unwrap();
         let index_dir = tmp.path().join("index");
         let mut config = test_config(&corpus_dir);
-        config.corpus_type = ctxvault_common::config::CorpusType::DocVault;
+        config.docs.patterns = vec![
+            "*.html".to_string(),
+            "**/*.html".to_string(),
+            "*.docx".to_string(),
+            "*.pdf".to_string(),
+        ];
         let mut engine = Engine::open(config, &index_dir).unwrap();
 
         // 1. Write an HTML documentation article

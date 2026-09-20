@@ -1,7 +1,26 @@
-[corpus]
+# ==============================================================================
+# Starter Vault Local Repository Configuration
+# ==============================================================================
 name = "starter-vault"
 path = "."
 mode = "read-write"
+index_mode = "full"
+
+[docs]
+patterns = [
+    "docs/**",
+    "wiki/**"
+]
+
+[exclude]
+patterns = [
+    "target/**",
+    ".git/**",
+    ".index/**"
+]
+
+[templates]
+dir = ".templates"
 
 [chunking]
 strategy = "semantic"
@@ -16,7 +35,6 @@ model = "all-MiniLM-L6-v2"
 dimensions = 384
 quantization = "f32"
 
-[graph]
 [[graph.edge_types]]
 name = "Wikilink"
 source = "wikilink"
@@ -63,6 +81,3 @@ field = "derived_from"
 weight = 0.9
 direction = "outbound"
 description = "Principle 3 provenance link from episodic log to crystallized concept"
-
-[templates]
-dir = ".templates"

@@ -2,6 +2,9 @@
 //!
 //! These are deserialized from TOML files. Each corpus has its own config.
 
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
 /// Top-level corpus configuration.
@@ -34,18 +37,12 @@ pub struct CorpusConfig {
     /// 4. `docs/templates`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub templates_dir: Option<String>,
-    /// File exclusion / ignore configuration for file discovery and indexing.
+    /// File exclusion configuration for file discovery and indexing.
     #[serde(default)]
     pub exclude: ExcludeConfig,
-    /// Corpus role/type for modality disambiguation: "code_repo" (default), "doc_vault", or "mixed".
-    #[serde(default, rename = "type", alias = "corpus_type")]
-    pub corpus_type: CorpusType,
-    /// Explicit glob patterns governing promotion of rich files to documentation (e.g. `["docs/**", "wiki/**"]`).
+    /// Rich documentation promotion configuration.
     #[serde(default)]
-    pub doc_patterns: Vec<String>,
-    /// Explicit glob patterns governing routing of files to code (e.g. `["src/**", "app/**"]`).
-    #[serde(default)]
-    pub code_patterns: Vec<String>,
+    pub docs: DocsConfig,
 }
 
 impl Default for CorpusConfig {
@@ -60,49 +57,45 @@ impl Default for CorpusConfig {
             graph: GraphConfig::default(),
             templates_dir: None,
             exclude: ExcludeConfig::default(),
-            corpus_type: CorpusType::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: DocsConfig::default(),
         }
     }
+}
+
+/// Rich documentation promotion configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct DocsConfig {
+    /// Explicit glob patterns governing promotion of rich files to documentation (e.g. `["docs/**", "wiki/**"]`).
+    #[serde(default)]
+    pub patterns: Vec<String>,
 }
 
 /// Configuration for file and directory exclusion during indexing and watching.
 /// Uses gitignore-compatible glob pattern syntax.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ExcludeConfig {
-    /// Whether to automatically inherit patterns from `.gitignore` at the corpus root.
-    #[serde(default = "default_true")]
-    pub use_gitignore: bool,
-
-    /// Whether to automatically load patterns from `.ctxvaultignore` (or `.cbmignore`) at the corpus root.
-    #[serde(default = "default_true")]
-    pub use_ctxvaultignore: bool,
-
     /// Array of gitignore-style glob patterns for excluding paths from indexing.
     /// Defaults to standard VCS, build artifact, dependency, test, and binary patterns.
     #[serde(default = "default_exclude_patterns")]
     pub patterns: Vec<String>,
-
-    /// Additional custom exclude patterns (appended to `patterns`).
-    #[serde(default)]
-    pub additional_patterns: Vec<String>,
 }
 
 impl Default for ExcludeConfig {
     fn default() -> Self {
-        Self {
-            use_gitignore: true,
-            use_ctxvaultignore: true,
-            patterns: default_exclude_patterns(),
-            additional_patterns: Vec::new(),
-        }
+        Self { patterns: default_exclude_patterns() }
     }
 }
 
 impl ExcludeConfig {
-    /// Attempt to parse lines from a `.gitignore` file and append them to `patterns`.
-    pub fn lift_from_gitignore(&mut self, gitignore_path: &std::path::Path) {
+    /// Import patterns from a `.gitignore` file, appending any new lines to `patterns`.
+    pub fn from_gitignore(gitignore_path: &std::path::Path) -> Self {
+        let mut cfg = Self::default();
+        cfg.import_gitignore(gitignore_path);
+        cfg
+    }
+
+    /// Parse lines from a `.gitignore` file and append non-duplicate patterns.
+    pub fn import_gitignore(&mut self, gitignore_path: &std::path::Path) {
         if let Ok(content) = std::fs::read_to_string(gitignore_path) {
             for line in content.lines() {
                 let trimmed = line.trim();
@@ -208,19 +201,6 @@ pub enum CorpusMode {
     ReadWrite,
     /// Search and read only — write tools are suppressed.
     ReadOnly,
-}
-
-/// Corpus role/type for modality disambiguation.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum CorpusType {
-    /// Code repository (default): source code takes precedence; HTML in source dirs is treated as code.
-    #[default]
-    CodeRepo,
-    /// Documentation vault: rich documents (HTML, PDF, DOCX) and markdown notes take precedence.
-    DocVault,
-    /// Mixed repository: both code and rich documentation are present; uses pattern and content heuristics.
-    Mixed,
 }
 
 /// Chunking strategy configuration.
@@ -506,26 +486,28 @@ impl EdgeClass {
     }
 }
 
-use std::path::PathBuf;
-
-/// Global ctxvault client/daemon configuration (persisted at `${CTXV_CACHE_DIR}/config.toml`).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GlobalConfig {
-    /// Whether to auto-index new corpora on startup.
-    #[serde(default = "default_true")]
-    pub auto_index: bool,
-    /// Default indexing mode for new corpora.
-    #[serde(default)]
-    pub index_mode: IndexMode,
+/// Central server / daemon runtime configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServerConfig {
+    /// Bind address for HTTP MCP server.
+    #[serde(default = "default_server_bind")]
+    pub bind: String,
     /// Idle daemon timeout in minutes before graceful shutdown (0 = disabled).
     #[serde(default = "default_idle_timeout")]
     pub idle_timeout_mins: u64,
     /// Daemon log level.
     #[serde(default = "default_log_level")]
     pub log_level: String,
-    /// Custom cache directory override.
+    /// Whether to auto-index new corpora on startup.
+    #[serde(default = "default_true")]
+    pub auto_index: bool,
+    /// Default indexing mode for new corpora.
     #[serde(default)]
-    pub cache_dir: Option<String>,
+    pub index_mode: IndexMode,
+}
+
+fn default_server_bind() -> String {
+    "127.0.0.1:9090".to_string()
 }
 
 fn default_idle_timeout() -> u64 {
@@ -536,15 +518,111 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
-impl Default for GlobalConfig {
+impl Default for ServerConfig {
     fn default() -> Self {
         Self {
+            bind: default_server_bind(),
+            idle_timeout_mins: default_idle_timeout(),
+            log_level: default_log_level(),
             auto_index: true,
             index_mode: IndexMode::Full,
-            idle_timeout_mins: 30,
-            log_level: "info".to_string(),
-            cache_dir: None,
         }
+    }
+}
+
+/// GraphView 3D visualizer sidecar configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GraphviewConfig {
+    /// Socket address to bind the GraphView dashboard to.
+    #[serde(default = "default_graphview_bind")]
+    pub bind: String,
+    /// Upstream ctxvault MCP daemon HTTP URL for live agent telemetry.
+    #[serde(default = "default_upstream_daemon")]
+    pub daemon: String,
+    /// Dedicated authentication key for daemon-to-graphview relay.
+    #[serde(default)]
+    pub daemon_key: Option<String>,
+}
+
+fn default_graphview_bind() -> String {
+    "127.0.0.1:9091".to_string()
+}
+
+fn default_upstream_daemon() -> String {
+    "http://127.0.0.1:9090".to_string()
+}
+
+impl Default for GraphviewConfig {
+    fn default() -> Self {
+        Self { bind: default_graphview_bind(), daemon: default_upstream_daemon(), daemon_key: None }
+    }
+}
+
+/// Registered corpus entry in central configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RegisteredCorpus {
+    /// Filesystem path to the corpus repository.
+    pub path: String,
+    /// Optional indexing mode override ("full" or "fast").
+    #[serde(default)]
+    pub index_mode: Option<IndexMode>,
+}
+
+/// Central multi-corpus registry configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct CorporaRegistry {
+    /// Name of the default corpus to route to when omitted in tool calls.
+    #[serde(default)]
+    pub default: Option<String>,
+    /// Map of corpus name -> configuration/path.
+    #[serde(default)]
+    pub registered: BTreeMap<String, RegisteredCorpus>,
+}
+
+/// Global ctxvault client/daemon configuration (persisted at `${CTXV_CACHE_DIR}/config.toml`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct GlobalConfig {
+    /// Server / daemon settings.
+    #[serde(default)]
+    pub server: ServerConfig,
+    /// Authentication and client registry.
+    #[serde(default)]
+    pub auth: crate::client::ClientsRegistry,
+    /// GraphView visualizer sidecar settings.
+    #[serde(default)]
+    pub graphview: GraphviewConfig,
+    /// Persistent multi-corpus registry.
+    #[serde(default)]
+    pub corpora: CorporaRegistry,
+    /// Custom cache directory override.
+    #[serde(default)]
+    pub cache_dir: Option<String>,
+}
+
+impl GlobalConfig {
+    /// Shorthand to check if auto-index is enabled.
+    pub fn auto_index(&self) -> bool {
+        self.server.auto_index
+    }
+
+    /// Shorthand for default indexing mode.
+    pub fn index_mode(&self) -> IndexMode {
+        self.server.index_mode
+    }
+
+    /// Shorthand for idle timeout in minutes.
+    pub fn idle_timeout_mins(&self) -> u64 {
+        self.server.idle_timeout_mins
+    }
+
+    /// Shorthand for log level.
+    pub fn log_level(&self) -> &str {
+        &self.server.log_level
+    }
+
+    /// Shorthand for server bind address.
+    pub fn bind(&self) -> &str {
+        &self.server.bind
     }
 }
 
@@ -601,8 +679,12 @@ pub fn get_config_path() -> PathBuf {
     get_cache_dir().join("config.toml")
 }
 
-/// Load global configuration or return defaults.
-pub fn load_global_config() -> GlobalConfig {
+/// Ensure global configuration exists at `${CTXV_CACHE_DIR}/config.toml`.
+///
+/// If the file does not exist, a fresh configuration is generated with
+/// default server settings, generated client keys and `daemon_key`,
+/// default GraphView settings, and an empty corpora registry, then saved to disk.
+pub fn ensure_global_config() -> GlobalConfig {
     let path = get_config_path();
     if path.exists() {
         if let Ok(content) = std::fs::read_to_string(&path) {
@@ -611,7 +693,25 @@ pub fn load_global_config() -> GlobalConfig {
             }
         }
     }
-    GlobalConfig::default()
+
+    let auth = crate::client::generate_default_config();
+    let graphview =
+        GraphviewConfig { daemon_key: auth.daemon_key.clone(), ..GraphviewConfig::default() };
+    let cfg = GlobalConfig {
+        server: ServerConfig::default(),
+        auth,
+        graphview,
+        corpora: CorporaRegistry::default(),
+        cache_dir: None,
+    };
+
+    let _ = save_global_config(&cfg);
+    cfg
+}
+
+/// Load global configuration or return defaults, lazily bootstrapping on first run.
+pub fn load_global_config() -> GlobalConfig {
+    ensure_global_config()
 }
 
 /// Save global configuration to `${CTXV_CACHE_DIR}/config.toml`.
@@ -734,16 +834,10 @@ mod tests {
             path = "./repo"
 
             [exclude]
-            use_gitignore = false
-            use_ctxvaultignore = true
-            patterns = ["custom_dir/", "*.custom"]
-            additional_patterns = ["!custom_dir/keep.txt"]
+            patterns = ["custom_dir/**", "*.custom"]
         "#;
         let config: CorpusConfig = toml::from_str(toml_str).unwrap();
-        assert!(!config.exclude.use_gitignore);
-        assert!(config.exclude.use_ctxvaultignore);
-        assert_eq!(config.exclude.patterns, vec!["custom_dir/", "*.custom"]);
-        assert_eq!(config.exclude.additional_patterns, vec!["!custom_dir/keep.txt"]);
+        assert_eq!(config.exclude.patterns, vec!["custom_dir/**", "*.custom"]);
     }
 
     #[test]
@@ -753,11 +847,28 @@ mod tests {
             path = "./repo"
         "#;
         let config: CorpusConfig = toml::from_str(toml_str).unwrap();
-        assert!(config.exclude.use_gitignore);
-        assert!(config.exclude.use_ctxvaultignore);
         assert!(config.exclude.patterns.contains(&"tests/".to_string()));
         assert!(config.exclude.patterns.contains(&"node_modules/".to_string()));
         assert!(config.exclude.patterns.contains(&"target/".to_string()));
-        assert!(config.exclude.additional_patterns.is_empty());
+    }
+
+    #[test]
+    fn test_ensure_global_config_bootstraps_keys() {
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("CTXV_CACHE_DIR", temp.path());
+
+        let cfg = ensure_global_config();
+        assert_eq!(cfg.server.bind, "127.0.0.1:9090");
+        assert!(cfg.auth.daemon_key.is_some());
+        assert_eq!(cfg.auth.daemon_key, cfg.graphview.daemon_key);
+        assert!(!cfg.auth.clients.is_empty());
+        assert!(cfg.auth.clients.iter().any(|c| c.id == "antigravity" && c.key.is_some()));
+
+        let cfg_path = get_config_path();
+        assert!(cfg_path.exists());
+
+        // Verify re-loading loads the exact same config from disk
+        let loaded = load_global_config();
+        assert_eq!(loaded.auth.daemon_key, cfg.auth.daemon_key);
     }
 }

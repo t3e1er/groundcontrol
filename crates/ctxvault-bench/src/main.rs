@@ -313,7 +313,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
 
             let index_dir = corpus.join(".index");
-            let config_path = corpus.join("corpus.toml");
+            let config_path = corpus.join("ctxvault.toml");
             let mut config: CorpusConfig = if config_path.exists() {
                 let s = fs::read_to_string(&config_path)?;
                 toml::from_str(&s)?
@@ -396,7 +396,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("\n=== 2. Running Retrieval Ablation ===");
             let index_dir = corpus.join(".index");
-            let config_path = corpus.join("corpus.toml");
+            let config_path = corpus.join("ctxvault.toml");
             let config: CorpusConfig = if config_path.exists() {
                 let s = fs::read_to_string(&config_path)?;
                 toml::from_str(&s)?

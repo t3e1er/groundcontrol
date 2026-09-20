@@ -146,7 +146,7 @@ fn main() {
         .nth(1)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(r"c:\dev\ctx\ctxcorpus\anthropic"));
-    let config_path = corpus_dir.join("corpus.toml");
+    let config_path = corpus_dir.join("ctxvault.toml");
     let index_dir = corpus_dir.join(".index");
     let queries_path = PathBuf::from(r"c:\dev\ctx\ctxcorpus\bench\queries.json");
     let results_out_path = PathBuf::from(r"c:\dev\ctx\ctxcorpus\bench\results_v2.json");
@@ -159,8 +159,8 @@ fn main() {
     let _ = fs::remove_file(lock2);
 
     println!("Loading configuration from {:?}", config_path);
-    let config_str = fs::read_to_string(&config_path).expect("Read corpus.toml");
-    let config: CorpusConfig = toml::from_str(&config_str).expect("Parse corpus.toml");
+    let config_str = fs::read_to_string(&config_path).expect("Read ctxvault.toml");
+    let config: CorpusConfig = toml::from_str(&config_str).expect("Parse ctxvault.toml");
 
     println!("Opening engine at {:?}", index_dir);
     let mut engine = Engine::open(config, &index_dir).expect("Open Engine");

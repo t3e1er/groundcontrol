@@ -171,7 +171,7 @@ To visualize real-time swarms of AI agents navigating the knowledge graph (activ
    - `target_nodes`: Vector of affected node IDs or symbol handles.
    - `mode`: `read`, `write`, `search_hit`, or `traverse`.
 2. **Sidecar Subscriber**: `ctxvault-graphview` connects to the daemon's internal event endpoint (`/events/activations`), maintaining a 1,000-event circular ring buffer.
-   - When authentication is enabled (`require_auth = true`), the sidecar supplies the internal relay key via `x-api-key` header (configured via `--daemon-key`, `CTXV_INTERNAL_API_KEY`, or `clients.json` `daemon_key`).
+   - When authentication is enabled (`require_auth = true`), the sidecar supplies the internal relay key via `x-api-key` header (configured via `--daemon-key`, `CTXV_INTERNAL_API_KEY`, or `config.toml` `[graphview.daemon_key]` / `[auth.daemon_key]`).
    - Direct manual activation events injected into `/api/events/activations` or `/api/activations` must likewise provide a valid client `x-api-key` or the `daemon_key`.
    - In default zero-auth environments (`require_auth = false`), connections succeed transparently without credentials.
 3. **Browser Broadcast**: The sidecar multiplexes events to connected browser sessions via SSE (`/api/events/activations`).
@@ -197,7 +197,7 @@ The sidecar exposes a minimal Axum REST and SSE interface on port `7070` (config
 
 ## 6. Bidirectional Code Links & Module Provenance
 
-- **Sidecar Binary & Crate**: [`crates/ctxvault-graphview/src/main.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/main.rs)
+- **Visualizer Crate & CLI Command**: [`crates/ctxvault-graphview/src/lib.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/lib.rs) & [`crates/ctxvault-cli/src/main.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-cli/src/main.rs)
 - **Octree Layout**: [`crates/ctxvault-graphview/src/layout/octree.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/layout/octree.rs)
 - **Binary Serializer**: [`crates/ctxvault-graphview/src/wire/binary.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/wire/binary.rs)
 - **KnowledgeGraph Postcard Serialization**: [`crates/ctxvault-core/src/graph/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/mod.rs#L828-L864)

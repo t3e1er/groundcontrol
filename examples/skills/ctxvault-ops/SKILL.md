@@ -29,14 +29,14 @@ When files in the knowledge vault or codebase have been edited or added external
    }
    ```
 3. **Full Re-Index (Cold Rebuild)**:
-   When modifying tokenization rules or chunking strategies in `corpus.toml`, call `sync_corpus` with `mode="full"`:
+   When modifying tokenization rules or chunking strategies in `ctxvault.toml`, call `sync_corpus` with `mode="full"`:
    ```json
    {
+     "corpus": "knowledge-base",
      "mode": "full"
    }
    ```
-4. **Re-Embed Corpus**:
-   When changing embedding models in `corpus.toml`, call `sync_corpus` with `mode="reembed"`:
+   When changing embedding models in `ctxvault.toml`, call `sync_corpus` with `mode="reembed"`:
    ```json
    {
      "mode": "reembed"

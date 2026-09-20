@@ -699,7 +699,7 @@ dependencies = [
 
 [[package]]
 name = "ctxvault-bench"
-version = "0.0.70"
+version = "0.1.0"
 dependencies = [
  "clap",
  "ctxvault-common",
@@ -718,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "ctxvault-cli"
-version = "0.0.70"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -740,18 +740,19 @@ dependencies = [
 
 [[package]]
 name = "ctxvault-common"
-version = "0.0.70"
+version = "0.1.0"
 dependencies = [
  "blake3",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.20",
  "toml",
 ]
 
 [[package]]
 name = "ctxvault-core"
-version = "0.0.70"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_fs",
@@ -838,11 +839,10 @@ dependencies = [
 
 [[package]]
 name = "ctxvault-graphview"
-version = "0.0.70"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
- "clap",
  "ctxvault-common",
  "ctxvault-core",
  "futures-util",
@@ -863,7 +863,7 @@ dependencies = [
 
 [[package]]
 name = "ctxvault-mcp"
-version = "0.0.70"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",

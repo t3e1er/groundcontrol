@@ -3,7 +3,7 @@ title: "MCP Client & IDE Integration"
 description: "Configuring Cursor, Claude Desktop, Antigravity IDE, Windsurf, Zed, and VS Code."
 category: "building"
 status: "active"
-tags: ["mcp", "cursor", "claude", "antigravity", "windsurf", "zed", "vscode", "configuration"]
+tags: ["mcp", "cursor", "claude", "antigravity", "windsurf", "zed", "vscode", "configuration", "auth"]
 related:
   - "[[docs/architecture/building/index]]"
   - "[[docs/architecture/building/installation]]"
@@ -21,39 +21,72 @@ related:
 
 ---
 
-## 1. Automated Setup (`ctxvault install -y`)
+## 1. Automated Setup (`ctxvault install`)
 
-`ctxvault` includes an auto-detection installer that finds configuration files for installed editors on your machine and registers `ctxvault`:
+`ctxvault` includes an auto-detection installer that discovers installed coding agents and registers a zero-arg `ctxvault` entry:
 
 ```bash
+# Standard zero-arg local launcher setup
 ctxvault install -y
+
+# Setup with dedicated client API keys (CTXV_API_KEY)
+ctxvault install -y --auth
 ```
 
-This scans for:
+This automatically scans and configures:
+* Antigravity IDE & Gemini CLI (`mcp_config.json`)
 * Cursor (`~/.cursor/mcp.json` or `%USERPROFILE%\.cursor\mcp.json`)
 * Claude Desktop (`claude_desktop_config.json`)
 * Claude Code (`config.json`)
-* Antigravity IDE & Gemini CLI (`mcp_config.json`)
 * Windsurf (`~/.codeium/windsurf/mcp_config.json`)
 * VS Code (`settings.json` / cline / roo)
 * Zed (`settings.json`)
 
 ---
 
-## 2. Manual Configurations
+## 2. Zero-Argument Launcher Architecture
 
-### Cursor (`.cursor/mcp.json`)
-Create or edit `.cursor/mcp.json` in your repository root:
+Because `ctxvault` automatically mounts cached corpora from `${CTXV_CACHE_DIR}/corpora/` and probes the local working directory for `ctxvault.toml`, IDE configurations no longer require complex or brittle path arguments.
+
+### Standard Zero-Arg Configuration
 ```json
 {
   "mcpServers": {
     "ctxvault": {
       "command": "ctxvault",
-      "args": [
-        "--corpus", "${workspaceFolder}",
-        "--sync",
-        "--profile", "all"
-      ]
+      "args": []
+    }
+  }
+}
+```
+
+### Authenticated Configuration (`--auth`)
+When running `ctxvault install --auth` or when connecting to a remote server with `require_auth = true`:
+```json
+{
+  "mcpServers": {
+    "ctxvault": {
+      "command": "ctxvault",
+      "args": [],
+      "env": {
+        "CTXV_API_KEY": "ag_sec_908f9a"
+      }
+    }
+  }
+}
+```
+
+---
+
+## 3. Manual IDE Configurations
+
+### Cursor (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "ctxvault": {
+      "command": "ctxvault",
+      "args": []
     }
   }
 }
@@ -69,26 +102,19 @@ Location:
   "mcpServers": {
     "ctxvault": {
       "command": "ctxvault",
-      "args": [
-        "--corpus", "C:\\path\\to\\your\\workspace",
-        "--sync"
-      ]
+      "args": []
     }
   }
 }
 ```
 
-### Antigravity IDE & Gemini CLI
-Add to `mcp_config.json` or IDE Settings:
+### Antigravity IDE & Gemini CLI (`mcp_config.json`)
 ```json
 {
   "mcpServers": {
     "ctxvault": {
       "command": "ctxvault",
-      "args": [
-        "--corpus", "${workspaceRoot}",
-        "--sync"
-      ]
+      "args": []
     }
   }
 }
@@ -100,7 +126,7 @@ Add to `mcp_config.json` or IDE Settings:
   "context_servers": {
     "ctxvault": {
       "command": "ctxvault",
-      "args": ["--corpus", "/path/to/project", "--sync"]
+      "args": []
     }
   }
 }
@@ -108,7 +134,7 @@ Add to `mcp_config.json` or IDE Settings:
 
 ---
 
-## Role-Based Profiles (`--profile`)
+## 4. Role-Based Profiles (`--profile`)
 
 Control which tools are advertised to your agent:
 * `--profile scout`: Exposes only read-only retrieval tools (`search`, `get_snippet`, `read_file`, `list_notes`, `status`). Ideal for lightweight code exploration.

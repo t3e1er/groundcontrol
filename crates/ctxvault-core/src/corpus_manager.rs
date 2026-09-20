@@ -228,7 +228,7 @@ impl CorpusManager {
         }
 
         // Index storage: always central storage in ${CTXV_CACHE_DIR}/corpora/<name>
-        let local_config = canonical.join("corpus.toml");
+        let local_config = canonical.join("ctxvault.toml");
         let index_dir = ctxvault_common::config::get_corpus_index_dir(&name);
 
         // Auto-bootstrap from committed SCM artifact if central cache is empty
@@ -247,19 +247,22 @@ impl CorpusManager {
             cfg
         } else {
             let global = ctxvault_common::config::load_global_config();
+            let mut exclude = ctxvault_common::config::ExcludeConfig::default();
+            let gitignore_path = canonical.join(".gitignore");
+            if gitignore_path.exists() {
+                exclude.import_gitignore(&gitignore_path);
+            }
             CorpusConfig {
                 name: name.clone(),
                 path: canonical_str.clone(),
                 mode: ctxvault_common::config::CorpusMode::ReadWrite,
-                index_mode: global.index_mode,
+                index_mode: global.index_mode(),
                 chunking: ctxvault_common::config::ChunkingConfig::default(),
                 embedding: ctxvault_common::config::EmbeddingConfig::default(),
                 graph: ctxvault_common::config::GraphConfig::default(),
                 templates_dir: None,
-                exclude: ctxvault_common::config::ExcludeConfig::default(),
-                corpus_type: ctxvault_common::config::CorpusType::default(),
-                doc_patterns: Vec::new(),
-                code_patterns: Vec::new(),
+                exclude,
+                docs: ctxvault_common::config::DocsConfig::default(),
             }
         };
 
@@ -269,7 +272,23 @@ impl CorpusManager {
             self.default_corpus = Some(name.clone());
         }
 
+        let index_mode = engine.config().index_mode;
         self.engines.insert(name.clone(), engine);
+
+        let mut global = ctxvault_common::config::load_global_config();
+        if !global.corpora.registered.contains_key(&name) {
+            global.corpora.registered.insert(
+                name.clone(),
+                ctxvault_common::config::RegisteredCorpus {
+                    path: canonical_str.clone(),
+                    index_mode: Some(index_mode),
+                },
+            );
+            if global.corpora.default.is_none() {
+                global.corpora.default = Some(name.clone());
+            }
+            let _ = ctxvault_common::config::save_global_config(&global);
+        }
 
         if let Some(ref cb) = self.on_corpus_mounted {
             cb(&name, Path::new(&canonical_str));
@@ -323,6 +342,26 @@ impl CorpusManager {
                             }
                         }
                     }
+                }
+            }
+        }
+        let global = ctxvault_common::config::load_global_config();
+        for (name, reg) in &global.corpora.registered {
+            if !self.engines.contains_key(name) {
+                let p = Path::new(&reg.path);
+                if p.exists() {
+                    if let Ok(m_name) = self.ensure_corpus_with_name(p, Some(name)) {
+                        if !mounted.contains(&m_name) {
+                            mounted.push(m_name);
+                        }
+                    }
+                }
+            }
+        }
+        if self.default_corpus.is_none() {
+            if let Some(ref def) = global.corpora.default {
+                if self.engines.contains_key(def) {
+                    self.default_corpus = Some(def.clone());
                 }
             }
         }
@@ -388,9 +427,7 @@ impl CorpusManager {
             graph: ctxvault_common::config::GraphConfig::default(),
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: ctxvault_common::config::CorpusType::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         };
 
         self.add_corpus_with_index_dir(config, &target_index_dir)?;
@@ -1178,9 +1215,7 @@ mod tests {
             graph: GraphConfig { edge_types: Vec::new() },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: ctxvault_common::config::CorpusType::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         }
     }
 
@@ -1325,9 +1360,7 @@ mod tests {
             graph: GraphConfig { edge_types: vec![implements] },
             templates_dir: None,
             exclude: ctxvault_common::config::ExcludeConfig::default(),
-            corpus_type: ctxvault_common::config::CorpusType::default(),
-            doc_patterns: Vec::new(),
-            code_patterns: Vec::new(),
+            docs: ctxvault_common::config::DocsConfig::default(),
         }
     }
 
@@ -2109,5 +2142,29 @@ mod tests {
         // Missing start node => empty (non-error) traversal.
         let empty = manager.federated_traverse("A", "no_such_node", 4, 3, true).unwrap();
         assert!(empty.nodes.is_empty() && empty.hops.is_empty());
+    }
+
+    #[test]
+    fn test_ensure_corpus_with_name_unconfigured_imports_gitignore_and_registers() {
+        let tmp = TempDir::new().unwrap();
+        let cache_dir = tmp.path().join("cache");
+        std::env::set_var("CTXV_CACHE_DIR", &cache_dir);
+
+        let repo_dir = tmp.path().join("unconfigured_repo");
+        fs::create_dir_all(&repo_dir).unwrap();
+        fs::write(repo_dir.join(".gitignore"), "custom_build/\n*.secret\n").unwrap();
+
+        let mut manager = CorpusManager::new();
+        let name = manager.ensure_corpus_with_name(&repo_dir, Some("unconfigured_repo")).unwrap();
+        assert_eq!(name, "unconfigured_repo");
+
+        let engine = manager.get_engine(&name).unwrap();
+        assert!(engine.config().exclude.patterns.contains(&"custom_build/".to_string()));
+        assert!(engine.config().exclude.patterns.contains(&"*.secret".to_string()));
+
+        // Check global config was updated with registered corpus
+        let global = ctxvault_common::config::load_global_config();
+        assert!(global.corpora.registered.contains_key("unconfigured_repo"));
+        assert!(global.corpora.default.is_some());
     }
 }

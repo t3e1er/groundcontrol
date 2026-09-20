@@ -24,12 +24,12 @@ fn main() {
         .nth(1)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(r"c:\dev\ctx\ctxcorpus\anthropic"));
-    let config_path = corpus_path.join("corpus.toml");
+    let config_path = corpus_path.join("ctxvault.toml");
 
     eprintln!("Loading config from {:?}", config_path);
     let config: CorpusConfig = {
-        let text = std::fs::read_to_string(&config_path).expect("read corpus.toml");
-        toml::from_str(&text).expect("parse corpus.toml")
+        let text = std::fs::read_to_string(&config_path).expect("read ctxvault.toml");
+        toml::from_str(&text).expect("parse ctxvault.toml")
     };
 
     let index_dir = corpus_path.join(".index");

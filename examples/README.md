@@ -11,7 +11,7 @@ This directory contains turnkey examples, agent steering configurations, workflo
 | [`steering/`](steering/) | System prompts and rules for AI assistants (`.cursorrules`, Claude Desktop, Windsurf, Antigravity, generic LLMs) | Drop into your editor or AI configuration to immediately teach your agent how to use `ctxvault` tools efficiently. |
 | [`skills/`](skills/) | Production-ready `SKILL.md` runbooks for search, curation, crystallization, and ops | Copy into `.agents/skills/` to enable on-demand skill execution in AI IDEs. |
 | [`agents/`](agents/) | Role definitions and swarm orchestration blueprints (Scout, Reader, Writer, Crystallizer) | Scaffold multi-agent pipelines for research, automated ADR creation, and vault refactoring. |
-| [`starter-vault/`](starter-vault/) | Ready-to-index markdown knowledge base with `corpus.toml`, `.templates/`, and interlinked sample notes | Test or initialize a new project knowledge base with zero friction. |
+| [`starter-vault/`](starter-vault/) | Ready-to-index markdown knowledge base with `ctxvault.toml`, `.templates/`, and interlinked sample notes | Test or initialize a new project knowledge base with zero friction. |
 
 ---
 
