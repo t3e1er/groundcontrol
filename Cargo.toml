@@ -91,7 +91,7 @@ zip = { version = "2.2", default-features = false, features = ["deflate"] }
 
 # Document Extraction (Pure Rust)
 quick-xml = "0.41"
-lopdf = "0.42"
+lopdf = "0.45"
 scraper = "0.22"
 
 # Hashing
