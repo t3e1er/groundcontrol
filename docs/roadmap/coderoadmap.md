@@ -522,3 +522,36 @@ Eliminates the 2D $\rightarrow$ 1D Bag-of-Words reduction loss and 64-bit quanti
    - Allocates the 64-bit signature across three orthogonal channels: Channel A (Lexical/Interface, 24 bits), Channel B (Data Flow/Calls, 24 bits), and Channel C (Control AST Shape, 16 bits). Enables channel-masked bitwise sweeps for behavioral clone detection.
 5. **Deterministic Idiom Injection**:
    - Unifies cross-language patterns (`try/catch`, `if err != nil`, `match Err`) into canonical synthetic semantic tokens (`$sem:error_handler`).
+
+---
+
+### 11.4 Public Documentation Hub & GitHub Pages Deployment (Proposed)
+*Status*: **Proposed / In Planning**  
+*Scope*: `docs/`, `.github/workflows/pages.yml`, `book.toml`
+
+Establishes the public-facing documentation hub for `groundcontrol` hosted via GitHub Pages (`https://t3e1er.github.io/groundcontrol/`):
+
+1. **Dual Knowledge Corpus & API Portal**:
+   - **mdBook Engine**: Compiles the authoritative 3-pillar knowledge corpus (`docs/architecture/`, `docs/concepts/`, `docs/roadmap/`) into a fast, searchable static portal.
+   - **Interactive Mermaid Support**: Employs `mdbook-mermaid` preprocessor to render architectural flowcharts, entity-relationship diagrams, and graph topologies directly in the browser without static image rasterization.
+   - **Integrated Rustdoc API Docs**: Automates `cargo doc --workspace --all-features --no-deps` in CI and mounts generated crate API documentation under `/api/`, providing a unified destination for both agent architects and library consumers.
+2. **Automated Zero-Maintenance CI/CD**:
+   - GitHub Actions workflow (`.github/workflows/pages.yml`) leveraging `actions/upload-pages-artifact@v3` and `actions/deploy-pages@v4` on `master` pushes with branch concurrency guards.
+
+---
+
+### 11.5 Polyglot Distribution & Registry Namespace Reservation (crates.io & npm) (Proposed)
+*Status*: **Proposed / Immediate Execution**  
+*Scope*: `crates/groundcontrol-cli`, root packaging, npm distribution
+
+Secures canonical package namespaces and streamlines zero-friction agent installation across both Rust and Node.js ecosystems:
+
+1. **`crates.io` Canonical Publication**:
+   - **Namespace Reservation**: Claim the currently available `groundcontrol` namespace on crates.io via initial compliant `v0.1.0` release to prevent name squatting while satisfying crates.io functional package policies.
+   - **Workspace Crate Graph Sequencing**: Version and release internal path dependencies in topological order: [`groundcontrol-common`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common) $\to$ [`groundcontrol-graphview`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-graphview) $\to$ [`groundcontrol-core`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core) $\to$ [`groundcontrol-mcp`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp) $\to$ [`groundcontrol`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-cli).
+   - **Binary Installation**: Enables one-line agent installation via `cargo install groundcontrol --locked`.
+2. **`npm` Distribution & `npx` MCP Runner**:
+   - **Namespace Reservation**: Claim the currently available `groundcontrol` package on npm registry (`https://registry.npmjs.org/groundcontrol`).
+   - **Zero-Install MCP Execution (`npx`)**: Provide an npm wrapper package exposing `groundcontrol` CLI binary bindings. Enables direct invocation in IDE agent configurations (Claude Desktop, Cursor, Cline) via `npx -y groundcontrol serve` without requiring users to manually install Rust toolchains or configure manual binary paths.
+   - **Cross-Platform Binary Fetcher**: Optional postinstall/runtime bootstrap script that detects OS/architecture (Windows x64/ARM64, macOS ARM64/x64, Linux x64) and streams verified prebuilt GitHub release binaries.
+
