@@ -26,7 +26,7 @@ Single-modality retrieval engines exhibit distinct, predictable failure modes wh
                      /   \
                     /     \
                    /       \
-                  /  ctxv   \
+                  /  gc   \
                  /  Hybrid   \
                 /   Engine    \
                /               \
@@ -53,4 +53,4 @@ Knowledge graphs map explicit syntax relationships (`A calls B`). However:
 
 ## The 4-Modality Solution
 
-`ctxvault` eliminates all three failure modes by executing **lexical, vector, and graph retrieval in parallel**, then fusing the rank distributions into a single, high-confidence result set via Reciprocal Rank Fusion (RRF).
+`groundcontrol` eliminates all three failure modes by executing **lexical, vector, and graph retrieval in parallel**, then fusing the rank distributions into a single, high-confidence result set via Reciprocal Rank Fusion (RRF).

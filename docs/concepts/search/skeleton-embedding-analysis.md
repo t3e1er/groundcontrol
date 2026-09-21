@@ -23,7 +23,7 @@ signatures + docstrings instead of full bodies, targeted at laptops and mid-rang
 was ~10× fewer embeddings than `Full` mode.
 
 **What actually happened**: the `classify_embed_policy` function in
-[`chunker.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/code/chunker.rs)
+[`chunker.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/chunker.rs)
 assigns `ChunkEmbedPolicy::Anchor` to:
 
 - All non-private, non-test Python functions

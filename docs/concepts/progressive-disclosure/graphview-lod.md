@@ -13,7 +13,7 @@ related:
 
 # Visual Progressive Disclosure & Tiered 3D Graph LOD
 
-In `ctxvault`, **Progressive Disclosure** is the foundational doctrine that protects cognitive and computational bandwidth: agents and humans should never be forced to ingest an exhaustive firehose when bounded, high-signal abstractions are sufficient.
+In `groundcontrol`, **Progressive Disclosure** is the foundational doctrine that protects cognitive and computational bandwidth: agents and humans should never be forced to ingest an exhaustive firehose when bounded, high-signal abstractions are sufficient.
 
 While the [[docs/concepts/progressive-disclosure/three-tier-model]] applies progressive disclosure to LLM context windows (Tier 1 Handles $\to$ Tier 2 Symbols $\to$ Tier 3 Line Slices), **GraphView** extends this exact paradigm into the visual domain for multi-million node knowledge graphs.
 
@@ -29,7 +29,7 @@ Attempting to draw $1\text{M}$ 3D meshes and $3\text{M}$ edge lines simultaneous
 3. Edge Rendering Fill Rate: 3,000,000 lines = 6,000,000 vertices (144 MB LineSegments) -> 5 FPS bottleneck on even discrete GPUs.
 ```
 
-To achieve silky 60 FPS performance at $1\text{M}+$ nodes without sacrificing architectural insight, `ctxvault-graphview` introduces a **4-Tier Level-of-Detail (LOD)** visual engine.
+To achieve silky 60 FPS performance at $1\text{M}+$ nodes without sacrificing architectural insight, `groundcontrol-graphview` introduces a **4-Tier Level-of-Detail (LOD)** visual engine.
 
 ---
 

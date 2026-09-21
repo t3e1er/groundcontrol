@@ -1,6 +1,6 @@
 ---
 title: "Retrieval & Indexing Data Science Benchmark Harness"
-description: "Architecture, metrics, resource profiling, and usage guide for the dedicated `ctxvault-bench` workspace crate and CLI (`ctxv-bench`)."
+description: "Architecture, metrics, resource profiling, and usage guide for the dedicated `groundcontrol-bench` workspace crate and CLI (`gc-bench`)."
 category: "concepts"
 status: "implemented"
 tags: ["benchmarks", "data-science", "retrieval", "metrics", "ndcg", "mrr", "profiling", "latency", "memory"]
@@ -13,37 +13,37 @@ related:
 
 # Retrieval & Indexing Data Science Benchmark Harness
 
-`ctxvault-bench` is a dedicated workspace crate and command-line harness (`ctxv-bench`) engineered for empirical Information Retrieval (IR) evaluation, algorithmic ablation, and indexing resource profiling across Markdown notes and polyglot codebases.
+`groundcontrol-bench` is a dedicated workspace crate and command-line harness (`gc-bench`) engineered for empirical Information Retrieval (IR) evaluation, algorithmic ablation, and indexing resource profiling across Markdown notes and polyglot codebases.
 
 ---
 
 ## 1. Architectural Principles & Isolation
 
-1. **Zero Production Bloat**: Benchmarking datasets, ground-truth judgments (QRELS), statistical evaluators, and reporting exporters are isolated inside `crates/ctxvault-bench`. Production binaries ([`ctxvault-cli`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-cli) and [`ctxvault-mcp`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp)) remain lightweight and fast.
-2. **Direct Engine & Port Access**: Rather than invoking the MCP JSON-RPC transport, `ctxv-bench` interacts directly with core engine ports ([`MetadataCatalog`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/ports.rs), [`TextIndex`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/ports.rs), [`AlgorithmicSearchIndex`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/ports.rs), [`GraphStore`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/ports.rs), [`SearchService`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/ports.rs)) for zero-overhead micro-benchmarking and precise latency timing.
+1. **Zero Production Bloat**: Benchmarking datasets, ground-truth judgments (QRELS), statistical evaluators, and reporting exporters are isolated inside `crates/groundcontrol-bench`. Production binaries ([`groundcontrol-cli`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-cli) and [`groundcontrol-mcp`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp)) remain lightweight and fast.
+2. **Direct Engine & Port Access**: Rather than invoking the MCP JSON-RPC transport, `gc-bench` interacts directly with core engine ports ([`MetadataCatalog`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`TextIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`AlgorithmicSearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`GraphStore`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`SearchService`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs)) for zero-overhead micro-benchmarking and precise latency timing.
 3. **Dual Surface (CLI + Reusable Library)**:
-   - **Library**: [`ctxvault_bench::*`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/lib.rs) provides reusable profiling and IR calculation tools for automated CI integration tests.
-   - **CLI Binary**: `ctxv-bench` provides subcommands (`index`, `eval`, `all`) for interactive experimentation and report generation.
+   - **Library**: [`groundcontrol_bench::*`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/lib.rs) provides reusable profiling and IR calculation tools for automated CI integration tests.
+   - **CLI Binary**: `gc-bench` provides subcommands (`index`, `eval`, `all`) for interactive experimentation and report generation.
 
 ---
 
 ## 2. Indexing Resource Profiler
 
-The indexing profiler ([`IndexProfiler`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/profile/index_profiler.rs)) executes a clean or incremental build and records:
+The indexing profiler ([`IndexProfiler`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/profile/index_profiler.rs)) executes a clean or incremental build and records:
 - **Wall-Clock Stage Timings**:
   - Total elapsed indexing time.
   - Reindex stage (AST tree-sitter parsing, Tantivy BM25 postings, static SIF projections, binary fingerprints, and Petgraph AST edges).
   - Commit & checkpoint stage (SQLite flush, Tantivy commit, binary persistence).
   - Optional dense neural ONNX re-embedding stage.
 - **Throughput**: Documents / files per second.
-- **Memory Footprint**: Process resident set size (RSS), peak RSS, and memory delta via [`MemoryTracker`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/profile/memory.rs).
-- **Disk Storage Breakdown & Expansion**: Measures `.index/` files (`meta.db`, `tantivy/`, `fingerprints.bin`, `graph.bin`, `vectors.bin`, `projections/`) against source bytes and computes the expansion ratio via [`DiskProfiler`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/profile/disk.rs).
+- **Memory Footprint**: Process resident set size (RSS), peak RSS, and memory delta via [`MemoryTracker`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/profile/memory.rs).
+- **Disk Storage Breakdown & Expansion**: Measures `.index/` files (`meta.db`, `tantivy/`, `fingerprints.bin`, `graph.bin`, `vectors.bin`, `projections/`) against source bytes and computes the expansion ratio via [`DiskProfiler`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/profile/disk.rs).
 
 ---
 
 ## 3. Retrieval Algorithm Quality & Latency Ablation
 
-Evaluates each individual algorithm against a ground-truth QRELS dataset ([`DatasetLoader`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/dataset/loader.rs)):
+Evaluates each individual algorithm against a ground-truth QRELS dataset ([`DatasetLoader`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/dataset/loader.rs)):
 
 | Retrieval Mode | Underlying Port / Mechanism |
 |---|---|
@@ -60,15 +60,15 @@ Evaluates each individual algorithm against a ground-truth QRELS dataset ([`Data
 - **MRR@K**: Mean Reciprocal Rank ($1 / \text{rank}$ of the first relevant hit).
 - **NDCG@K**: Normalized Discounted Cumulative Gain with support for graded relevance ($0$ to $3$).
 - **Score Separation**: Confidence ratio ($\text{Score}_{\text{top-1}} / \text{Score}_{\text{top-K}}$).
-- **Latency Percentiles**: Measured high-resolution timings (p50, p90, p95, p99, mean, min, max) and sustained throughput (QPS) via [`LatencyTracker`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/metrics/latency.rs).
+- **Latency Percentiles**: Measured high-resolution timings (p50, p90, p95, p99, mean, min, max) and sustained throughput (QPS) via [`LatencyTracker`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/metrics/latency.rs).
 
 ---
 
-## 4. CLI Usage Guide (`ctxv-bench`)
+## 4. CLI Usage Guide (`gc-bench`)
 
 ### 1. Profile Indexing Only
 ```bash
-cargo run -p ctxvault-bench -- index \
+cargo run -p groundcontrol-bench -- index \
   --corpus /path/to/corpus \
   --clean \
   --output ./benchmarks/index_profile.json
@@ -76,7 +76,7 @@ cargo run -p ctxvault-bench -- index \
 
 ### 2. Run Retrieval Evaluation Only
 ```bash
-cargo run -p ctxvault-bench -- eval \
+cargo run -p groundcontrol-bench -- eval \
   --corpus /path/to/corpus \
   --queries ./benchmarks/queries.json \
   --modes bm25,binary,ppr,fast,full \
@@ -87,12 +87,12 @@ cargo run -p ctxvault-bench -- eval \
 
 ### 3. Check Corpus Index Health & Status
 ```bash
-cargo run -p ctxvault-bench -- status --corpus /path/to/corpus
+cargo run -p groundcontrol-bench -- status --corpus /path/to/corpus
 ```
 
 ### 4. Aggregate Multi-Repo Sub-Reports into Master Leaderboard
 ```bash
-cargo run -p ctxvault-bench -- aggregate \
+cargo run -p groundcontrol-bench -- aggregate \
   --results-dir ./benchmarks/results \
   --output-dir ./benchmarks/results
 ```
@@ -101,13 +101,13 @@ cargo run -p ctxvault-bench -- aggregate \
 
 ## 5. Automated Multi-Repo & Multi-Dataset Pipeline
 
-The benchmark pipeline ([`benchmarks/run-benchmark-pipeline.ps1`](file:///c:/dev/ctx/ctxvault/benchmarks/run-benchmark-pipeline.ps1) and [`benchmarks/run-benchmark-pipeline.sh`](file:///c:/dev/ctx/ctxvault/benchmarks/run-benchmark-pipeline.sh)) automates end-to-end evaluation across external reference benchmarks (**SWE-bench Lite**, **CodeSearchNet**, **RepoBench-R**):
+The benchmark pipeline ([`benchmarks/run-benchmark-pipeline.ps1`](file:///c:/dev/ctx/groundcontrol/benchmarks/run-benchmark-pipeline.ps1) and [`benchmarks/run-benchmark-pipeline.sh`](file:///c:/dev/ctx/groundcontrol/benchmarks/run-benchmark-pipeline.sh)) automates end-to-end evaluation across external reference benchmarks (**SWE-bench Lite**, **CodeSearchNet**, **RepoBench-R**):
 
 ```mermaid
 flowchart TD
     subgraph PIPELINE["Automated Evaluation Pipeline"]
-        STAGE["Stage & Clone Repos\n(benchmarks/workspace/)"] --> CONVERT["Convert to ctxvault format\n(ctxv-bench import)"]
-        CONVERT --> REUSE{"Smart Index Check\n(ctxv-bench status)"}
+        STAGE["Stage & Clone Repos\n(benchmarks/workspace/)"] --> CONVERT["Convert to groundcontrol format\n(gc-bench import)"]
+        CONVERT --> REUSE{"Smart Index Check\n(gc-bench status)"}
         REUSE -- "Healthy .index" --> EVAL["Parallel Retrieval Eval\n(Rayon Query Runner)"]
         REUSE -- "Missing / -Force" --> INDEX["Stage A/C Indexing\n(Fast / Full Mode)"]
         INDEX --> EVAL
@@ -121,20 +121,20 @@ flowchart TD
    - Cloned reference repositories and downloaded raw datasets live under `benchmarks/workspace/` (`.gitignore` excluded to preserve a lean repository).
    - Results, publication artifacts, and profiles are committed to `benchmarks/results/`.
 2. **Deterministic Seeded Sampling**:
-   - Supports fast ablation runs via `-FastSample -SamplePerRepo 10 -Seed 42` ([`DeterministicSampler`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/dataset/sampler.rs)).
+   - Supports fast ablation runs via `-FastSample -SamplePerRepo 10 -Seed 42` ([`DeterministicSampler`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/dataset/sampler.rs)).
 3. **Smart Index Reuse**:
-   - Inspects `.index/meta.db` document counts via `ctxv-bench status`. Re-indexing is skipped if an index already exists and is healthy, unless `-CleanIndex` or `-Force` is supplied.
+   - Inspects `.index/meta.db` document counts via `gc-bench status`. Re-indexing is skipped if an index already exists and is healthy, unless `-CleanIndex` or `-Force` is supplied.
 4. **Fast Mode Auto-Decoupling**:
    - When running pure algorithmic evaluation (`bm25,binary,ppr,fast`), `IndexMode::Fast` is automatically selected.
    - Bypasses ONNX embedder allocation, DirectML tensor inference, and HNSW graph reconstruction from `vectors.bin` (reducing large repository evaluation times from 9+ minutes down to 1.28 seconds on `astropy`).
 5. **Stage A Parallelization & SQLite Batching**:
-   - Static SIF binary fingerprint projections ([`SifEngine`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/sif.rs)) execute in parallel across worker threads in Stage A ([`parse_file_record`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/engine.rs)).
-   - Ingestion writes are batched in memory and wrapped in explicit SQLite transactions ([`Store::begin_batch`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/persistence/mod.rs) / [`Store::commit_batch`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/persistence/mod.rs)), eliminating per-file disk sync bottlenecks.
+   - Static SIF binary fingerprint projections ([`SifEngine`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/sif.rs)) execute in parallel across worker threads in Stage A ([`parse_file_record`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/engine.rs)).
+   - Ingestion writes are batched in memory and wrapped in explicit SQLite transactions ([`Store::begin_batch`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/persistence/mod.rs) / [`Store::commit_batch`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/persistence/mod.rs)), eliminating per-file disk sync bottlenecks.
 6. **Standard Manifest & Committed Fixtures**:
-   - The declarative benchmark manifest ([`benchmarks/manifest.toml`](file:///c:/dev/ctx/ctxvault/benchmarks/manifest.toml)) maps each benchmark suite to target repositories and curated, version-controlled reference fixtures under `benchmarks/data/` (`swe_bench.json`, `codesearchnet.json`, `repobench.json`).
-   - Standardized query schema ([`BenchmarkQuery`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/dataset/schema.rs)) incorporates an explicit `repository` attribute for unambiguous per-repository partitioning and eliminates volatile runtime web dependencies.
+   - The declarative benchmark manifest ([`benchmarks/manifest.toml`](file:///c:/dev/ctx/groundcontrol/benchmarks/manifest.toml)) maps each benchmark suite to target repositories and curated, version-controlled reference fixtures under `benchmarks/data/` (`swe_bench.json`, `codesearchnet.json`, `repobench.json`).
+   - Standardized query schema ([`BenchmarkQuery`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/dataset/schema.rs)) incorporates an explicit `repository` attribute for unambiguous per-repository partitioning and eliminates volatile runtime web dependencies.
 7. **2-Tier Reporting Hierarchy**:
    - **Low-Level Sub-Reports**: Retained per dataset and repository under `benchmarks/results/{swe_bench,codesearchnet,repobench}/<repo>_report.{md,csv}` and `index_profile_<repo>.json`.
-   - **Top-Level Master Roll-Up**: Aggregated by [`ReportAggregator`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/report/aggregate.rs) into `benchmarks/results/summary_report.md` (Master Leaderboard + Mode Macro-Averages) and `benchmarks/results/summary_report.csv`.
+   - **Top-Level Master Roll-Up**: Aggregated by [`ReportAggregator`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/report/aggregate.rs) into `benchmarks/results/summary_report.md` (Master Leaderboard + Mode Macro-Averages) and `benchmarks/results/summary_report.csv`.
 
 

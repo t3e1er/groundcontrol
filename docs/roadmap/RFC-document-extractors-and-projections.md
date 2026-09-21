@@ -16,7 +16,7 @@ related:
 # RFC: Pluggable Document Extractors, Derived Text Projections & Modality Disambiguation
 
 **Status**: Accepted (Implemented)  
-**Scope**: `ctxvault-common`, `ctxvault-core`, `ctxvault-mcp`, `ctxvault-cli`  
+**Scope**: `groundcontrol-common`, `groundcontrol-core`, `groundcontrol-mcp`, `groundcontrol-cli`  
 **Date**: September 2026  
 **Target Version**: `0.3.0`+ (Sequenced directly following [[docs/roadmap/RFC-sota-code-retrieval-and-semantic-bridging]])  
 **Related Documents**: [[docs/roadmap/coderoadmap]], [[docs/roadmap/RFC-zero-copy-file-offsets-and-binary-vectors]], [[docs/roadmap/RFC-sota-code-retrieval-and-semantic-bridging]], [[docs/concepts/progressive-disclosure/three-tier-context-pipeline]]
@@ -25,11 +25,11 @@ related:
 
 ## 1. Executive Summary & Problem Statement
 
-`ctxvault` was engineered from first principles around two foundational invariants:
+`groundcontrol` was engineered from first principles around two foundational invariants:
 1. **Non-Negotiable Invariant #1 (Markdown/Source as Authoritative Ground Truth)**: Files on disk are king. All derived indices (Tantivy BM25, HNSW vectors, SQLite metadata catalog, Petgraph) are disposable, transient, and 100% rebuildable from disk.
-2. **Zero-Copy File-Offset Architecture** ([[docs/roadmap/RFC-zero-copy-file-offsets-and-binary-vectors]]): Chunks in SQLite store zero redundant source text; instead, [`fetch_chunk_text`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/engine.rs) and [`read_single_file`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs) read exact byte-range slices (`start_byte..end_byte`) and line ranges (`start_line..end_line`) directly from the authoritative source files cached in the OS kernel page cache.
+2. **Zero-Copy File-Offset Architecture** ([[docs/roadmap/RFC-zero-copy-file-offsets-and-binary-vectors]]): Chunks in SQLite store zero redundant source text; instead, [`fetch_chunk_text`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/engine.rs) and [`read_single_file`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs) read exact byte-range slices (`start_byte..end_byte`) and line ranges (`start_line..end_line`) directly from the authoritative source files cached in the OS kernel page cache.
 
-While this zero-copy model excels for plain UTF-8 text files (Markdown notes and polyglot source code), expanding `ctxvault` to support **Microsoft Word (`.docx`)**, **Portable Document Format (`.pdf`)**, and **HyperText Markup Language (`.html`)** introduces three fundamental architectural tensions:
+While this zero-copy model excels for plain UTF-8 text files (Markdown notes and polyglot source code), expanding `groundcontrol` to support **Microsoft Word (`.docx`)**, **Portable Document Format (`.pdf`)**, and **HyperText Markup Language (`.html`)** introduces three fundamental architectural tensions:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -47,7 +47,7 @@ While this zero-copy model excels for plain UTF-8 text files (Markdown notes and
 │     headings and prose. Ingestion must not conflate UI code with docs.      │
 │                                                                             │
 │  3. Strictly Read-Only vs Canonical Knowledge Crystallization:             │
-│     ctxvault must never attempt to author binary Word packages or generate  │
+│     groundcontrol must never attempt to author binary Word packages or generate  │
 │     PDF vector streams. Markdown remains the sole writable format for       │
 │     Principle 3 knowledge crystallization.                                  │
 │                                                                             │
@@ -64,7 +64,7 @@ This RFC resolves this trilemma by introducing:
 ## 2. Corpus Modality Disambiguation: Code vs. Docs
 
 ### 2.1 The Current Baseline
-Currently in [`crates/ctxvault-core/src/parser/code/languages.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/code/languages.rs), `Html` (`.html`, `.htm`) is supported as a code template language. In the discovery walker [`crates/ctxvault-core/src/engine.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/engine.rs), classification is now mediated dynamically via [`FileClassifier`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/index/classifier.rs).
+Currently in [`crates/groundcontrol-core/src/parser/code/languages.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/languages.rs), `Html` (`.html`, `.htm`) is supported as a code template language. In the discovery walker [`crates/groundcontrol-core/src/engine.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/engine.rs), classification is now mediated dynamically via [`FileClassifier`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/index/classifier.rs).
 
 This causes immediate failures in mixed repositories:
 - **False Code Classification**: Sphinx/Doxygen/Confluence HTML documentation exports are treated as code, missing heading-based chunk hierarchy, document title metadata, and being filtered out when querying `search(modality="docs")`.
@@ -72,7 +72,7 @@ This causes immediate failures in mixed repositories:
 - **Asset Contamination**: `.pdf` and `.docx` files in code repositories often exist as binary test fixtures (`tests/fixtures/sample.pdf`) or design assets (`assets/branding.pdf`), which should not be indexed unless explicitly designated as documentation.
 
 ### 2.2 Classification Hierarchy & Configuration
-We introduce a 3-tier classification hierarchy implemented in `ctxvault-core::index::classifier`:
+We introduce a 3-tier classification hierarchy implemented in `groundcontrol-core::index::classifier`:
 
 ```mermaid
 flowchart TD
@@ -96,7 +96,7 @@ flowchart TD
     Heuristic -- UI Template / Asset --> CodePipeline
 ```
 
-#### Configuration Schema (`ctxvault.toml` / `CorpusConfig`)
+#### Configuration Schema (`groundcontrol.toml` / `CorpusConfig`)
 ```toml
 [corpus]
 name = "enterprise-suite"
@@ -153,7 +153,7 @@ Working Repository (Authoritative Ground Truth)
 ```
 
 ### 3.2 Storage & Lifecycle Invariants
-1. **Transient & 100% Rebuildable**: If the `.index/` directory is deleted, running `ctxvault index` or `sync_corpus` re-extracts the authoritative files on disk and regenerates `.index/projections/` deterministically.
+1. **Transient & 100% Rebuildable**: If the `.index/` directory is deleted, running `groundcontrol index` or `sync_corpus` re-extracts the authoritative files on disk and regenerates `.index/projections/` deterministically.
 2. **Delta Invalidation**: The Blake3 `content_hash` stored in the SQLite `files` table is computed over the **raw binary file on disk** (`architecture.docx`). If the binary file's hash or `modified_at` changes, the projection file is regenerated.
 3. **Zero-Copy Byte Offsets**:
    - For native Markdown and code: `start_byte..end_byte` in the SQLite `chunks` table points to byte offsets in the authoritative file on disk.
@@ -168,7 +168,7 @@ Working Repository (Authoritative Ground Truth)
 
 ## 4. Pure-Rust Ingestion Adapters (`DocumentExtractor` Port)
 
-Following ctxvault's strict Hexagonal Architecture, extractors are defined via a port trait in `ctxvault-common::ports::DocumentExtractor`:
+Following groundcontrol's strict Hexagonal Architecture, extractors are defined via a port trait in `groundcontrol-common::ports::DocumentExtractor`:
 
 ```rust
 /// Domain representation of an extracted document prior to indexing.
@@ -259,7 +259,7 @@ The existing 3-tier progressive disclosure contract is seamlessly preserved:
   - `write_note`: Strictly restricted to `.md` files. Passing a `.docx`, `.pdf`, or `.html` path returns an explicit error:
     ```
     ReadOnlyDocumentFormat: 'specs/architecture.docx' is a read-only document. 
-    ctxvault only authors native .md notes; edit source documents in their native authoring tools.
+    groundcontrol only authors native .md notes; edit source documents in their native authoring tools.
     ```
   - `move_note`: Renaming a `.docx` or `.pdf` file updates file records and projections, but skips internal wikilink rewriting.
   - `delete_note`: Deletes the authoritative binary file from disk and cascades removal across `.index/projections/`, SQLite, Tantivy, HNSW, and Petgraph.
@@ -301,7 +301,7 @@ The existing 3-tier progressive disclosure contract is seamlessly preserved:
 
 1. **Tantivy Okapi BM25**: Extracted document titles and normalized chunk texts are tokenized with Okapi BM25 scoring. Document metadata (author, subject) is indexed as filterable facets.
 2. **Dense Vector Embeddings (ONNX / DirectML)**:
-   - Chunk titles and sections pass through [`classify_markdown_chunk`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/markdown.rs).
+   - Chunk titles and sections pass through [`classify_markdown_chunk`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/markdown.rs).
    - Document summaries (chunk 0) receive `ChunkEmbedPolicy::Anchor` status; tabular and bullet-list chunks are assigned `ChunkEmbedPolicy::GraphOnly`.
 3. **Petgraph Graph Topology**:
    - Hyperlinks extracted from HTML `<a>` tags, Word document relationships, and PDF URI annotations are parsed. If a link resolves to a relative path within the corpus or a code symbol moniker, a directed `references` or `documents` edge is created in Petgraph.
@@ -314,9 +314,9 @@ This specification is queued directly following [[docs/roadmap/RFC-sota-code-ret
 
 | Phase | Scope & Deliverables | Primary Crates |
 |---|---|---|
-| **Phase 1: Modality Disambiguation & Classifier** | Extend `CorpusConfig` with `CorpusType`, `doc_patterns`, `code_patterns`. Implement `FileClassifier` in `ctxvault-core` and update `walk_dir_recursive` to dynamically route `.html`, `.pdf`, `.docx`. | `ctxvault-common`, `ctxvault-core` |
-| **Phase 2: DTP Caching Subsystem & Port Trait** | Implement `DocumentExtractor` trait and `.index/projections/` caching manager. Extend SQLite schema with `files.format` and route `fetch_chunk_text` and `read_single_file` through DTP. | `ctxvault-common`, `ctxvault-core`, `ctxvault-mcp` |
-| **Phase 3: HTML Documentation Adapter** | Implement `HtmlDocExtractor` via `tl` / `scraper`. Add boilerplate filtering, semantic Markdown synthesis, and link extraction. | `ctxvault-core` |
-| **Phase 4: Word (.docx) Ingestion Adapter** | Implement `DocxExtractor` via `quick-xml` + `zip`. Add heading-style mapping, table synthesis, and OpenXML relationship link extraction. | `ctxvault-core` |
-| **Phase 5: PDF Ingestion Adapter** | Implement `PdfExtractor` via `lopdf`. Add page anchoring, reading-order reconstruction, font-size heading detection, and URI annotation link extraction. | `ctxvault-core` |
-| **Phase 6: Progressive Disclosure & MCP Hardening** | Verify 3-tier read experience (`search`, `get_snippet`, `read_file`) across all formats. Enforce strict `write_note` rejection for non-markdown formats. Add end-to-end integration tests. | `ctxvault-mcp`, `ctxvault-cli` |
+| **Phase 1: Modality Disambiguation & Classifier** | Extend `CorpusConfig` with `CorpusType`, `doc_patterns`, `code_patterns`. Implement `FileClassifier` in `groundcontrol-core` and update `walk_dir_recursive` to dynamically route `.html`, `.pdf`, `.docx`. | `groundcontrol-common`, `groundcontrol-core` |
+| **Phase 2: DTP Caching Subsystem & Port Trait** | Implement `DocumentExtractor` trait and `.index/projections/` caching manager. Extend SQLite schema with `files.format` and route `fetch_chunk_text` and `read_single_file` through DTP. | `groundcontrol-common`, `groundcontrol-core`, `groundcontrol-mcp` |
+| **Phase 3: HTML Documentation Adapter** | Implement `HtmlDocExtractor` via `tl` / `scraper`. Add boilerplate filtering, semantic Markdown synthesis, and link extraction. | `groundcontrol-core` |
+| **Phase 4: Word (.docx) Ingestion Adapter** | Implement `DocxExtractor` via `quick-xml` + `zip`. Add heading-style mapping, table synthesis, and OpenXML relationship link extraction. | `groundcontrol-core` |
+| **Phase 5: PDF Ingestion Adapter** | Implement `PdfExtractor` via `lopdf`. Add page anchoring, reading-order reconstruction, font-size heading detection, and URI annotation link extraction. | `groundcontrol-core` |
+| **Phase 6: Progressive Disclosure & MCP Hardening** | Verify 3-tier read experience (`search`, `get_snippet`, `read_file`) across all formats. Enforce strict `write_note` rejection for non-markdown formats. Add end-to-end integration tests. | `groundcontrol-mcp`, `groundcontrol-cli` |

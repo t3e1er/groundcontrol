@@ -19,7 +19,7 @@ In languages with rich generic systems (Rust, C++, TypeScript), AI agents freque
 ## Decision
 We implemented a two-stage **Generic-Normalized Scope Resolution** algorithm:
 1. Pure normalization function `normalize_scope_path` that strips balanced `<...>` and lifetimes while preserving ` > ` hierarchy delimiters.
-2. In `crates/ctxvault-core/src/persistence/mod.rs`, when `find_symbols_by_qualified_name` yields 0 exact matches, query SQLite with normalized component matching on symbol leaf and scope path prefix.
+2. In `crates/groundcontrol-core/src/persistence/mod.rs`, when `find_symbols_by_qualified_name` yields 0 exact matches, query SQLite with normalized component matching on symbol leaf and scope path prefix.
 3. If multiple parameterized signatures match, return candidate signatures for disambiguation.
 
 ## Consequences

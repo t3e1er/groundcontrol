@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-    Download the ctxvault embedding model into a sidecar layout that mirrors the
+    Download the groundcontrol embedding model into a sidecar layout that mirrors the
     upstream Hugging Face repo 1:1 (Windows).
 
 .DESCRIPTION
     Downloads the INT8-quantized ONNX weights + tokenizer for
     jinaai/jina-embeddings-v2-base-code into the exact upstream paths, so the
-    ctxvault embedder (resolve_model_files in
-    crates/ctxvault-core/src/embedding.rs) finds them as-is:
+    groundcontrol embedder (resolve_model_files in
+    crates/groundcontrol-core/src/embedding.rs) finds them as-is:
 
         <ModelsDir>\jina-embeddings-v2-base-code\onnx\model_quantized.onnx
         <ModelsDir>\jina-embeddings-v2-base-code\tokenizer.json
@@ -126,4 +126,4 @@ $resolved = (Resolve-Path $ModelsDir).Path
 Write-Host ""
 Write-Host "[+] Model ready at: $DestDir (mirrors the Hugging Face repo layout)"
 Write-Host "[+] Wrote NOTICE.md and SHA256SUMS.txt in $ModelsDir"
-Write-Host "    Point ctxvault at it with:  `$env:CTX_MODELS_DIR = `"$resolved`""
+Write-Host "    Point groundcontrol at it with:  `$env:CTX_MODELS_DIR = `"$resolved`""

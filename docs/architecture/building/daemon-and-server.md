@@ -1,6 +1,6 @@
 ---
 title: "Auto-Daemon & Shared Server Deployment"
-description: "Deploying ctxvault as a background daemon, hosting multi-corpus servers, and script automation."
+description: "Deploying groundcontrol as a background daemon, hosting multi-corpus servers, and script automation."
 category: "building"
 status: "active"
 tags: ["daemon", "server", "http", "sse", "multi-corpus", "concurrency", "config"]
@@ -12,7 +12,7 @@ related:
 
 # Auto-Daemon & Shared Server Deployment
 
-`ctxvault` supports multiple operational modes: standard per-agent stdio processes, transparent background daemons, and dedicated multi-corpus HTTP servers.
+`groundcontrol` supports multiple operational modes: standard per-agent stdio processes, transparent background daemons, and dedicated multi-corpus HTTP servers.
 
 ---
 
@@ -26,17 +26,17 @@ The **Auto-Daemon** solves this transparently:
 3. The foreground CLI bridges standard stdio JSON-RPC to the daemon over HTTP SSE with zero subagent configuration changes.
 
 ```bash
-ctxvault --corpus /path/to/project --daemon
+groundcontrol --corpus /path/to/project --daemon
 ```
 
 ---
 
 ## 2. Dedicated Multi-Corpus Server Mode
 
-For team environments, sandboxed CI agents, or multi-agent swarms, run `ctxvault` as a persistent standalone service hosting $N$ distinct index roots:
+For team environments, sandboxed CI agents, or multi-agent swarms, run `groundcontrol` as a persistent standalone service hosting $N$ distinct index roots:
 
 ```bash
-ctxvault --mode server --bind 0.0.70:9090 \
+groundcontrol --mode server --bind 0.0.70:9090 \
   --corpus docs=/opt/knowledge/docs \
   --corpus backend=/opt/services/backend \
   --corpus frontend=/opt/services/frontend \
@@ -52,13 +52,13 @@ ctxvault --mode server --bind 0.0.70:9090 \
 
 ---
 
-## 3. Central Configuration (`${CTXV_CACHE_DIR}/config.toml`)
+## 3. Central Configuration (`${GROUNDCONTROL_CACHE_DIR}/config.toml`)
 
 All machine-wide settings (daemon port, authentication keys, GraphView telemetry relay, and persistent corpus mounts) are consolidated into a single central configuration file:
 
 ```toml
 # ==============================================================================
-# ctxvault Central Machine Configuration (${CTXV_CACHE_DIR}/config.toml)
+# groundcontrol Central Machine Configuration (${GROUNDCONTROL_CACHE_DIR}/config.toml)
 # ==============================================================================
 
 [server]
@@ -72,7 +72,7 @@ index_mode = "full"
 # Require valid x-api-key on incoming HTTP MCP requests (/v1/mcp, /v1/sse)
 require_auth = false
 # Shared secret for core daemon-to-graphview telemetry relay
-daemon_key = "ctxv_relay_sec_89dfa8"
+daemon_key = "gc_relay_sec_89dfa8"
 
 [[auth.clients]]
 id = "antigravity"
@@ -83,22 +83,22 @@ color = "#38bdf8"
 [graphview]
 bind = "127.0.0.1:9091"
 daemon = "http://127.0.0.1:9090"
-daemon_key = "ctxv_relay_sec_89dfa8"
+daemon_key = "gc_relay_sec_89dfa8"
 
 [corpora]
-default = "ctxvault"
+default = "groundcontrol"
 
-[corpora.ctxvault]
-path = "C:/dev/ctx/ctxvault"
+[corpora.groundcontrol]
+path = "C:/dev/ctx/groundcontrol"
 index_mode = "full"
 ```
 
 Configure these settings interactively via the CLI:
 ```bash
-ctxvault config list
-ctxvault config get server.bind
-ctxvault config set server.idle_timeout_mins 60
-ctxvault config set auth.require_auth true
+groundcontrol config list
+groundcontrol config get server.bind
+groundcontrol config set server.idle_timeout_mins 60
+groundcontrol config set auth.require_auth true
 ```
 
 ---
@@ -109,12 +109,12 @@ Interact with a running daemon or local engine directly from shell scripts or CI
 
 ```bash
 # Search using hybrid mode
-ctxvault --mode client --server http://127.0.0.1:9090 \
+groundcontrol --mode client --server http://127.0.0.1:9090 \
   --call search \
   --args '{"query": "authentication token", "mode": "hybrid", "snippets": 3}'
 
 # Inspect multi-hop graph lineage
-ctxvault --mode client --server http://127.0.0.1:9090 \
+groundcontrol --mode client --server http://127.0.0.1:9090 \
   --call graph_match \
   --args '{"pattern": "(:CodeSymbol {name: \"verify_jwt\"})-[:calls*1..2]->(target)"}'
 ```
@@ -123,38 +123,38 @@ ctxvault --mode client --server http://127.0.0.1:9090 \
 
 ## 5. Direct CLI Indexing & Incremental Sync
 
-In addition to serving MCP connections, the `ctxvault` CLI provides direct subcommands for building and updating central index stores without launching a daemon:
+In addition to serving MCP connections, the `groundcontrol` CLI provides direct subcommands for building and updating central index stores without launching a daemon:
 
 ```bash
-# Initialize a new repository with ctxvault.toml & gitignore migration
-ctxvault init
+# Initialize a new repository with groundcontrol.toml & gitignore migration
+groundcontrol init
 
-# Index a repository into central storage (~/.cache/ctxvault/corpora/<name>)
-ctxvault index /path/to/project
+# Index a repository into central storage (~/.cache/groundcontrol/corpora/<name>)
+groundcontrol index /path/to/project
 
 # Fast indexing (BM25 + Graph only, skip embeddings)
-ctxvault index /path/to/project --fast
+groundcontrol index /path/to/project --fast
 
 # Incremental delta scan for all cached corpora
-ctxvault sync
+groundcontrol sync
 
 # Sync a specific corpus
-ctxvault sync --corpus project
+groundcontrol sync --corpus project
 ```
 
 ---
 
 ## 6. Central Storage & SCM Control
 
-* **Zero Repository Pollution**: Index artifacts default to `${CTXV_CACHE_DIR}/corpora/<name>/` (`meta.db`, `tantivy/`, `vectors.bin`, `graph.bin`), keeping git repositories clean. Local `.index/` is used only if already present on disk.
-* **SCM Team Sharing**: Export compact, reproducible index bundles into `.ctxvault/vault.tar.zst` for git tracking or CI artifacts:
+* **Zero Repository Pollution**: Index artifacts default to `${GROUNDCONTROL_CACHE_DIR}/corpora/<name>/` (`meta.db`, `tantivy/`, `vectors.bin`, `graph.bin`), keeping git repositories clean. Local `.index/` is used only if already present on disk.
+* **SCM Team Sharing**: Export compact, reproducible index bundles into `.groundcontrol/vault.tar.zst` for git tracking or CI artifacts:
   ```bash
-  # Export active repository index to .ctxvault/vault.tar.zst
-  ctxvault export-artifact
+  # Export active repository index to .groundcontrol/vault.tar.zst
+  groundcontrol export-artifact
 
   # Import bundle into central cache
-  ctxvault import-artifact
+  groundcontrol import-artifact
   ```
-* **Auto-Bootstrapping**: If a repository contains `.ctxvault/vault.tar.zst` and has not yet been indexed locally in central storage, `ctxvault` automatically unpacks and mounts the bundle upon discovery, avoiding expensive reindexing.
-* **Zero CWD Fallback**: On server startup without explicit `--corpus` arguments, `ctxvault` auto-mounts all existing central corpora. If no cached corpora exist, it starts cleanly with 0 corpora rather than arbitrarily mounting the caller's working directory.
-* **Continuous File Watching**: When `--watch` is enabled, `ctxvault` actively monitors all mounted corpora and automatically attaches file watchers to any new corpora mounted dynamically via `index_corpus`.
+* **Auto-Bootstrapping**: If a repository contains `.groundcontrol/vault.tar.zst` and has not yet been indexed locally in central storage, `groundcontrol` automatically unpacks and mounts the bundle upon discovery, avoiding expensive reindexing.
+* **Zero CWD Fallback**: On server startup without explicit `--corpus` arguments, `groundcontrol` auto-mounts all existing central corpora. If no cached corpora exist, it starts cleanly with 0 corpora rather than arbitrarily mounting the caller's working directory.
+* **Continuous File Watching**: When `--watch` is enabled, `groundcontrol` actively monitors all mounted corpora and automatically attaches file watchers to any new corpora mounted dynamically via `index_corpus`.

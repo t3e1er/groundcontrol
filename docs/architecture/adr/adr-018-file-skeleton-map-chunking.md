@@ -26,7 +26,7 @@ retaining meaningful semantic code search.
 
 ### The Volume Problem
 
-Analysis of `classify_embed_policy` in `crates/ctxvault-core/src/parser/code/chunker.rs` revealed
+Analysis of `classify_embed_policy` in `crates/groundcontrol-core/src/parser/code/chunker.rs` revealed
 that skeleton mode embeds **one vector per qualifying AST symbol**, not one per file:
 
 - **Python**: all non-`_`-prefixed, non-test functions → `Anchor`
@@ -50,7 +50,7 @@ is delegated to BM25 and AST graph traversal:
 
 ### The RRF Granularity Discovery
 
-Separately, `search_hybrid_full_single` in `crates/ctxvault-core/src/search/mod.rs` was found to
+Separately, `search_hybrid_full_single` in `crates/groundcontrol-core/src/search/mod.rs` was found to
 key its RRF fusion map at `(path, chunk_index)` for code results. BM25 returns symbol-level
 chunk_indices; vector search returns different chunk_indices for the same file. These never merge in
 the RRF map — the 3-signal fusion is silently broken for code. Docs correctly key at `(path, None)`.

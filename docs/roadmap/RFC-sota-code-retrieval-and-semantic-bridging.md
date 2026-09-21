@@ -17,24 +17,24 @@ related:
 # RFC: State-of-the-Art Code Retrieval & High-Throughput Semantic Bridging
 
 **Status**: Implemented / Delivered  
-**Scope**: `ctxvault-common`, `ctxvault-core`, `ctxvault-mcp`, `ctxvault-cli`  
+**Scope**: `groundcontrol-common`, `groundcontrol-core`, `groundcontrol-mcp`, `groundcontrol-cli`  
 **Date**: September 2026  
 **Target Version**: `0.2.0`+  
 **Implementation**:
-- Port & Types: [`BinaryFingerprint`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs), [`FingerprintRecord`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs), [`AlgorithmicSearchIndex`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/ports.rs)
-- Syntactic Patterns: [`extract_semantic_tokens`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/code/patterns.rs)
-- SIF Projection & PCA: [`SifEngine`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/sif.rs)
-- Binary Index & SIMD Hamming: [`BinarySearchIndex`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/binary.rs)
-- HippoRAG Diffusion: [`personalized_pagerank`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/diffusion.rs)
-- Fast Hybrid Engine: [`search_fast`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/mod.rs) & [`search_explain_fast`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/mod.rs)
-- MCP Interface: [`crates/ctxvault-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs) (`mode="fast"`)
+- Port & Types: [`BinaryFingerprint`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs), [`FingerprintRecord`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs), [`AlgorithmicSearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs)
+- Syntactic Patterns: [`extract_semantic_tokens`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/patterns.rs)
+- SIF Projection & PCA: [`SifEngine`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/sif.rs)
+- Binary Index & SIMD Hamming: [`BinarySearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/binary.rs)
+- HippoRAG Diffusion: [`personalized_pagerank`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/diffusion.rs)
+- Fast Hybrid Engine: [`search_fast`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/mod.rs) & [`search_explain_fast`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/mod.rs)
+- MCP Interface: [`crates/groundcontrol-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs) (`mode="fast"`)
 **Related Documents**: [[docs/roadmap/coderoadmap]], [[docs/roadmap/RFC-algorithmic-semantic-bridging]], [[docs/roadmap/RFC-zero-copy-file-offsets-and-binary-vectors]], [[docs/concepts/search/hybrid-retrieval-theory]]
 
 ---
 
 ## 1. Executive Summary & Empirical Problem Statement
 
-`ctxvault` currently uses a 4-modality hybrid retrieval architecture (Tantivy Okapi BM25, dense ONNX embeddings via `jina-embeddings-v2-base-code`, and Petgraph typed AST graph traversal). While dense neural embeddings provide deep semantic understanding, computing ONNX forward passes for 500,000 code symbols across a 100,000-file repository takes **35 to 55 minutes on an 8-core CPU**, rendering cold-start index builds prohibitively slow in headless CI or developer environments without dedicated GPUs.
+`groundcontrol` currently uses a 4-modality hybrid retrieval architecture (Tantivy Okapi BM25, dense ONNX embeddings via `jina-embeddings-v2-base-code`, and Petgraph typed AST graph traversal). While dense neural embeddings provide deep semantic understanding, computing ONNX forward passes for 500,000 code symbols across a 100,000-file repository takes **35 to 55 minutes on an 8-core CPU**, rendering cold-start index builds prohibitively slow in headless CI or developer environments without dedicated GPUs.
 
 In [[docs/roadmap/RFC-algorithmic-semantic-bridging]], an algorithmic bridging approach adapted from `codebase-memory-mcp` (CBM) was proposed (11 heuristic AST signals, Reflective Random Indexing, and 4-bit Rotated Scalar Quantization via FWHT). However, critical evaluation of recent literature (arXiv 2024–2026) and industry architectures (GitHub Blackbird, GitHub Copilot's late-2025 retrieval engine, Sourcegraph Zoekt/SCIP) reveals that CBM's pipeline has significant operational drawbacks:
 1. **Heuristic Overfitting**: Weighting 11 disparate signals (Halstead complexity, AST shape, data flow, decorators, MinHash) is fragile and requires continuous language-specific retuning.
@@ -96,7 +96,7 @@ This RFC specifies an alternative, state-of-the-art bridging architecture that r
 
 ## 3. The Reality Filter: Evaluating Options for CPU 100K+ Files
 
-To operate within `ctxvault`'s invariants, any proposed architecture must satisfy:
+To operate within `groundcontrol`'s invariants, any proposed architecture must satisfy:
 - **Corpus Scale**: 100,000+ files ($\sim 500{,}000$ code symbols/chunks).
 - **Hardware**: Standard 8-core CPU (no GPU, no external cloud API dependency).
 - **Index Latency**: $< 60\text{ seconds}$ total for semantic bridging.
@@ -119,10 +119,10 @@ To operate within `ctxvault`'s invariants, any proposed architecture must satisf
 
 ## 4. Proposed Architecture: The 4-Pillar High-Throughput Engine
 
-Instead of duplicating CBM's 11-signal RoTSQ pipeline, `ctxvault` implements a **streamlined 4-pillar semantic engine**:
+Instead of duplicating CBM's 11-signal RoTSQ pipeline, `groundcontrol` implements a **streamlined 4-pillar semantic engine**:
 
 ```
-ctxvault Sub-Minute Semantic Pipeline:
+groundcontrol Sub-Minute Semantic Pipeline:
 ┌────────────────────────────────────────────────────────────────────────┐
 │ Pillar 1: AST Pattern Token Injection (Inside Tantivy Tokenizer)       │
 │   ├── Identifies try/catch/except/panic -> injects __sem_error         │
@@ -152,7 +152,7 @@ ctxvault Sub-Minute Semantic Pipeline:
 ## 5. Mathematical Specification & Pure Safe Rust Implementation
 
 ### 5.1 Pillar 1: AST Pattern Token Injection (Tantivy Postings)
-During the primary Tree-sitter cAST traversal in [`crates/ctxvault-core/src/parser/code/mod.rs`](file:///c:/dev/semantic/ctxvault/crates/ctxvault-core/src/parser/code/mod.rs), canonical semantic tags are emitted into the text stream indexed by Tantivy:
+During the primary Tree-sitter cAST traversal in [`crates/groundcontrol-core/src/parser/code/mod.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/parser/code/mod.rs), canonical semantic tags are emitted into the text stream indexed by Tantivy:
 - **Error Handling**: Nodes containing `catch`, `except`, `panic`, or `if err != nil` emit `__sem_error`, `__sem_exception`, `__sem_handler`.
 - **API & Routing**: Nodes decorated with `route`, `get`, `post`, `handler`, `endpoint` emit `__sem_endpoint`, `__sem_api`.
 - **Authentication**: Methods checking `token`, `jwt`, `auth`, `bearer`, `permission` emit `__sem_auth`, `__sem_security`.
@@ -218,7 +218,7 @@ Scanning 500,000 symbols requires computing 500,000 bitwise XORs and POPCOUNTs o
 - **Total linear scan latency: $1.1\text{ milliseconds}$**. No HNSW graph structure or index maintenance needed.
 
 ### 5.4 Pillar 4: Query-Time Personalized PageRank (PPR) on Petgraph
-Instead of cluttering the persistent graph with synthetic edges, `ctxvault` runs **Personalized PageRank** over the existing AST graph (`defines`, `calls`, `implements`) during retrieval:
+Instead of cluttering the persistent graph with synthetic edges, `groundcontrol` runs **Personalized PageRank** over the existing AST graph (`defines`, `calls`, `implements`) during retrieval:
 
 1. **Seed Activation**: The top 20 candidates returned by the combined Tantivy BM25 + Binary Hamming search form the seed set $\mathcal{S}$.
 2. **Preference Vector**: Set initial probability $\mathbf{p}^{(0)}_v = \frac{\text{score}(v)}{\sum_{u \in \mathcal{S}} \text{score}(u)}$ for $v \in \mathcal{S}$, and $0$ elsewhere.
@@ -231,7 +231,7 @@ Instead of cluttering the persistent graph with synthetic edges, `ctxvault` runs
 
 ## 6. Hexagonal Architecture Integration (Ports & Adapters)
 
-To respect `ctxvault`'s ports-and-adapters invariants ([`ports.rs`](file:///c:/dev/semantic/ctxvault/crates/ctxvault-common/src/ports.rs)), this system introduces a dependency-free port in `ctxvault-common`:
+To respect `groundcontrol`'s ports-and-adapters invariants ([`ports.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-common/src/ports.rs)), this system introduces a dependency-free port in `groundcontrol-common`:
 
 ```rust
 /// Port for high-throughput algorithmic semantic search and fingerprinting.
@@ -248,7 +248,7 @@ pub trait AlgorithmicSearchIndex: Send + Sync {
 ```
 
 ### Integration with `SearchService`
-In [`crates/ctxvault-core/src/search_service.rs`](file:///c:/dev/semantic/ctxvault/crates/ctxvault-core/src/search_service.rs), the existing RRF fusion is updated to support the fast mode:
+In [`crates/groundcontrol-core/src/search_service.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/search_service.rs), the existing RRF fusion is updated to support the fast mode:
 - **`mode = "fast"`**: Fuses Tantivy BM25 + Binary Hamming Scan + Query-Time PPR (Zero ONNX inference, sub-2ms response).
 - **`mode = "full"`**: Fuses Tantivy BM25 + Dense ONNX HNSW + Binary Hamming Scan + Query-Time PPR.
 
@@ -305,12 +305,12 @@ gantt
 ```
 
 ### Phase 1: AST Pattern Token Injection
-- Update [`crates/ctxvault-core/src/parser/code/mod.rs`](file:///c:/dev/semantic/ctxvault/crates/ctxvault-core/src/parser/code/mod.rs) to emit `__sem_*` tokens for error handling, HTTP routes, and auth checks.
+- Update [`crates/groundcontrol-core/src/parser/code/mod.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/parser/code/mod.rs) to emit `__sem_*` tokens for error handling, HTTP routes, and auth checks.
 - Add test suite asserting BM25 matching of synonym intent queries.
 
 ### Phase 2: Static Token Table & Pure Rust SIF Engine
 - Distill 40,856 tokens $\times$ 768d int8 matrix from `jina-embeddings-v2-base-code` into a compressed binary asset (`~31MB`).
-- Vendor in `ctxvault-core` via `include_bytes!`.
+- Vendor in `groundcontrol-core` via `include_bytes!`.
 - Implement safe Rust SIF aggregation with power-iteration PCA.
 
 ### Phase 3: 256-Bit Binary Fingerprints & SIMD Hamming Scan
@@ -319,11 +319,11 @@ gantt
 - Benchmark 500k-item linear scan (< 1.5ms target).
 
 ### Phase 4: Query-Time Personalized PageRank (PPR)
-- Implement sparse 2-iteration power method over Petgraph in `ctxvault-core::graph::diffusion`.
+- Implement sparse 2-iteration power method over Petgraph in `groundcontrol-core::graph::diffusion`.
 - Connect seed activation from Tantivy + Binary scan results.
 
 ### Phase 5: MCP Search Mode Integration
-- Expose `mode = "fast"` in `ctxvault-mcp` tools (`search`, `search_related`).
+- Expose `mode = "fast"` in `groundcontrol-mcp` tools (`search`, `search_related`).
 - Verify zero regression across existing 3-tier progressive disclosure contracts.
 
 ---
@@ -331,9 +331,9 @@ gantt
 ## 9. Verification & Benchmarking Plan
 
 ### Automated Test Suite
-- `cargo test -p ctxvault-core --test sif_tests`: Validate that SIF vector calculation on known code identifiers matches reference Python NumPy implementation within $< 10^{-5}$ tolerance.
-- `cargo test -p ctxvault-core --test binary_hamming_tests`: Validate exact equality between linear Hamming distance and unquantized cosine ranking for top-20 candidates.
-- `cargo test -p ctxvault-core --test ppr_tests`: Validate convergence and conservation of probability mass during Personalized PageRank power iterations on Petgraph.
+- `cargo test -p groundcontrol-core --test sif_tests`: Validate that SIF vector calculation on known code identifiers matches reference Python NumPy implementation within $< 10^{-5}$ tolerance.
+- `cargo test -p groundcontrol-core --test binary_hamming_tests`: Validate exact equality between linear Hamming distance and unquantized cosine ranking for top-20 candidates.
+- `cargo test -p groundcontrol-core --test ppr_tests`: Validate convergence and conservation of probability mass during Personalized PageRank power iterations on Petgraph.
 
 ### Real-World Corpus Verification
 1. **Linux Kernel (75K files, ~800K symbols)**:

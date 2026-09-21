@@ -24,7 +24,7 @@ In typical chat sessions, this knowledge vanishes the moment the context window 
 
 ## Principle 3: Knowledge Crystallization
 
-`ctxvault` treats knowledge as a compounding asset. Through **Continuous Knowledge Crystallization**, agents actively distill ephemeral problem-solving traces into permanent, verified markdown assets with full provenance.
+`groundcontrol` treats knowledge as a compounding asset. Through **Continuous Knowledge Crystallization**, agents actively distill ephemeral problem-solving traces into permanent, verified markdown assets with full provenance.
 
 ```
 Agent Conversational Exhaust (Ephemeral Traces)
@@ -49,7 +49,7 @@ category: "bugfix"
 status: "active"
 tags: ["directml", "gpu", "tdr", "windows"]
 derived_from:
-  - "[[crates/ctxvault-core/src/embedding/directml.rs#L140-L195]]"
+  - "[[crates/groundcontrol-core/src/embedding/directml.rs#L140-L195]]"
   - "[[docs/architecture/adr/adr-015-dynamic-token-budgeting-tdr-safety]]"
 related:
   - "[[docs/architecture/implementation/gpu-and-directml]]"

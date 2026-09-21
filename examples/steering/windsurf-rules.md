@@ -3,9 +3,9 @@
 Add this snippet to `.windsurfrules` or project configuration in Windsurf:
 
 ```markdown
-# Ctxvault Integration Guidelines
+# GroundControl Integration Guidelines
 
-- Always prefer `ctxvault` MCP tools (17 tools) for knowledge base search and codebase graph exploration.
+- Always prefer `groundcontrol` MCP tools (17 tools) for knowledge base search and codebase graph exploration.
 - Use `search(mode="hybrid")` for natural language questions. Leverage the Turn 1 inline snippets and graph affordances directly.
 - Use `search(mode="bm25")` for verbatim tokens, symbols, and CLI flags.
 - Use `get_snippet(symbol="...")` or `get_snippet(path="...", chunk_index=0)` for bounded symbol or chunk inspection.

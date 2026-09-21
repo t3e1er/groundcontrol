@@ -13,7 +13,7 @@ related:
 # RFC: Intermediate Docs-Only Embedding Indexing Mode (`docs-embed`)
 
 **Status**: Accepted / Implemented  
-**Scope**: `ctxvault-common`, `ctxvault-core`, `ctxvault-mcp`, `ctxvault-cli`  
+**Scope**: `groundcontrol-common`, `groundcontrol-core`, `groundcontrol-mcp`, `groundcontrol-cli`  
 **Date**: September 2026  
 **Related Documents**: [[docs/architecture/adr/adr-008-anchor-embedding-paradigm]], [[docs/concepts/search/hybrid-retrieval-theory]], [[docs/architecture/adr/adr-017-docs-embed-intermediate-indexing-mode]]
 
@@ -21,7 +21,7 @@ related:
 
 ## 1. Executive Summary & Problem Statement
 
-`ctxvault` currently supports two discrete indexing modes:
+`groundcontrol` currently supports two discrete indexing modes:
 * **`Full` (Default)**: Indexes 100% of files into Tantivy BM25, SQLite, and Petgraph, and computes dense ONNX vector embeddings (`jina-embeddings-v2-base-code`, 768-dim) for **both documentation and code anchor nodes** (structs, classes, traits, public APIs).
 * **`Fast`**: Populates Tantivy BM25, SQLite, and Petgraph, but **completely skips** ONNX model initialization, tensor forward passes, and HNSW vector index allocation.
 
@@ -93,9 +93,9 @@ We propose an intermediate indexing mode: **`DocsEmbed`** (serialized in configs
 
 ## 3. Detailed Component Specifications
 
-### 3.1 Domain Configuration (`ctxvault-common`)
+### 3.1 Domain Configuration (`groundcontrol-common`)
 
-Add `DocsEmbed` variant to the `IndexMode` enum in `crates/ctxvault-common/src/config.rs`:
+Add `DocsEmbed` variant to the `IndexMode` enum in `crates/groundcontrol-common/src/config.rs`:
 
 ```rust
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -111,7 +111,7 @@ pub enum IndexMode {
 }
 ```
 
-### 3.2 Composition Root & Builder (`ctxvault-core::engine_builder`)
+### 3.2 Composition Root & Builder (`groundcontrol-core::engine_builder`)
 
 In `EngineBuilder::open`:
 * `Fast`: Allocates `vector_index = None`.
@@ -127,7 +127,7 @@ let vector_index = match config.index_mode {
 };
 ```
 
-### 3.3 Engine Stage Overrides (`ctxvault-core::engine`)
+### 3.3 Engine Stage Overrides (`groundcontrol-core::engine`)
 
 In `Engine::index_file_staged`:
 When processing source code files:
@@ -189,7 +189,7 @@ When queries execute against a `DocsEmbed` corpus:
 
 ## 5. Migration & Backwards Compatibility
 
-* **Zero Backwards Incompatibility**: Follows ctxvault's greenfield principles. Defaults remain `Full`.
-* **Corpus Configuration**: Corpi configure `index_mode = "docs-embed"` in `ctxvault.json` or `mcp_config.json`.
-* **CLI Ergonomics**: Added `--docs-embed` and `--index-mode docs-embed` flags to `ctxvault-cli`.
+* **Zero Backwards Incompatibility**: Follows groundcontrol's greenfield principles. Defaults remain `Full`.
+* **Corpus Configuration**: Corpi configure `index_mode = "docs-embed"` in `groundcontrol.json` or `mcp_config.json`.
+* **CLI Ergonomics**: Added `--docs-embed` and `--index-mode docs-embed` flags to `groundcontrol-cli`.
 * **Dynamic Migration**: Switching a corpus between `full` and `docs-embed` triggers standard delta synchronization or full reindex via `reindex_corpus`.

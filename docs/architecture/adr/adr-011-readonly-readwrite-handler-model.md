@@ -18,7 +18,7 @@ Accepted / Implemented
 In multi-agent swarm environments, dozens of Scout and Reader agents query the MCP server concurrently. If every tool call locked the underlying `Engine` with a standard mutex, read requests would queue behind each other, introducing severe artificial latency. Conversely, allowing concurrent writes risks corrupting SQLite WAL transactions and Petgraph index state.
 
 ## Decision
-We segregated tool handler functions in `crates/ctxvault-mcp/src/tools/mod.rs` into two distinct types:
+We segregated tool handler functions in `crates/groundcontrol-mcp/src/tools/mod.rs` into two distinct types:
 1. `ReadOnly(fn(&Engine, Value))`: Invoked under a shared reader lock (`Arc<RwLock<Engine>>::read()`).
 2. `ReadWrite(fn(&mut Engine, Value))`: Invoked under an exclusive writer lock (`Arc<RwLock<Engine>>::write()`).
 

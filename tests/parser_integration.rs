@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use ctxvault_core::parser;
+use groundcontrol_core::parser;
 
 #[test]
 fn parses_complete_document_with_frontmatter_and_wikilinks() {

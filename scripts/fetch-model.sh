@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# fetch-model.sh — download the ctxvault embedding model into a sidecar layout
+# fetch-model.sh — download the groundcontrol embedding model into a sidecar layout
 # that mirrors the upstream Hugging Face repo 1:1 (no renaming).
 #
 # Downloads the INT8-quantized ONNX weights + tokenizer for
 # `jinaai/jina-embeddings-v2-base-code` into the exact upstream paths, so the
-# ctxvault embedder (see `resolve_model_files` in
-# crates/ctxvault-core/src/embedding.rs) finds them as-is:
+# groundcontrol embedder (see `resolve_model_files` in
+# crates/groundcontrol-core/src/embedding.rs) finds them as-is:
 #
 #   <MODELS_DIR>/jina-embeddings-v2-base-code/onnx/model_quantized.onnx
 #   <MODELS_DIR>/jina-embeddings-v2-base-code/tokenizer.json
@@ -147,4 +147,4 @@ NOTICE
 echo ""
 echo "[+] Model ready at: ${DEST_DIR} (mirrors the Hugging Face repo layout)"
 echo "[+] Wrote ${MODELS_DIR}/NOTICE.md and ${MODELS_DIR}/SHA256SUMS.txt"
-echo "    Point ctxvault at it with:  export CTX_MODELS_DIR=\"$(cd "$MODELS_DIR" && pwd)\""
+echo "    Point groundcontrol at it with:  export CTX_MODELS_DIR=\"$(cd "$MODELS_DIR" && pwd)\""

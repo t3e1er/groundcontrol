@@ -17,7 +17,7 @@ related:
 # RFC: Algorithmic Semantic Bridging & Hardware-Independent Code Graph Synthesis
 
 **Status**: Proposed  
-**Scope**: `ctxvault-common`, `ctxvault-core`, `ctxvault-mcp`, `ctxvault-cli`  
+**Scope**: `groundcontrol-common`, `groundcontrol-core`, `groundcontrol-mcp`, `groundcontrol-cli`  
 **Date**: September 2026  
 **Target Version**: `0.2.0`+  
 **Related Documents**: [[docs/roadmap/coderoadmap]], [[docs/roadmap/RFC-zero-copy-file-offsets-and-binary-vectors]], [[docs/roadmap/RFC-docs-embed-intermediate-indexing-mode]], [[docs/concepts/search/hybrid-retrieval-theory]], [[docs/roadmap/RFC-sota-code-retrieval-and-semantic-bridging]]
@@ -26,7 +26,7 @@ related:
 
 ## 1. Executive Summary & Empirical Problem Statement
 
-`ctxvault` delivers high-signal, sub-millisecond context retrieval to AI coding agents via a 4-modality hybrid retrieval architecture (Tantivy Okapi BM25, dense ONNX embeddings via `jina-embeddings-v2-base-code`, and Petgraph typed AST/wikilink graph traversal). While dense neural embeddings provide unmatched natural language comprehension, they create an existential **indexing bottleneck** and leave a major **topological void** in repository graphs.
+`groundcontrol` delivers high-signal, sub-millisecond context retrieval to AI coding agents via a 4-modality hybrid retrieval architecture (Tantivy Okapi BM25, dense ONNX embeddings via `jina-embeddings-v2-base-code`, and Petgraph typed AST/wikilink graph traversal). While dense neural embeddings provide unmatched natural language comprehension, they create an existential **indexing bottleneck** and leave a major **topological void** in repository graphs.
 
 ```mermaid
 flowchart TD
@@ -53,7 +53,7 @@ On massive codebases (e.g., Linux kernel with ~75K files / 800K functions, Kuber
 - **Model Distribution Footprint**: Shipping and caching the 500MB+ Jina ONNX model sidecar creates friction in zero-configuration developer onboarding.
 
 ### 1.2 The Graph Topology Gap: Absence of Conceptual Affinity Edges
-Even when neural embeddings are computed, `ctxvault`'s current architecture uses them **exclusively for query-time nearest-neighbor retrieval** inside HNSW (`VectorStore::search`). The Petgraph graph index (`GraphStore`) receives strictly syntactic and explicit structural edges:
+Even when neural embeddings are computed, `groundcontrol`'s current architecture uses them **exclusively for query-time nearest-neighbor retrieval** inside HNSW (`VectorStore::search`). The Petgraph graph index (`GraphStore`) receives strictly syntactic and explicit structural edges:
 1. `defines` (File $\rightarrow$ Symbol)
 2. `calls` (Symbol $\rightarrow$ Symbol)
 3. `imports` (File $\rightarrow$ Target)
@@ -68,7 +68,7 @@ Consequently:
 ### 1.3 The CBM Reference Paradigm
 In `codebase-memory-mcp` (CBM), an alternative paradigm is proven: **purely algorithmic semantic code embeddings**. Operating entirely on in-memory AST metadata without invoking external neural models, CBM synthesizes 11 orthogonal signals into dense and sparse representations, compresses them via 4-bit rotated scalar quantization (Extended RaBitQ / RoTSQ), and emits `SEMANTICALLY_RELATED` edges across an 800,000-function codebase in **30 to 60 seconds on an Apple M3 Pro**.
 
-This RFC analyzes CBM's technical architecture, evaluates its feasibility within `ctxvault`'s `#![forbid(unsafe_code)]` and Hexagonal Ports framework, and specifies a **Dual-Mode Algorithmic Semantic Architecture** that bridges vocabulary gaps, enriches Petgraph with weighted `[:semantically_related]` edges, and enables instant sub-minute semantic indexing on all hardware.
+This RFC analyzes CBM's technical architecture, evaluates its feasibility within `groundcontrol`'s `#![forbid(unsafe_code)]` and Hexagonal Ports framework, and specifies a **Dual-Mode Algorithmic Semantic Architecture** that bridges vocabulary gaps, enriches Petgraph with weighted `[:semantically_related]` edges, and enables instant sub-minute semantic indexing on all hardware.
 
 ---
 
@@ -182,13 +182,13 @@ Evaluating $O(N^2)$ pairwise similarities across 500,000 functions requires $125
 
 ---
 
-## 3. Evaluation for `ctxvault`: Invariants & Architectural Fit
+## 3. Evaluation for `groundcontrol`: Invariants & Architectural Fit
 
-How does this methodology align with `ctxvault`’s non-negotiable architectural invariants defined in [`GEMINI.md`](file:///c:/dev/semantic/ctxvault/GEMINI.md)?
+How does this methodology align with `groundcontrol`’s non-negotiable architectural invariants defined in [`GEMINI.md`](file:///c:/dev/semantic/groundcontrol/GEMINI.md)?
 
 ```mermaid
 flowchart TD
-    subgraph ALIGN["ctxvault Architectural Alignment"]
+    subgraph ALIGN["groundcontrol Architectural Alignment"]
         INV1["Invariant 1: Source is Ground Truth<br/>PASS: All algorithmic indices disposable & rebuildable"]
         INV2["Invariant 2: Pure Rust Safety - forbid unsafe code<br/>PASS: FWHT & RaBitQ fully expressible in safe Rust"]
         INV3["Invariant 3: Sub-Millisecond Retrieval<br/>PASS: Algorithmic edges enrich Petgraph in advance"]
@@ -199,31 +199,31 @@ flowchart TD
 
 ### 3.1 Invariant Compliance Matrix
 
-| `ctxvault` Invariant | CBM Technique | Compliance Evaluation |
+| `groundcontrol` Invariant | CBM Technique | Compliance Evaluation |
 |---|---|---|
 | **1. Source on disk is ground truth** | Algorithmic metadata extraction | **Perfect Fit**. All vectors, TF-IDF tables, and LSH indices are transient, derived entirely from the AST. If `.index/` is wiped, the entire state is re-synthesized from source in seconds. |
 | **2. Deterministic graph topology (No LLM extraction)** | xxHash random projection, FWHT, MinHash, AST profiling | **Perfect Fit**. Zero non-deterministic LLM prompts. Two index runs on the same commit produce byte-for-byte identical graph edges. |
-| **3. `#![forbid(unsafe_code)]`** | C11 SIMD, raw pointers, `.incbin` | **Requires Pure Rust Adaptation**. CBM uses `.incbin` assembler directives and raw pointer arithmetic. `ctxvault` must implement FWHT, RoTSQ, and token lookups in 100% safe Rust (`include_bytes!`, slice operations, auto-vectorization). |
+| **3. `#![forbid(unsafe_code)]`** | C11 SIMD, raw pointers, `.incbin` | **Requires Pure Rust Adaptation**. CBM uses `.incbin` assembler directives and raw pointer arithmetic. `groundcontrol` must implement FWHT, RoTSQ, and token lookups in 100% safe Rust (`include_bytes!`, slice operations, auto-vectorization). |
 | **4. Sub-millisecond retrieval** | Graph BFS on emitted edges | **High Value**. Query-time retrieval does not need to compute algorithmic vectors; it traverses pre-computed Petgraph edges (`p50 ~1.8ms`). |
 | **5. Hexagonal architecture (Ports & Adapters)** | Monolithic C pipeline | **Requires Port Abstraction**. The algorithmic pipeline must be encapsulated behind a port (`SemanticBridge` or `AlgorithmicSemanticIndex`) without leaking internal quantization types. |
 | **6. Multi-corpus isolation** | Single global corpus buffer | **Requires Partitioning**. `CorpusManager` serves $N$ corpora simultaneously. Vocabulary, TF-IDF document frequencies, and co-occurrence tables must be strictly partitioned per-corpus. |
 
-### 3.2 Key Divergences: What `ctxvault` Has That CBM Lacks
+### 3.2 Key Divergences: What `groundcontrol` Has That CBM Lacks
 
 1. **Dual Code + Documentation Modality**:
    - CBM only embeds `Function` and `Method` nodes in code.
-   - `ctxvault` indexes Markdown documentation (`docs/**/*.md`), architectural decision records (ADRs), and code symbols (`CodeSymbol`, `CodeChunk`, `CodeFile`).
+   - `groundcontrol` indexes Markdown documentation (`docs/**/*.md`), architectural decision records (ADRs), and code symbols (`CodeSymbol`, `CodeChunk`, `CodeFile`).
    - *Opportunity*: Algorithmic semantic bridging can be extended to **cross-modal edges**: linking Markdown architectural specifications directly to their implementing code symbols based on token overlap and API references.
 2. **Query-Time Semantic Search**:
    - CBM does *not* support ad-hoc natural language search at query time using its algorithmic vectors; it only emits graph edges. Search is keyword-only.
-   - `ctxvault` supports `mode=semantic` and `mode=hybrid` query dispatch.
-   - *Opportunity*: By retaining Jina-v2 ONNX alongside algorithmic bridging, `ctxvault` achieves the best of both worlds: high-fidelity natural language queries via ONNX + rich graph connectivity via algorithmic edges. In CPU-only mode, the algorithmic tokenizer can project user queries into the same 768d space for fast fallback search.
+   - `groundcontrol` supports `mode=semantic` and `mode=hybrid` query dispatch.
+   - *Opportunity*: By retaining Jina-v2 ONNX alongside algorithmic bridging, `groundcontrol` achieves the best of both worlds: high-fidelity natural language queries via ONNX + rich graph connectivity via algorithmic edges. In CPU-only mode, the algorithmic tokenizer can project user queries into the same 768d space for fast fallback search.
 
 ---
 
 ## 4. Proposed Architecture: The Dual-Mode Semantic Engine
 
-Rather than replacing `ctxvault`'s neural path, we propose a **Dual-Mode Semantic Engine**. The indexing pipeline gains a dedicated, hardware-independent algorithmic semantic pass that runs in parallel with or in place of ONNX embeddings.
+Rather than replacing `groundcontrol`'s neural path, we propose a **Dual-Mode Semantic Engine**. The indexing pipeline gains a dedicated, hardware-independent algorithmic semantic pass that runs in parallel with or in place of ONNX embeddings.
 
 ```
 Indexing Pipeline Topology:
@@ -253,7 +253,7 @@ Indexing Pipeline Topology:
 
 ### 4.1 Indexing Mode Configuration (`SemanticMode`)
 
-In `ctxvault.toml`, the user or environment selects the execution profile:
+In `groundcontrol.toml`, the user or environment selects the execution profile:
 
 ```toml
 [indexing]
@@ -296,7 +296,7 @@ pub fn fwht_1024(v: &mut [f32; 1024]) {
 The Rust compiler (`rustc` LLVM backend) unrolls the inner loops and auto-vectorizes this structure into AVX-2 / AVX-512 vector instructions with zero unsafe code.
 
 #### 4.2.2 Pure Rust RoTSQ 4-Bit Codec
-The quantized representation is encapsulated in `ctxvault-core`:
+The quantized representation is encapsulated in `groundcontrol-core`:
 
 ```rust
 pub const RSQ_IN_DIM: usize = 768;
@@ -338,10 +338,10 @@ impl RotSqCode {
 #### 4.2.3 Reflective Random Indexing (RRI) with Zipfian Stride-Sampling
 To bound execution time on 100K+ files, token co-occurrence must handle Zipfian distribution skew:
 - Common language keywords (`int`, `fn`, `return`, `err`, `self`) appear in hundreds of thousands of functions. Unbounded co-occurrence updates across window $\pm 5$ scale as $O(\text{freq} \times \text{window} \times D)$, consuming 90% of index time.
-- **Stride-Sampling Guard**: For tokens exceeding `MAX_OCCURRENCES = 512`, `ctxvault` samples occurrences with uniform stride $S = \lfloor \frac{\text{total\_occurrences}}{512} \rfloor$. Because the enriched vector is unit-normalized at the end of the pass, stride-sampling preserves vector orientation while capping work per token to $O(1)$.
+- **Stride-Sampling Guard**: For tokens exceeding `MAX_OCCURRENCES = 512`, `groundcontrol` samples occurrences with uniform stride $S = \lfloor \frac{\text{total\_occurrences}}{512} \rfloor$. Because the enriched vector is unit-normalized at the end of the pass, stride-sampling preserves vector orientation while capping work per token to $O(1)$.
 
 ### 4.3 AST Profile Extraction Piggybacked on Tree-sitter
-In `ctxvault-core::parser::code`, the Tree-sitter AST traversal already visits every syntax node to identify symbols, imports, and calls. We extend the visitor to compute the 25-feature structural profile in a single pass:
+In `groundcontrol-core::parser::code`, the Tree-sitter AST traversal already visits every syntax node to identify symbols, imports, and calls. We extend the visitor to compute the 25-feature structural profile in a single pass:
 - No secondary tree walks.
 - Zero marginal file I/O.
 - Memory: 25 $\times$ `f32` (100 bytes) stored transiently per symbol.
@@ -350,11 +350,11 @@ In `ctxvault-core::parser::code`, the Tree-sitter AST traversal already visits e
 
 ## 5. Hexagonal Architecture Integration (Ports & Adapters)
 
-To satisfy `ctxvault`'s architectural invariants, the algorithmic engine must fit cleanly into the existing port structure without leaking concrete quantization or SQLite details.
+To satisfy `groundcontrol`'s architectural invariants, the algorithmic engine must fit cleanly into the existing port structure without leaking concrete quantization or SQLite details.
 
 ```mermaid
 flowchart TD
-    subgraph COMMON["ctxvault-common (Ports & Domain Types)"]
+    subgraph COMMON["groundcontrol-common (Ports & Domain Types)"]
         direction TB
         PORT_SEM["pub trait SemanticBridgeEngine: Send + Sync"]
         TYPE_EDGE["EdgeProvenance::AlgorithmicSemantic"]
@@ -362,7 +362,7 @@ flowchart TD
         CONFIG_SEM["AlgorithmicSemanticConfig"]
     end
 
-    subgraph CORE["ctxvault-core (Adapters & Engine)"]
+    subgraph CORE["groundcontrol-core (Adapters & Engine)"]
         direction TB
         ADAPTER_SEM["AlgorithmicSemanticPipeline<br/>(TF-IDF, RoTSQ, MinHash, RRI)"]
         PORT_SEM -.->|Implemented By| ADAPTER_SEM
@@ -370,7 +370,7 @@ flowchart TD
         ADAPTER_SEM -->|Emits Edges via| GRAPH_PORT["GraphStore Port (Petgraph)"]
     end
 
-    subgraph MCP["ctxvault-mcp (Tool Handlers)"]
+    subgraph MCP["groundcontrol-mcp (Tool Handlers)"]
         direction TB
         TOOL_SEARCH["search(mode='graph' | 'hybrid')"]
         TOOL_MATCH["graph_match(...)"]
@@ -382,7 +382,7 @@ flowchart TD
     GRAPH_PORT -.-> TOOL_COMM
 ```
 
-### 5.1 Port Definition in `ctxvault-common::ports`
+### 5.1 Port Definition in `groundcontrol-common::ports`
 
 ```rust
 /// Port for algorithmic semantic affinity computation and graph bridging.
@@ -404,7 +404,7 @@ pub trait SemanticBridgeEngine: Send + Sync {
 }
 ```
 
-### 5.2 Domain Types in `ctxvault-common::types`
+### 5.2 Domain Types in `groundcontrol-common::types`
 - Add variant to `EdgeProvenance`:
   ```rust
   #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -469,9 +469,9 @@ Transient vs. Resident Memory Budget:
 *Where should the static token embedding table originate?*
 - **Option A: Vendor `nomic-embed-code` table (40,856 tokens $\times$ 768d int8, ~30MB)**.
   - *Pros*: Battle-tested in CBM; highly discriminative code vocabulary; Apache 2.0.
-  - *Cons*: Vectors originate from a different model than `ctxvault`'s primary neural embedder (`jina-embeddings-v2-base-code`).
+  - *Cons*: Vectors originate from a different model than `groundcontrol`'s primary neural embedder (`jina-embeddings-v2-base-code`).
 - **Option B: Distill directly from `jina-embeddings-v2-base-code` (50,000 tokens $\times$ 768d int8, ~37MB)**.
-  - *Pros*: Perfect geometric alignment with `ctxvault`'s existing ONNX model; allows algorithmic vectors to be directly queried against neural HNSW vectors.
+  - *Pros*: Perfect geometric alignment with `groundcontrol`'s existing ONNX model; allows algorithmic vectors to be directly queried against neural HNSW vectors.
   - *Cons*: Requires running an offline distillation pipeline script.
 - **Option C: Pure Random Indexing with zero static tables (0MB binary size)**.
   - *Pros*: Zero binary growth; completely autonomous.
@@ -483,7 +483,7 @@ Transient vs. Resident Memory Budget:
 - **Option A: Static Compilation (`include_bytes!`)**.
   - Binary grows from ~35MB to ~65MB.
   - Zero network dependencies, zero cold-start download delay, guaranteed reliability in air-gapped enterprise environments.
-- **Option B: Dynamic Download to `~/.ctxvault/assets/` on first run**.
+- **Option B: Dynamic Download to `~/.groundcontrol/assets/` on first run**.
   - Keeps binary small (~35MB), but re-introduces network dependency and failure modes.
 - **Recommendation**: **Option A**. In enterprise MCP deployments, a 65MB single-binary self-contained executable is vastly preferred over runtime asset downloads.
 
@@ -518,11 +518,11 @@ gantt
 ```
 
 ### Phase 1: AST Profiling & MinHash Piggybacking
-- Update [`crates/ctxvault-core/src/parser/code/mod.rs`](file:///c:/dev/semantic/ctxvault/crates/ctxvault-core/src/parser/code/mod.rs) to compute `AstProfile` (25 floats) and `MinHashSignature` (64 hashes) during the primary tree walk.
+- Update [`crates/groundcontrol-core/src/parser/code/mod.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/parser/code/mod.rs) to compute `AstProfile` (25 floats) and `MinHashSignature` (64 hashes) during the primary tree walk.
 - Verify zero regression on parsing throughput.
 
 ### Phase 2: Pure Rust FWHT & RoTSQ Codec
-- Implement `ctxvault-core::semantic::rotsq` with safe Rust FWHT and 4-bit scalar quantization.
+- Implement `groundcontrol-core::semantic::rotsq` with safe Rust FWHT and 4-bit scalar quantization.
 - Benchmark inner-product estimation against float32 ground truth; verify $>0.98$ cosine correlation.
 
 ### Phase 3: Tokenizer, Pattern Injection & RRI Engine
@@ -549,9 +549,9 @@ gantt
 ## 9. Verification & Benchmarking Plan
 
 ### 9.1 Automated Test Suite
-- `cargo test -p ctxvault-core --test rotsq_tests`: Test FWHT inversion, deterministic xxHash seeding, and RoTSQ reconstruction bounds across $100{,}000$ synthetic Gaussian vectors.
-- `cargo test -p ctxvault-core --test tfidf_tests`: Verify sparse cosine similarity and IDF smoothing against analytical baselines.
-- `cargo test -p ctxvault-core --test rri_tests`: Test determinism of 2-pass co-occurrence updates across multithreaded runs.
+- `cargo test -p groundcontrol-core --test rotsq_tests`: Test FWHT inversion, deterministic xxHash seeding, and RoTSQ reconstruction bounds across $100{,}000$ synthetic Gaussian vectors.
+- `cargo test -p groundcontrol-core --test tfidf_tests`: Verify sparse cosine similarity and IDF smoothing against analytical baselines.
+- `cargo test -p groundcontrol-core --test rri_tests`: Test determinism of 2-pass co-occurrence updates across multithreaded runs.
 
 ### 9.2 Real-World Benchmarks
 1. **Linux Kernel (75K files, ~800K functions)**:

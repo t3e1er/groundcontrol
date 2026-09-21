@@ -1,6 +1,6 @@
 ---
 title: "MCP Transport & Authoritative Tool Registry"
-description: "Stdio framing, Axum HTTP SSE transport, and the authoritative 17-tool handler registration in ctxvault."
+description: "Stdio framing, Axum HTTP SSE transport, and the authoritative 17-tool handler registration in groundcontrol."
 category: "implementation"
 status: "active"
 tags: ["mcp", "transport", "stdio", "http", "sse", "registry", "17-tools"]
@@ -12,7 +12,7 @@ related:
 
 # MCP Transport & Authoritative Tool Registry
 
-`ctxvault-mcp` implements the **Model Context Protocol (MCP)** specification with dual transports: standard input/output (stdio JSON-RPC) for local subagents, and Axum HTTP with Server-Sent Events (SSE) for distributed swarms.
+`groundcontrol-mcp` implements the **Model Context Protocol (MCP)** specification with dual transports: standard input/output (stdio JSON-RPC) for local subagents, and Axum HTTP with Server-Sent Events (SSE) for distributed swarms.
 
 ---
 
@@ -28,7 +28,7 @@ This prevents read requests from stalling behind background indexing jobs.
 
 ## 2. Authoritative 17-Tool Registry
 
-The authoritative registry in `crates/ctxvault-mcp/src/tools/mod.rs` defines the complete protocol surface:
+The authoritative registry in `crates/groundcontrol-mcp/src/tools/mod.rs` defines the complete protocol surface:
 
 ```rust
 // Authoritative 17 Tools across 5 Functional Domains:
@@ -46,12 +46,12 @@ Each tool handler performs strict schema validation on incoming JSON-RPC payload
 
 ## 3. Client Identity, `x-api-key` Authentication & Telemetry Correlation
 
-To track multi-agent swarm activity in real time, `ctxvault-mcp` resolves incoming connections against the client registry ([`ClientsRegistry`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/client.rs)):
+To track multi-agent swarm activity in real time, `groundcontrol-mcp` resolves incoming connections against the client registry ([`ClientsRegistry`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/client.rs)):
 
 ### Authentication Model & Zero-Auth Default
 * **Default Zero-Auth**: Out of the box, `require_auth` is disabled (`false`). Local developers can connect without configuring secret keys.
-* **Authentication Header**: Clients supply `x-api-key: <token>` (or `Authorization: Bearer <token>`). In CLI environments, `CTXV_API_KEY` can be used.
-* **Strict Rejection**: When `require_auth: true` is configured in `clients.json` or enabled via `--require-auth` / `CTXV_REQUIRE_AUTH=true`, requests lacking a valid matching key are rejected with `401 Unauthorized` and JSON-RPC error code `-32000`:
+* **Authentication Header**: Clients supply `x-api-key: <token>` (or `Authorization: Bearer <token>`). In CLI environments, `GROUNDCONTROL_API_KEY` can be used.
+* **Strict Rejection**: When `require_auth: true` is configured in `clients.json` or enabled via `--require-auth` / `GROUNDCONTROL_REQUIRE_AUTH=true`, requests lacking a valid matching key are rejected with `401 Unauthorized` and JSON-RPC error code `-32000`:
   ```json
   {
     "jsonrpc": "2.0",
@@ -66,7 +66,7 @@ To track multi-agent swarm activity in real time, `ctxvault-mcp` resolves incomi
 ### Telemetry Correlation
 When a valid API key is resolved, the agent's identity (`client_id`, `client_name`, `client_color`) is attached to telemetry events (`AgentActivation`) streamed via SSE to the 3D GraphView visualizer.
 
-### Client Configuration Management (`ctxvault client`)
+### Client Configuration Management (`groundcontrol client`)
 Client profiles and keys can be self-configured via the CLI:
-* `ctxvault client init`: Generates a local `clients.json` template populated with cryptographically random API keys and an internal `daemon_key` for GraphView relay.
-* `ctxvault client list`: Displays active client profiles, theme colors, and authentication status.
+* `groundcontrol client init`: Generates a local `clients.json` template populated with cryptographically random API keys and an internal `daemon_key` for GraphView relay.
+* `groundcontrol client list`: Displays active client profiles, theme colors, and authentication status.

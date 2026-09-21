@@ -15,42 +15,42 @@ related:
 
 # Information Retrieval Evaluation Methodology & Publication Standards
 
-This document establishes the authoritative scientific evaluation methodology for `ctxvault`'s retrieval and semantic bridging engines ([`RFC-sota-code-retrieval-and-semantic-bridging.md`](file:///c:/dev/ctx/ctxvault/docs/roadmap/RFC-sota-code-retrieval-and-semantic-bridging.md)). It defines the mathematical metrics, reference corpora, query stratification taxonomies, statistical significance protocols, and Turn-1 structural orientation models implemented in [`crates/ctxvault-bench`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench).
+This document establishes the authoritative scientific evaluation methodology for `groundcontrol`'s retrieval and semantic bridging engines ([`RFC-sota-code-retrieval-and-semantic-bridging.md`](file:///c:/dev/ctx/groundcontrol/docs/roadmap/RFC-sota-code-retrieval-and-semantic-bridging.md)). It defines the mathematical metrics, reference corpora, query stratification taxonomies, statistical significance protocols, and Turn-1 structural orientation models implemented in [`crates/groundcontrol-bench`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench).
 
 ---
 
 ## 1. Reference Code & Documentation Corpora
 
-In peer-reviewed software engineering and Information Retrieval (IR) literature, four classes of public reference corpora define empirical performance. `ctxvault` integrates native ingestion adapters ([`PublicBenchmarkAdapter`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/dataset/adapters.rs)) for these formats:
+In peer-reviewed software engineering and Information Retrieval (IR) literature, four classes of public reference corpora define empirical performance. `groundcontrol` integrates native ingestion adapters ([`PublicBenchmarkAdapter`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/dataset/adapters.rs)) for these formats:
 
 ### 1.1 CodeSearchNet & CSN-AdvTest
 - **Origin**: Husain et al. (GitHub/Microsoft Research, 2019); Lu et al. (AdvTest / CodeXGLUE, 2021).
 - **Domain**: 2.1 million (Docstring $\leftrightarrow$ Function) pairs across 6 programming languages (**Python, Go, Java, JavaScript, Ruby, PHP**).
 - **Role in Evaluation**: Measures zero-shot semantic matching between developer intention queries and AST function bodies.
 - **AdvTest Normalization**: Standard CodeSearchNet can allow lexical matching if function identifiers match query tokens verbatim (e.g. query: `"compute sha256"`, function: `compute_sha256()`). **AdvTest** normalizes identifier names to evaluate true semantic and structural matching.
-- **Format**: JSONL records converted via [`PublicBenchmarkFormat::CodeSearchNet`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/dataset/adapters.rs).
+- **Format**: JSONL records converted via [`PublicBenchmarkFormat::CodeSearchNet`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/dataset/adapters.rs).
 
 ### 1.2 RepoBench (`RepoBench-R`)
 - **Origin**: Liu et al. (Tsinghua / Microsoft, NeurIPS 2023).
 - **Domain**: Multi-file repositories in **Python, Java, Go, TypeScript**.
 - **Role in Evaluation**: Unlike isolated single-function benchmarks, `RepoBench-R` evaluates cross-file dependency resolution. Queries require retrieving class definitions, utility functions, or imported types located in external repository modules.
-- **Format**: JSONL instances converted via [`PublicBenchmarkFormat::RepoBench`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/dataset/adapters.rs).
+- **Format**: JSONL instances converted via [`PublicBenchmarkFormat::RepoBench`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/dataset/adapters.rs).
 
 ### 1.3 SWE-bench Lite (Localization Sub-Task)
 - **Origin**: Jimenez et al. (ICLR 2024).
 - **Domain**: 300 real GitHub issue descriptions paired with canonical git pull request patches.
 - **Role in Evaluation**: While full SWE-bench evaluates end-to-end patch generation, the **localization sub-task** measures whether an IR system retrieves the exact files and functions modified by senior maintainers to resolve the issue.
-- **Diff Parsing**: Ground truth targets are extracted deterministically from patch headers (`--- a/...`, `+++ b/...`) via [`PublicBenchmarkAdapter::convert_swebench`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/dataset/adapters.rs).
+- **Diff Parsing**: Ground truth targets are extracted deterministically from patch headers (`--- a/...`, `+++ b/...`) via [`PublicBenchmarkAdapter::convert_swebench`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/dataset/adapters.rs).
 
-### 1.4 `ctxvault` Polyglot Cross-Modal Ground Truth
-- **Domain**: Production repositories (Linux kernel, Kubernetes, `ctxvault` dogfood corpus).
-- **Role in Evaluation**: Evaluates bidirectional linking between natural language documentation (ADRs, RFCs) and AST code nodes connected via typed graph edges ([`defines`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs), [`calls`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs), [`implements`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs), [`imports`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs)).
+### 1.4 `groundcontrol` Polyglot Cross-Modal Ground Truth
+- **Domain**: Production repositories (Linux kernel, Kubernetes, `groundcontrol` dogfood corpus).
+- **Role in Evaluation**: Evaluates bidirectional linking between natural language documentation (ADRs, RFCs) and AST code nodes connected via typed graph edges ([`defines`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs), [`calls`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs), [`implements`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs), [`imports`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs)).
 
 ---
 
 ## 2. Mathematical Formalism of Retrieval Metrics
 
-All ranking calculations are implemented in [`IrEvaluator`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/metrics/ir.rs). Let $\mathcal{Q}$ be a set of queries, $\mathcal{R}_q$ be the ground-truth set of relevant documents for query $q \in \mathcal{Q}$, and $r_{q,i}$ be the document ranked at position $i \in \{1, \dots, K\}$.
+All ranking calculations are implemented in [`IrEvaluator`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/metrics/ir.rs). Let $\mathcal{Q}$ be a set of queries, $\mathcal{R}_q$ be the ground-truth set of relevant documents for query $q \in \mathcal{Q}$, and $r_{q,i}$ be the document ranked at position $i \in \{1, \dots, K\}$.
 
 ```mermaid
 flowchart LR
@@ -78,7 +78,7 @@ $$\text{MRR}@K = \frac{1}{|\mathcal{Q}|} \sum_{q \in \mathcal{Q}} \frac{1}{\text
 where $\text{rank}_1(q) = \min \{ i \le K \mid r_{q,i} \in \mathcal{R}_q \}$, and $\frac{1}{\text{rank}_1(q)} = 0$ if no hit exists within top-$K$.
 
 ### 2.4 Normalized Discounted Cumulative Gain (NDCG@$K$)
-Evaluates graded relevance using discrete grades $g(r) \in \{0, 1, 2, 3\}$ ([`RelevanceJudgment`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/dataset/schema.rs)):
+Evaluates graded relevance using discrete grades $g(r) \in \{0, 1, 2, 3\}$ ([`RelevanceJudgment`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/dataset/schema.rs)):
 - Grade 3: Exact ground truth target symbol/file.
 - Grade 2: Strongly relevant dependency or caller.
 - Grade 1: Weakly related / contextual file.
@@ -97,7 +97,7 @@ $$\text{Separation}@K = \frac{\text{Score}(r_{q,1})}{\max(\epsilon, \text{Score}
 
 In Model Context Protocol (MCP) agent workflows, Turn 1 is an **orientation and anchoring phase** rather than a final line-level edit phase. Evaluating Turn 1 purely on whether the exact target appears at rank 1 penalizes systems that retrieve high-degree central orchestrators.
 
-`ctxvault` formalizes two topological orientation metrics in [`IrEvaluator::evaluate_with_orientation`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/metrics/ir.rs):
+`groundcontrol` formalizes two topological orientation metrics in [`IrEvaluator::evaluate_with_orientation`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/metrics/ir.rs):
 
 ### 3.1 Cluster Recall@$K$ (Anchor Reachability)
 Measures whether top-$K$ contains either the ground-truth target $\tau_q$ or any node within 1 hop in Petgraph ($\mathcal{N}_1(\tau_q)$ via `calls`, `defines`, `imports`):
@@ -118,17 +118,17 @@ Queries must be classified into a 5-tier stratification matrix to isolate failur
 
 | Query Tier | Focus Area | Example Query | Primary Engine Component Tested |
 |---|---|---|---|
-| **Tier 1: Verbatim Anchor** | Exact symbols, camelCase, snake_case | `"BinaryFingerprint"`, `"hamming_distance"` | Tantivy Okapi BM25 index ([`TextIndex`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/ports.rs)) |
-| **Tier 2: Semantic Intent** | Natural language, intent without keywords | `"sub-minute CPU vector projection for large repos"` | SIF Projection + 256-bit MRL Binary Hamming ([`BinarySearchIndex`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/binary.rs)) |
+| **Tier 1: Verbatim Anchor** | Exact symbols, camelCase, snake_case | `"BinaryFingerprint"`, `"hamming_distance"` | Tantivy Okapi BM25 index ([`TextIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs)) |
+| **Tier 2: Semantic Intent** | Natural language, intent without keywords | `"sub-minute CPU vector projection for large repos"` | SIF Projection + 256-bit MRL Binary Hamming ([`BinarySearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/binary.rs)) |
 | **Tier 3: Diagnostics & Error** | Panic messages, stack traces, compiler output | `"unrecognized token during binary index read"` | AST Pattern Injection (`__sem_error`, `__sem_exception`) |
-| **Tier 4: Cross-Modal** | Doc concepts mapping to polyglot code | `"how does ctxvault maintain memory safety?"` | Tantivy docs index + Petgraph cross-modal edges |
+| **Tier 4: Cross-Modal** | Doc concepts mapping to polyglot code | `"how does groundcontrol maintain memory safety?"` | Tantivy docs index + Petgraph cross-modal edges |
 | **Tier 5: Relational** | Central orchestrators and caller hierarchies | `"where are incoming HTTP requests dispatched?"` | HippoRAG 2-hop Personalized PageRank diffusion |
 
 ---
 
 ## 5. Statistical Significance Testing & Publication Output
 
-Evaluating retrieval algorithms without hypothesis testing violates publication standards. [`SignificanceEvaluator`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/metrics/significance.rs) implements standard paired tests:
+Evaluating retrieval algorithms without hypothesis testing violates publication standards. [`SignificanceEvaluator`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/metrics/significance.rs) implements standard paired tests:
 
 ### 5.1 Paired Student's $t$-test
 Computes the test statistic over per-query metric deltas $d_i = \text{NDCG}_A(q_i) - \text{NDCG}_B(q_i)$:
@@ -147,7 +147,7 @@ with normal approximation $z = \frac{W - 0.5}{\sigma_W}$ for $N \ge 10$.
 - $\text{n.s.}$: Not statistically significant ($p \ge 0.05$).
 
 ### 5.4 LaTeX `booktabs` Exporter
-[`LatexReporter`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/report/latex.rs) automatically converts suite runs into publication-ready LaTeX tables:
+[`LatexReporter`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/report/latex.rs) automatically converts suite runs into publication-ready LaTeX tables:
 
 ```latex
 \begin{table*}[t]
@@ -171,18 +171,18 @@ with normal approximation $z = \frac{W - 0.5}{\sigma_W}$ for $N \ge 10$.
 
 ---
 
-## 6. Execution Workflow (`ctxv-bench`)
+## 6. Execution Workflow (`gc-bench`)
 
 ### 1. Ingest Public Benchmarks
 ```bash
 # Convert CodeSearchNet Go test set
-cargo run -p ctxvault-bench -- import \
+cargo run -p groundcontrol-bench -- import \
   --input ./data/csn_go_test.jsonl \
   --format codesearchnet \
   --output ./benchmarks/csn_go.json
 
 # Convert RepoBench-R cross-file retrieval set
-cargo run -p ctxvault-bench -- import \
+cargo run -p groundcontrol-bench -- import \
   --input ./data/repobench_r.jsonl \
   --format repobench \
   --output ./benchmarks/repobench.json
@@ -191,7 +191,7 @@ cargo run -p ctxvault-bench -- import \
 ### 2. Run Retrieval Evaluation and Export LaTeX
 ```bash
 # Run ablation sweep across all modes and output LaTeX table
-cargo run -p ctxvault-bench -- eval \
+cargo run -p groundcontrol-bench -- eval \
   --corpus . \
   --queries ./benchmarks/csn_go.json \
   --modes bm25,binary,ppr,fast,semantic \

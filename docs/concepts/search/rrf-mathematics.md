@@ -1,6 +1,6 @@
 ---
 title: "Reciprocal Rank Fusion (RRF) Mathematics"
-description: "Mathematical formulation, parameter k=60 selection, and rank combination proofs in ctxvault."
+description: "Mathematical formulation, parameter k=60 selection, and rank combination proofs in groundcontrol."
 category: "search"
 status: "active"
 tags: ["rrf", "math", "rank-fusion", "cormack", "algorithms", "information-retrieval"]
@@ -14,9 +14,9 @@ related:
 
 To merge disparate score distributions (BM25 unbounded log-odds vs cosine similarity in $[-1, 1]$ vs PageRank probabilities), linear score normalization is notoriously brittle.
 
-`ctxvault` utilizes **Reciprocal Rank Fusion (RRF)** (Cormack, Clarke, and Büttcher, 2009).
+`groundcontrol` utilizes **Reciprocal Rank Fusion (RRF)** (Cormack, Clarke, and Büttcher, 2009).
 
-* **Source Implementation**: [`crates/ctxvault-core/src/search/rrf.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/rrf.rs)
+* **Source Implementation**: [`crates/groundcontrol-core/src/search/rrf.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/rrf.rs)
 
 ---
 

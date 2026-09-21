@@ -13,24 +13,24 @@ related:
 
 # MCP Client & IDE Integration
 
-`ctxvault` communicates natively over standard input/output (stdio JSON-RPC) and Server-Sent Events (HTTP SSE), adhering strictly to the Model Context Protocol specification.
+`groundcontrol` communicates natively over standard input/output (stdio JSON-RPC) and Server-Sent Events (HTTP SSE), adhering strictly to the Model Context Protocol specification.
 
-* **Agent Auto-Installer**: [`crates/ctxvault-cli/src/installer/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-cli/src/installer/mod.rs)
-* **Stdio Transport**: [`crates/ctxvault-mcp/src/transport/stdio.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/transport/stdio.rs)
-* **HTTP SSE Transport**: [`crates/ctxvault-mcp/src/transport/http.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/transport/http.rs)
+* **Agent Auto-Installer**: [`crates/groundcontrol-cli/src/installer/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-cli/src/installer/mod.rs)
+* **Stdio Transport**: [`crates/groundcontrol-mcp/src/transport/stdio.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/transport/stdio.rs)
+* **HTTP SSE Transport**: [`crates/groundcontrol-mcp/src/transport/http.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/transport/http.rs)
 
 ---
 
-## 1. Automated Setup (`ctxvault install`)
+## 1. Automated Setup (`groundcontrol install`)
 
-`ctxvault` includes an auto-detection installer that discovers installed coding agents and registers a zero-arg `ctxvault` entry:
+`groundcontrol` includes an auto-detection installer that discovers installed coding agents and registers a zero-arg `groundcontrol` entry:
 
 ```bash
 # Standard zero-arg local launcher setup
-ctxvault install -y
+groundcontrol install -y
 
-# Setup with dedicated client API keys (CTXV_API_KEY)
-ctxvault install -y --auth
+# Setup with dedicated client API keys (GROUNDCONTROL_API_KEY)
+groundcontrol install -y --auth
 ```
 
 This automatically scans and configures:
@@ -46,14 +46,14 @@ This automatically scans and configures:
 
 ## 2. Zero-Argument Launcher Architecture
 
-Because `ctxvault` automatically mounts cached corpora from `${CTXV_CACHE_DIR}/corpora/` and probes the local working directory for `ctxvault.toml`, IDE configurations no longer require complex or brittle path arguments.
+Because `groundcontrol` automatically mounts cached corpora from `${GROUNDCONTROL_CACHE_DIR}/corpora/` and probes the local working directory for `groundcontrol.toml`, IDE configurations no longer require complex or brittle path arguments.
 
 ### Standard Zero-Arg Configuration
 ```json
 {
   "mcpServers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": []
     }
   }
@@ -61,15 +61,15 @@ Because `ctxvault` automatically mounts cached corpora from `${CTXV_CACHE_DIR}/c
 ```
 
 ### Authenticated Configuration (`--auth`)
-When running `ctxvault install --auth` or when connecting to a remote server with `require_auth = true`:
+When running `groundcontrol install --auth` or when connecting to a remote server with `require_auth = true`:
 ```json
 {
   "mcpServers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": [],
       "env": {
-        "CTXV_API_KEY": "ag_sec_908f9a"
+        "GROUNDCONTROL_API_KEY": "ag_sec_908f9a"
       }
     }
   }
@@ -84,8 +84,8 @@ When running `ctxvault install --auth` or when connecting to a remote server wit
 ```json
 {
   "mcpServers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": []
     }
   }
@@ -100,8 +100,8 @@ Location:
 ```json
 {
   "mcpServers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": []
     }
   }
@@ -112,8 +112,8 @@ Location:
 ```json
 {
   "mcpServers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": []
     }
   }
@@ -124,8 +124,8 @@ Location:
 ```json
 {
   "context_servers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": []
     }
   }

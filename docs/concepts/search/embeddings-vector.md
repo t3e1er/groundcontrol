@@ -13,11 +13,11 @@ related:
 
 # Dense ONNX Embeddings & Vector Space
 
-To capture abstract technical intentions and conceptual queries, `ctxvault` embeds a local 768-dimensional dense vector model.
+To capture abstract technical intentions and conceptual queries, `groundcontrol` embeds a local 768-dimensional dense vector model.
 
-* **DirectML Provider**: [`crates/ctxvault-core/src/embedding/directml.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/embedding/directml.rs)
-* **HNSW Vector Store**: [`crates/ctxvault-core/src/vector/hnsw.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/vector/hnsw.rs)
-* **EmbeddingProvider Port**: [`crates/ctxvault-common/src/ports.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/ports.rs)
+* **DirectML Provider**: [`crates/groundcontrol-core/src/embedding/directml.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/embedding/directml.rs)
+* **HNSW Vector Store**: [`crates/groundcontrol-core/src/vector/hnsw.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/vector/hnsw.rs)
+* **EmbeddingProvider Port**: [`crates/groundcontrol-common/src/ports.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs)
 
 ---
 
@@ -32,7 +32,7 @@ To capture abstract technical intentions and conceptual queries, `ctxvault` embe
 
 ## Hardware Acceleration: DirectML & SIMD
 
-Rather than requiring proprietary NVIDIA CUDA toolchains, `ctxvault` leverages **DirectX 12 DirectML** on Windows and native SIMD/CoreML on macOS/Linux:
+Rather than requiring proprietary NVIDIA CUDA toolchains, `groundcontrol` leverages **DirectX 12 DirectML** on Windows and native SIMD/CoreML on macOS/Linux:
 * **Vendor-Neutral GPU Compute**: Runs natively on AMD Radeon, Intel Arc, NVIDIA GeForce, and Qualcomm Snapdragon GPUs.
 * **Adaptive AIMD Governor**: Dynamically monitors GPU VRAM to maintain a safe 70% memory ceiling, preventing driver watchdog timeouts (TDR `0x887A0006`).
 * **Instant Fallback**: If no compatible GPU adapter is detected, the runtime gracefully falls back to AVX-512 / NEON CPU SIMD inference.

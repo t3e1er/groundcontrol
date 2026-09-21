@@ -1,0 +1,42 @@
+[package]
+name = "groundcontrol-graphview"
+description = "High-performance 3D knowledge graph visualizer and agent telemetry substrate library"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+name = "groundcontrol_graphview"
+path = "src/lib.rs"
+
+[dependencies]
+groundcontrol-common = { path = "../groundcontrol-common" }
+groundcontrol-core = { path = "../groundcontrol-core" }
+
+# Async runtime & Web
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { version = "0.7", features = ["cors", "trace", "fs"] }
+reqwest = { workspace = true }
+futures-util = { workspace = true }
+
+# Data & Graph
+petgraph = { workspace = true }
+rusqlite = { workspace = true }
+postcard = { workspace = true }
+rayon = "1.10"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Tracing & Errors
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }

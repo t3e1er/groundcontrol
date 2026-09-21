@@ -112,8 +112,8 @@ watch:
 
 # Run the CLI binary
 run *ARGS:
-    cargo run --bin ctxvault -- {{ARGS}}
+    cargo run --bin groundcontrol -- {{ARGS}}
 
 # Run the 3D GraphView visualizer server
 graphview *ARGS:
-    cargo run -p ctxvault-cli -- graphview {{ARGS}}
+    cargo run -p groundcontrol-cli -- graphview {{ARGS}}

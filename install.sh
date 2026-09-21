@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-# ctxvault Universal Installer for macOS and Linux
-# Installs standalone native binary directly into ~/.local/bin/ctxvault
+# groundcontrol Universal Installer for macOS and Linux
+# Installs standalone native binary directly into ~/.local/bin/groundcontrol
 
-REPO="${CTXV_GITHUB_REPO:-${CXTV_GITHUB_REPO:-t3e1er/ctxvault}}"
+REPO="${CTXV_GITHUB_REPO:-${CXTV_GITHUB_REPO:-t3e1er/groundcontrol}}"
 INSTALL_DIR="${CTXV_INSTALL_DIR:-${CXTV_INSTALL_DIR:-$HOME/.local/bin}}"
 
 FAST=false
@@ -85,7 +85,7 @@ esac
 # 2. Fetch release version
 if [ -z "$TAG" ]; then
     echo "[*] Resolving latest release for $REPO..."
-    TAG=$(curl -sSL -H "User-Agent: ctxvault-installer" "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    TAG=$(curl -sSL -H "User-Agent: groundcontrol-installer" "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
     if [ -z "$TAG" ]; then
         echo "[ERROR] Failed to fetch latest release tag from https://api.github.com/repos/$REPO/releases/latest" >&2
         exit 1
@@ -94,7 +94,7 @@ else
     echo "[*] Installing specified release $TAG for $REPO..."
 fi
 
-ARCHIVE_NAME="ctxvault-${TAG}-${TARGET}.tar.gz"
+ARCHIVE_NAME="groundcontrol-${TAG}-${TARGET}.tar.gz"
 DOWNLOAD_URL="https://github.com/$REPO/releases/download/${TAG}/${ARCHIVE_NAME}"
 
 echo "[*] Downloading $DOWNLOAD_URL..."
@@ -133,9 +133,9 @@ echo "[*] Extracting binary..."
 tar -xzf "$TMP_DIR/$ARCHIVE_NAME" -C "$TMP_DIR"
 
 mkdir -p "$INSTALL_DIR"
-EXTRACTED="$TMP_DIR/ctxvault-${TAG}-${TARGET}"
-cp "$EXTRACTED/ctxvault" "$INSTALL_DIR/ctxvault"
-chmod +x "$INSTALL_DIR/ctxvault"
+EXTRACTED="$TMP_DIR/groundcontrol-${TAG}-${TARGET}"
+cp "$EXTRACTED/groundcontrol" "$INSTALL_DIR/groundcontrol"
+chmod +x "$INSTALL_DIR/groundcontrol"
 
 # Copy updater script beside binary
 if [ -f "$0" ]; then
@@ -155,17 +155,17 @@ if [ -d "$EXTRACTED/models" ]; then
 fi
 
 # Optional symlink for short shorthand alias `ctxv`
-ln -sf "$INSTALL_DIR/ctxvault" "$INSTALL_DIR/ctxv" 2>/dev/null || true
+ln -sf "$INSTALL_DIR/groundcontrol" "$INSTALL_DIR/gc" 2>/dev/null || true
 
-# GraphView convenience wrapper: allow direct invocation via `ctxvault-graphview`
-cat << 'EOF' > "$INSTALL_DIR/ctxvault-graphview"
+# GraphView convenience wrapper: allow direct invocation via `groundcontrol-graphview`
+cat << 'EOF' > "$INSTALL_DIR/groundcontrol-graphview"
 #!/bin/sh
-exec "$(dirname "$0")/ctxvault" graphview "$@"
+exec "$(dirname "$0")/groundcontrol" graphview "$@"
 EOF
-chmod +x "$INSTALL_DIR/ctxvault-graphview"
+chmod +x "$INSTALL_DIR/groundcontrol-graphview"
 
 echo ""
-echo "[+] Successfully installed 'ctxvault' to $INSTALL_DIR/ctxvault"
+echo "[+] Successfully installed 'groundcontrol' to $INSTALL_DIR/groundcontrol"
 echo ""
 
 # Auto-configure installed coding agents
@@ -183,7 +183,7 @@ fi
 if [ -n "$AGENTS" ]; then
     INSTALL_ARGS="$INSTALL_ARGS --agents=$AGENTS"
 fi
-"$INSTALL_DIR/ctxvault" $INSTALL_ARGS
+"$INSTALL_DIR/groundcontrol" $INSTALL_ARGS
 
 # 3. Path hint
 case ":$PATH:" in
@@ -196,4 +196,4 @@ case ":$PATH:" in
         ;;
 esac
 
-echo "[>] Quick check: run 'ctxvault --version' to get started."
+echo "[>] Quick check: run 'groundcontrol --version' to get started."

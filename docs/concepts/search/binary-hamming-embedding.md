@@ -15,12 +15,12 @@ related:
 
 # Binary Hamming Distance Embedding & Sub-Millisecond Retrieval
 
-To achieve sub-millisecond semantic retrieval across hundreds of thousands of code symbols without requiring GPU hardware or incurring multi-hour neural model indexing passes, `ctxvault` and `codebase-memory-mcp` implement an **Algorithmic Binary Hamming Embedding Architecture**.
+To achieve sub-millisecond semantic retrieval across hundreds of thousands of code symbols without requiring GPU hardware or incurring multi-hour neural model indexing passes, `groundcontrol` and `codebase-memory-mcp` implement an **Algorithmic Binary Hamming Embedding Architecture**.
 
 This document specifies the end-to-end mathematical pipeline, the dimensional reduction from 2D token matrices to 1D vectors, the orthonormal Hadamard rotation, and the single-cycle bitwise Hamming matching mechanics.
 
 * **Reference C Pipeline**: [`pass_semantic_edges.c`](file:///c:/dev/ctx/codebase-memory-mcp/src/pipeline/pass_semantic_edges.c), [`rotsq.c`](file:///c:/dev/ctx/codebase-memory-mcp/src/semantic/rotsq.c), [`semantic.c`](file:///c:/dev/ctx/codebase-memory-mcp/src/semantic/semantic.c)
-* **Pure Rust Specification**: [`RFC-algorithmic-semantic-bridging.md`](file:///c:/dev/ctx/ctxvault/docs/roadmap/RFC-algorithmic-semantic-bridging.md)
+* **Pure Rust Specification**: [`RFC-algorithmic-semantic-bridging.md`](file:///c:/dev/ctx/groundcontrol/docs/roadmap/RFC-algorithmic-semantic-bridging.md)
 
 ---
 
@@ -40,7 +40,7 @@ Tokens not found in the static vocabulary fall back to a deterministic, pseudo-r
 
 ## 2. Chunk Encoding: From 2D Token Matrix to 1D Vector
 
-When a code snippet or function is parsed by the [cAST engine](file:///c:/dev/ctx/ctxvault/docs/architecture/implementation/cast-chunking.md):
+When a code snippet or function is parsed by the [cAST engine](file:///c:/dev/ctx/groundcontrol/docs/architecture/implementation/cast-chunking.md):
 
 ```javascript
 // Scope: myfn
@@ -211,4 +211,4 @@ This executes in **1 CPU clock cycle** (~0.3 nanoseconds).
 | **Chunk Vector** | $1 \times 768$ `f32` | Transient stack buffer | TF-IDF weighted vector accumulation |
 | **Rotated Vector** | $1 \times 1024$ `f32` | Transient stack buffer | In-place `fwht_1024` butterfly ($10{,}240$ ops) |
 | **Binary Signature** | `uint64_t` (`u64`) | **8 bytes per chunk** | 64 dot product signs; 1-cycle `POPCNT` |
-| **RoTSQ Code** | [`RotSqCode`](file:///c:/dev/ctx/ctxvault/docs/roadmap/RFC-algorithmic-semantic-bridging.md#L307) | 524 bytes per chunk | 4-bit integer dot product verification |
+| **RoTSQ Code** | [`RotSqCode`](file:///c:/dev/ctx/groundcontrol/docs/roadmap/RFC-algorithmic-semantic-bridging.md#L307) | 524 bytes per chunk | 4-bit integer dot product verification |

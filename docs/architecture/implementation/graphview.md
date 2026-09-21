@@ -13,17 +13,17 @@ related:
 
 # GraphView Standalone Architecture & Binary Substrate
 
-`ctxvault-graphview` is a high-performance, non-disruptive, standalone visualization daemon and web substrate for `ctxvault`. It renders massive documentation and polyglot code knowledge graphs in real-time 3D (supporting $1\text{M}+$ nodes and $3\text{M}+$ edges from Day 1) while operating as an isolated sidecar process with zero overhead on the core MCP query runtime.
+`groundcontrol-graphview` is a high-performance, non-disruptive, standalone visualization daemon and web substrate for `groundcontrol`. It renders massive documentation and polyglot code knowledge graphs in real-time 3D (supporting $1\text{M}+$ nodes and $3\text{M}+$ edges from Day 1) while operating as an isolated sidecar process with zero overhead on the core MCP query runtime.
 
 ---
 
 ## 1. System Topology & Sidecar Isolation
 
-Following the strict separation of concerns requested for cosmetic and observability services, `ctxvault-graphview` executes as a dedicated companion process (`ctxv graphview`). It interacts with the rest of the ecosystem through read-only disk artifacts and real-time event subscriptions:
+Following the strict separation of concerns requested for cosmetic and observability services, `groundcontrol-graphview` executes as a dedicated companion process (`gc graphview`). It interacts with the rest of the ecosystem through read-only disk artifacts and real-time event subscriptions:
 
 ```mermaid
 flowchart TD
-    subgraph CoreDaemon["ctxv daemon (MCP Server)"]
+    subgraph CoreDaemon["gc daemon (MCP Server)"]
         CM["CorpusManager"]
         KG["KnowledgeGraph (petgraph DiGraph)"]
         Catalog["MetadataCatalog (SQLite WAL)"]
@@ -35,7 +35,7 @@ flowchart TD
         MetaDB["meta.db (SQLite WAL mode)"]
     end
 
-    subgraph Sidecar["ctxvault-graphview (Standalone Sidecar Process)"]
+    subgraph Sidecar["groundcontrol-graphview (Standalone Sidecar Process)"]
         Loader["Snapshot Loader (postcard / memmap)"]
         BH["Parallel Arena Barnes-Hut Layout Engine"]
         BinWire["Binary Wire Protocol Serializer"]
@@ -74,9 +74,9 @@ flowchart TD
 ```
 
 ### Invariants of the Sidecar Architecture
-1. **Core Runtime Zero-Disruption**: The core daemon [`ctxvault-mcp`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/transport/http.rs) is never blocked, slowed, or bloated by WebGL assets, static HTTP bundle serving, or heavy $O(N \log N)$ 3D force simulation computations.
-2. **Read-Only Concurrency**: SQLite's WAL mode (`PRAGMA journal_mode=WAL`) allows unlimited concurrent readers from the sidecar without locking writes in [`MetadataCatalog`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/store/mod.rs).
-3. **Immutable Graph Snapshots**: The sidecar reads `graph.bin` directly via `postcard` deserialization of [`KnowledgeGraph`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/mod.rs), treating the file as an immutable point-in-time snapshot.
+1. **Core Runtime Zero-Disruption**: The core daemon [`groundcontrol-mcp`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/transport/http.rs) is never blocked, slowed, or bloated by WebGL assets, static HTTP bundle serving, or heavy $O(N \log N)$ 3D force simulation computations.
+2. **Read-Only Concurrency**: SQLite's WAL mode (`PRAGMA journal_mode=WAL`) allows unlimited concurrent readers from the sidecar without locking writes in [`MetadataCatalog`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/store/mod.rs).
+3. **Immutable Graph Snapshots**: The sidecar reads `graph.bin` directly via `postcard` deserialization of [`KnowledgeGraph`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/mod.rs), treating the file as an immutable point-in-time snapshot.
 
 ---
 
@@ -84,7 +84,7 @@ flowchart TD
 
 To meet the non-functional requirement (NFR) of supporting $1\text{M}+$ nodes from Day 1 without client browser collapse, layout calculation is shifted entirely to the Rust sidecar. Client browsers receive pre-computed 3D coordinates and remain 100% focused on GPU rendering.
 
-Standard $O(N^2)$ force-directed layout algorithms fail catastrophically at scale ($10^{12}$ force calculations per iteration at $N=1\text{M}$). `ctxvault-graphview` implements a parallelized **Barnes-Hut Octree** with an arena-allocated tree structure:
+Standard $O(N^2)$ force-directed layout algorithms fail catastrophically at scale ($10^{12}$ force calculations per iteration at $N=1\text{M}$). `groundcontrol-graphview` implements a parallelized **Barnes-Hut Octree** with an arena-allocated tree structure:
 
 $$\vec{F}_{\text{repulsive}}(i) = \sum_{j \ne i} \frac{k_{\text{rep}}^2}{\|\vec{r}_i - \vec{r}_j\|^2} \hat{r}_{ij}$$
 
@@ -113,7 +113,7 @@ pub struct OctreeNode {
 
 ## 3. High-Density Binary Wire Protocol
 
-JSON serialization overhead at $1\text{M}$ nodes exceeds $250\text{ MB}$, causing heavy garbage collection pauses and browser tab crashes. `ctxvault-graphview` uses a packed binary wire protocol served with `Content-Type: application/octet-stream`.
+JSON serialization overhead at $1\text{M}$ nodes exceeds $250\text{ MB}$, causing heavy garbage collection pauses and browser tab crashes. `groundcontrol-graphview` uses a packed binary wire protocol served with `Content-Type: application/octet-stream`.
 
 ### Binary Frame Layout
 
@@ -165,13 +165,13 @@ String Table (Appended at end of payload):
 To visualize real-time swarms of AI agents navigating the knowledge graph (activation pulses, read operations, crystallization writes), the sidecar includes an SSE event relay.
 
 ### Architecture
-1. **Core Publisher**: When a tool handler in [`crates/ctxvault-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs) executes, it emits an `AgentActivation` event containing:
+1. **Core Publisher**: When a tool handler in [`crates/groundcontrol-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs) executes, it emits an `AgentActivation` event containing:
    - `agent_id`: Identifier of the calling subagent (e.g. `scout-1`, `writer-2`).
    - `tool`: Tool name (`search`, `get_snippet`, `graph_match`, `write_note`).
    - `target_nodes`: Vector of affected node IDs or symbol handles.
    - `mode`: `read`, `write`, `search_hit`, or `traverse`.
-2. **Sidecar Subscriber**: `ctxvault-graphview` connects to the daemon's internal event endpoint (`/events/activations`), maintaining a 1,000-event circular ring buffer.
-   - When authentication is enabled (`require_auth = true`), the sidecar supplies the internal relay key via `x-api-key` header (configured via `--daemon-key`, `CTXV_INTERNAL_API_KEY`, or `config.toml` `[graphview.daemon_key]` / `[auth.daemon_key]`).
+2. **Sidecar Subscriber**: `groundcontrol-graphview` connects to the daemon's internal event endpoint (`/events/activations`), maintaining a 1,000-event circular ring buffer.
+   - When authentication is enabled (`require_auth = true`), the sidecar supplies the internal relay key via `x-api-key` header (configured via `--daemon-key`, `GROUNDCONTROL_INTERNAL_API_KEY`, or `config.toml` `[graphview.daemon_key]` / `[auth.daemon_key]`).
    - Direct manual activation events injected into `/api/events/activations` or `/api/activations` must likewise provide a valid client `x-api-key` or the `daemon_key`.
    - In default zero-auth environments (`require_auth = false`), connections succeed transparently without credentials.
 3. **Browser Broadcast**: The sidecar multiplexes events to connected browser sessions via SSE (`/api/events/activations`).
@@ -197,9 +197,9 @@ The sidecar exposes a minimal Axum REST and SSE interface on port `7070` (config
 
 ## 6. Bidirectional Code Links & Module Provenance
 
-- **Visualizer Crate & CLI Command**: [`crates/ctxvault-graphview/src/lib.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/lib.rs) & [`crates/ctxvault-cli/src/main.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-cli/src/main.rs)
-- **Octree Layout**: [`crates/ctxvault-graphview/src/layout/octree.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/layout/octree.rs)
-- **Binary Serializer**: [`crates/ctxvault-graphview/src/wire/binary.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-graphview/src/wire/binary.rs)
-- **KnowledgeGraph Postcard Serialization**: [`crates/ctxvault-core/src/graph/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/mod.rs#L828-L864)
-- **Corpus Routing & Storage**: [`crates/ctxvault-core/src/corpus_manager.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/corpus_manager.rs)
-- **MCP Event Streaming**: [`crates/ctxvault-mcp/src/transport/http.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/transport/http.rs)
+- **Visualizer Crate & CLI Command**: [`crates/groundcontrol-graphview/src/lib.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-graphview/src/lib.rs) & [`crates/groundcontrol-cli/src/main.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-cli/src/main.rs)
+- **Octree Layout**: [`crates/groundcontrol-graphview/src/layout/octree.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-graphview/src/layout/octree.rs)
+- **Binary Serializer**: [`crates/groundcontrol-graphview/src/wire/binary.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-graphview/src/wire/binary.rs)
+- **KnowledgeGraph Postcard Serialization**: [`crates/groundcontrol-core/src/graph/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/mod.rs#L828-L864)
+- **Corpus Routing & Storage**: [`crates/groundcontrol-core/src/corpus_manager.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/corpus_manager.rs)
+- **MCP Event Streaming**: [`crates/groundcontrol-mcp/src/transport/http.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/transport/http.rs)

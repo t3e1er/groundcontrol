@@ -3,7 +3,7 @@ title: "File Exclusion & Gitignore Pattern Engine"
 description: "Explicit, single-file repository exclusion filtering using gitignore-compatible pattern matching."
 category: "implementation"
 status: "active"
-tags: ["indexing", "discovery", "exclude", "gitignore", "ctxvault-toml"]
+tags: ["indexing", "discovery", "exclude", "gitignore", "groundcontrol-toml"]
 related:
   - "[[docs/architecture/implementation/index]]"
   - "[[docs/architecture/implementation/hexagonal-architecture]]"
@@ -13,12 +13,12 @@ related:
 
 During repository and knowledge base indexing, ingesting test suites, build outputs, mock data, or vendor packages leads to index bloat, wasted embedding compute, and polluted search results.
 
-`ctxvault` incorporates an explicit, deterministic file exclusion engine that filters files and directories at **discovery time** before any files are read, parsed, or embedded.
+`groundcontrol` incorporates an explicit, deterministic file exclusion engine that filters files and directories at **discovery time** before any files are read, parsed, or embedded.
 
-* **Configuration**: [`crates/ctxvault-common/src/config.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/config.rs)
-* **Matcher Engine**: [`crates/ctxvault-core/src/index/exclude.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/index/exclude.rs)
-* **Discovery Walker**: [`crates/ctxvault-core/src/engine.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/engine.rs)
-* **Continuous File Watcher**: [`crates/ctxvault-core/src/watcher/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/watcher/mod.rs)
+* **Configuration**: [`crates/groundcontrol-common/src/config.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/config.rs)
+* **Matcher Engine**: [`crates/groundcontrol-core/src/index/exclude.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/index/exclude.rs)
+* **Discovery Walker**: [`crates/groundcontrol-core/src/engine.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/engine.rs)
+* **Continuous File Watcher**: [`crates/groundcontrol-core/src/watcher/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/watcher/mod.rs)
 
 ---
 
@@ -32,7 +32,7 @@ Discovery evaluates paths through a strict, deterministic two-tier model:
    - `.index`
    - `node_modules`
 2. **Explicit Repository Exclusions (`[exclude.patterns]`)**:
-   Configured directly in `ctxvault.toml`. By default, initialized repositories include:
+   Configured directly in `groundcontrol.toml`. By default, initialized repositories include:
    - **VCS & Tool metadata**: `.git`, `.svn`, `.hg`, `.index/`, `.fastembed_cache/`
    - **Dependencies**: `node_modules/`, `vendor/`, `Pods/`
    - **Build artifacts**: `target/`, `dist/`, `build/`, `out/`, `bin/`, `obj/`
@@ -43,9 +43,9 @@ Discovery evaluates paths through a strict, deterministic two-tier model:
 
 ---
 
-## 2. Configuration Schema (`ctxvault.toml`)
+## 2. Configuration Schema (`groundcontrol.toml`)
 
-All exclusions are declared in a single, authoritative place inside `<repo_root>/ctxvault.toml`:
+All exclusions are declared in a single, authoritative place inside `<repo_root>/groundcontrol.toml`:
 
 ```toml
 name = "my-project"
@@ -63,11 +63,11 @@ patterns = [
 ]
 ```
 
-### Automatic Gitignore Migration (`ctxvault init`)
+### Automatic Gitignore Migration (`groundcontrol init`)
 
-Rather than re-evaluating multi-layered `.gitignore` or `.ctxvaultignore` files dynamically on every disk traversal, `ctxvault init` inspects your existing `.gitignore`, merges any active project exclusions with the standard defaults, and writes concrete patterns into `ctxvault.toml`.
+Rather than re-evaluating multi-layered `.gitignore` or `.groundcontrolignore` files dynamically on every disk traversal, `groundcontrol init` inspects your existing `.gitignore`, merges any active project exclusions with the standard defaults, and writes concrete patterns into `groundcontrol.toml`.
 
-What you see in `ctxvault.toml` is what gets excluded — single source of truth, zero hidden runtime probing.
+What you see in `groundcontrol.toml` is what gets excluded — single source of truth, zero hidden runtime probing.
 
 ### Negation (`!`) Support
 

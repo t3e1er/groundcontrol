@@ -1,6 +1,6 @@
 # Codebase Semantic Indexing & Cross-Modal Retrieval Roadmap (`CODEROADMAP.md`)
 
-This roadmap defines the architectural specification, academic foundations, tooling evaluation, and phased engineering plan for integrating **polyglot codebases** into the **Enterprise Semantic MCP** engine (`ctxvault-core`, `ctxvault-common`, `ctxvault-mcp`).
+This roadmap defines the architectural specification, academic foundations, tooling evaluation, and phased engineering plan for integrating **polyglot codebases** into the **Enterprise Semantic MCP** engine (`groundcontrol-core`, `groundcontrol-common`, `groundcontrol-mcp`).
 
 ---
 
@@ -68,7 +68,7 @@ Traditional text chunkers (fixed token/character windows) cause severe **context
 
 ## 3. Rust Tooling Ecosystem Evaluation
 
-| Crate / Tool | License | Multi-Language | Role & Capability | Assessment & Decision for `ctxvault` |
+| Crate / Tool | License | Multi-Language | Role & Capability | Assessment & Decision for `groundcontrol` |
 | :--- | :--- | :--- | :--- | :--- |
 | **`tree-sitter`** (v0.22+) | MIT | Yes (100+ langs) | Fast incremental C-CST parser with safe Rust bindings | **Core Substrate**: Universal parser for syntax tree generation. |
 | **`tree-sitter-language-pack`** | MIT / Apache | Yes (370+ langs) | Bundled pre-compiled grammars for instant polyglot support | **Recommended**: Eliminates managing individual grammar crates in `Cargo.toml`. |
@@ -76,7 +76,7 @@ Traditional text chunkers (fixed token/character windows) cause severe **context
 | **`ast-grep-core`** | MIT | Yes (Polyglot) | Structural AST pattern search and rewrite engine | **Alternative**: Useful for custom AST pattern extraction rules. |
 | **`stack-graphs`** | MIT / Apache | Yes (Polyglot) | Incremental scope-graph name resolution | **Reference Only**: Upstream archived late 2025; adopt lightweight scope resolution directly in Petgraph. |
 | **`scip`** | Apache-2.0 | Yes (Polyglot via CLI) | Protobuf parser for compiler-generated code indexes | **Optional Phase 4**: Ingests compiler-precise `.scip` files if pre-generated in CI. |
-| **`petgraph`** | MIT / Apache | N/A (Graph Engine) | In-memory directed typed graph store and algorithms | **Core Substrate**: Already integrated in `ctxvault-core`; houses code and doc edges. |
+| **`petgraph`** | MIT / Apache | N/A (Graph Engine) | In-memory directed typed graph store and algorithms | **Core Substrate**: Already integrated in `groundcontrol-core`; houses code and doc edges. |
 
 ---
 
@@ -84,10 +84,10 @@ Traditional text chunkers (fixed token/character windows) cause severe **context
 
 The open-source **`DeusData/codebase-memory-mcp`** represents an industry baseline for code-focused MCP servers. Below is a head-to-head architectural comparison:
 
-| Dimension | `codebase-memory-mcp` | Our Unified `ctxvault-core` Architecture |
+| Dimension | `codebase-memory-mcp` | Our Unified `groundcontrol-core` Architecture |
 | :--- | :--- | :--- |
 | **Core Philosophy** | **Code-only structural property graph** | **Unified Cross-Modal Doc + Code Knowledge Engine** |
-| **Implementation Language** | Static C binary | **Pure Rust** (`ctxvault-core`, `ctxvault-mcp`, `#![forbid(unsafe_code)]`) |
+| **Implementation Language** | Static C binary | **Pure Rust** (`groundcontrol-core`, `groundcontrol-mcp`, `#![forbid(unsafe_code)]`) |
 | **Retrieval Mechanism** | **Discrete graph queries** (Cypher-like queries, caller/callee traces) | **4-Modality Continuous Hybrid Retrieval** (BM25 + Dense Vector + Graph Proximity + RRF) |
 | **Documentation Handling** | Basic ADR records in SQLite | **Full Markdown Vault Indexing** (ADRs, RFCs, wikilinks `[[...]]`, tags, templates, Principle 3 crystallization) |
 | **Cross-Modal Lineage** | Explicit parameter links | **Native Graph Lineage** (`implements`, `documents`, `supersedes`) bridging docs and code |
@@ -101,13 +101,13 @@ The open-source **`DeusData/codebase-memory-mcp`** represents an industry baseli
 2. **Community Detection (Louvain / Infomap)**: Clustering symbols in Petgraph to generate architectural module summaries automatically.
 3. **Targeted Structural MCP Tools**: Exposing `get_symbol_definition`, `find_callers`, and `get_module_graph` alongside continuous hybrid search.
 
-> 📄 **Detailed Analysis**: For the full 162-grammar audit, missing language breakdown, and LSP feasibility analysis, see [RFC: Polyglot Tree-sitter Grammar Expansion & LSP Integration Analysis](file:///c:/dev/semantic/ctxvault/docs/RFC-treesitter-expansion-and-lsp-analysis.md).
+> 📄 **Detailed Analysis**: For the full 162-grammar audit, missing language breakdown, and LSP feasibility analysis, see [RFC: Polyglot Tree-sitter Grammar Expansion & LSP Integration Analysis](file:///c:/dev/semantic/groundcontrol/docs/RFC-treesitter-expansion-and-lsp-analysis.md).
 
 ---
 
 ## 5. Architectural Specification & Data Model
 
-### 5.1 Unified Entity Discrimination (`ctxvault-common`)
+### 5.1 Unified Entity Discrimination (`groundcontrol-common`)
 Every indexed item is tagged with an `EntityKind` to prevent index pollution and enable precise filtering:
 
 ```rust
@@ -153,7 +153,7 @@ pub enum CodeSymbolType {
 }
 ```
 
-### 5.2 Extended Graph Edge Schema (`ctxvault.toml` & `ctxvault-core`)
+### 5.2 Extended Graph Edge Schema (`groundcontrol.toml` & `groundcontrol-core`)
 The graph engine is extended with code-specific and cross-modal relationship types:
 
 | Edge Type | Source Node | Target Node | Default Weight | Description |
@@ -244,43 +244,43 @@ Source Code (.rs, .py, .ts, .go, .java)
 ```
 
 ### Phase 1: Polyglot Parsing & AST-Aware Semantic Chunker
-* **Crates Impacted**: `ctxvault-common`, `ctxvault-core`
+* **Crates Impacted**: `groundcontrol-common`, `groundcontrol-core`
 * **Deliverables**:
   - Add `tree-sitter` and `tree-sitter-language-pack` to `Cargo.toml`.
-  - Implement `CodeChunker` in `ctxvault-core/src/parser/code/chunker.rs`.
+  - Implement `CodeChunker` in `groundcontrol-core/src/parser/code/chunker.rs`.
   - Support top 6 languages: Rust, TypeScript/JavaScript, Python, Go, Java, C/C++.
   - Inject AST scope breadcrumbs into chunk text for Tantivy and fastembed embedding passes.
 * **Verification**: Unit tests validating that AST chunks never split functions mid-expression and docstrings remain bound to signatures.
 
 ### Phase 2: Code Graph Extractor & Lightweight Import Resolver
-* **Crates Impacted**: `ctxvault-core`
+* **Crates Impacted**: `groundcontrol-core`
 * **Deliverables**:
-  - Implement `CodeGraphExtractor` in `ctxvault-core/src/graph/code.rs` using `tree-sitter-tags`.
+  - Implement `CodeGraphExtractor` in `groundcontrol-core/src/graph/code.rs` using `tree-sitter-tags`.
   - Extract `defines`, `imports`, and `calls` relationships.
   - Implement a lightweight import resolver pass across SQLite symbol tables to connect cross-file call sites.
   - Ingest code nodes and edges into `petgraph` (`graph.bin`).
 * **Verification**: Integration tests confirming cross-file graph traversal from caller function to callee function in a multi-file project.
 
 ### Phase 3: Multi-Modal Search & Query Discrimination Engine
-* **Crates Impacted**: `ctxvault-core`, `ctxvault-mcp`
+* **Crates Impacted**: `groundcontrol-core`, `groundcontrol-mcp`
 * **Deliverables**:
   - Add `EntityKind` filtering to Tantivy index schema and HNSW metadata.
   - Update `SearchEngine` to perform cross-modal seed-then-traverse graph expansion.
-  - Update `ctxvault-mcp` search tool parameters: `query`, `entity_types`, `languages`, `depth`.
+  - Update `groundcontrol-mcp` search tool parameters: `query`, `entity_types`, `languages`, `depth`.
 * **Verification**: Benchmark evaluation verifying that natural language queries retrieve documentation while surfacing relevant code via graph hops.
 
 ### Phase 4: Structural MCP Tools & Architecture Overview
-* **Crates Impacted**: `ctxvault-mcp`, `ctxvault-core`
+* **Crates Impacted**: `groundcontrol-mcp`, `groundcontrol-core`
 * **Deliverables**:
   - Add deterministic structural tools to MCP server:
     - `get_symbol_definition(symbol_path)`
     - `find_callers(symbol_name, max_depth)`
     - `get_module_graph(module_path)`
-  - Implement Louvain community detection in `ctxvault-core` to generate automated architectural module summaries.
+  - Implement Louvain community detection in `groundcontrol-core` to generate automated architectural module summaries.
 * **Verification**: End-to-end MCP JSON-RPC test suite for all new structural tools.
 
 ### Phase 5: Principle 3 Cross-Modal Knowledge Crystallization
-* **Crates Impacted**: `ctxvault-core`, `ctxvault-mcp`
+* **Crates Impacted**: `groundcontrol-core`, `groundcontrol-mcp`
 * **Deliverables**:
   - Extend `promote_concept` tool to accept code symbol links and synthesize `implements`/`documents` lineage edges.
   - Add automated **Code Drift Detection**: scan indexed code to alert when an ADR references deprecated or renamed symbols/functions.
@@ -334,7 +334,7 @@ Branch `feature/treesitter-expansion-and-lsp` expands code intelligence to **47 
 
 #### Key Capabilities Delivered
 1. **Declarative `LanguageSpec` Architecture**:
-   Unified declarative table in `crates/ctxvault-core/src/parser/code/spec.rs` mapping AST node kinds to `CodeSymbolType`, call expressions, and scope breadcrumbs across all 47 languages.
+   Unified declarative table in `crates/groundcontrol-core/src/parser/code/spec.rs` mapping AST node kinds to `CodeSymbolType`, call expressions, and scope breadcrumbs across all 47 languages.
 2. **In-Engine Pure-Rust "Hybrid LSP"**:
    Zero-daemon static analysis engine with `TypeEnvironment` variable tracking and receiver method call disambiguation (`x.method()` $\to$ `Type::method`), upgrading graph call edges from `Speculative` to `ResolutionConfidence::High` in sub-millisecond time.
 3. **Offline SCIP Protobuf Index Ingestion**:
@@ -350,7 +350,7 @@ For languages lacking maintained pure-Rust crates on crates.io, Tier 2 will vend
 * **Target Languages**:
   Clojure, Nim, Odin, Fortran, COBOL, Ada, Apex, Pascal, Perl, Erlang, Fish, V, Reason, Scheme, Common Lisp, Racket, Standard ML.
 * **Compilation Mechanism**:
-  Vendor `parser.c` and `scanner.c` into `vendored/grammars/<lang>/` and compile via `cc::Build` in `crates/ctxvault-core/build.rs`.
+  Vendor `parser.c` and `scanner.c` into `vendored/grammars/<lang>/` and compile via `cc::Build` in `crates/groundcontrol-core/build.rs`.
 * **Safety & Invariant Preservation**:
   Maintain `#![forbid(unsafe_code)]` at our crate boundary. Isolate raw `extern "C"` FFI declarations inside a dedicated FFI module that validates grammar ABI versions and produces safe `tree_sitter::Language` handles.
 * **Activation Trigger**:
@@ -367,7 +367,7 @@ Tier 3 addresses scenarios where heuristic and syntactic extraction is insuffici
    - **Cross-Corpus SCIP Namespace Resolution**: Map SCIP global symbol identifiers across multiple corpus roots to enable compiler-exact cross-corpus symbol navigation.
 2. **External LSP Daemon Socket Integration (Zero-Daemon Overhead)**:
    - **No Embedded Daemon Supervision**: Explicitly reject running live LSP daemons (`rust-analyzer`, `pyright`, `gopls`) as child processes within the MCP server process, avoiding 2–6 GB memory overhead, 15–90s cold starts, and host environment failures.
-   - **Opt-in Socket Connector**: Provide an opt-in client (`--lsp-socket <lang>:<addr>`) that connects to an *already-running* IDE or editor language server socket over standard JSON-RPC. Allows querying real-time hover documentation and call hierarchies on demand while keeping `ctxvault` ultra-lightweight and immediately available.
+   - **Opt-in Socket Connector**: Provide an opt-in client (`--lsp-socket <lang>:<addr>`) that connects to an *already-running* IDE or editor language server socket over standard JSON-RPC. Allows querying real-time hover documentation and call hierarchies on demand while keeping `groundcontrol` ultra-lightweight and immediately available.
 
 ---
 
@@ -416,7 +416,7 @@ Identified during disk footprint profiling on the 14k-file Kubernetes index run 
 ### 10.6 Token-Optimal Agent Responses: Lean Multiline Text Emission (Delivered)
 *Authoritative ADR*: [[docs/architecture/adr/adr-020-lean-multiline-text-emission]]  
 *Authoritative RFC*: [[docs/roadmap/RFC-lean-multiline-text-emission]]  
-*Implementation*: [`crates/ctxvault-mcp/src/format/lean.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/format/lean.rs)
+*Implementation*: [`crates/groundcontrol-mcp/src/format/lean.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/format/lean.rs)
 
 Identified during LLM agent context profiling and benchmark evaluation against `codebase-memory-mcp`'s `compact_out` architecture:
 
@@ -435,27 +435,27 @@ Identified during LLM agent context profiling and benchmark evaluation against `
 
 ### 10.7 Dedicated Data Science Benchmarking & Resource Profiling Harness (Delivered)
 *Authoritative Concept Docs*: [[docs/concepts/search/benchmarking-harness]], [[docs/concepts/search/evaluation-methodology]]  
-*Implementation*: [`crates/ctxvault-bench/`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench) (`ctxv-bench`)
+*Implementation*: [`crates/groundcontrol-bench/`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench) (`gc-bench`)
 
 Engineered for empirical evaluation and ablation of all retrieval modes against ground-truth corpora without MCP JSON-RPC protocol overhead:
 
 1. **Indexing Pipeline & Resource Profiling**:
    - Measures wall-clock stage timings: AST tree-sitter parsing, Tantivy BM25 postings, static SIF projections, 256-bit binary fingerprints, Petgraph AST edge resolution, and optional dense ONNX re-embedding.
-   - Measures indexing throughput (documents/second, files/second) and tracks process memory via [`MemoryTracker`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/profile/memory.rs) (peak RSS, memory delta).
-   - Profiles storage footprint via [`DiskProfiler`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/profile/disk.rs): SQLite `meta.db`, Tantivy `tantivy/`, binary `fingerprints.bin`, Petgraph `graph.bin`, vectors `vectors.bin`, text projections `projections/`, and index expansion ratios.
+   - Measures indexing throughput (documents/second, files/second) and tracks process memory via [`MemoryTracker`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/profile/memory.rs) (peak RSS, memory delta).
+   - Profiles storage footprint via [`DiskProfiler`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/profile/disk.rs): SQLite `meta.db`, Tantivy `tantivy/`, binary `fingerprints.bin`, Petgraph `graph.bin`, vectors `vectors.bin`, text projections `projections/`, and index expansion ratios.
 2. **Retrieval Algorithm Quality & Latency Ablation**:
    - Supports isolated and hybrid evaluations across `bm25`, `binary` (SIF+Hamming), `ppr` (HippoRAG diffusion), `fast` (3-way RRF), `semantic` (dense ONNX), and `full` (BM25+ONNX+Graph).
    - Computes standard IR metrics: Recall@K, Precision@K, MRR@K, NDCG@K (with graded relevance), score separation, and latency percentiles (p50, p90, p95, p99, QPS).
-   - Evaluates Turn-1 topological orientation metrics ([`IrEvaluator::evaluate_with_orientation`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/metrics/ir.rs)): **Cluster Recall@K** and **Mean Hop Distance** ($\bar{H}_d$) to ground truth on Petgraph.
+   - Evaluates Turn-1 topological orientation metrics ([`IrEvaluator::evaluate_with_orientation`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/metrics/ir.rs)): **Cluster Recall@K** and **Mean Hop Distance** ($\bar{H}_d$) to ground truth on Petgraph.
 3. **Public Benchmark Ingestion & External Ground Truth**:
-   - Native adapters ([`PublicBenchmarkAdapter`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/dataset/adapters.rs)) and CLI command `ctxv-bench import` for:
+   - Native adapters ([`PublicBenchmarkAdapter`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/dataset/adapters.rs)) and CLI command `gc-bench import` for:
      - **CodeSearchNet / AdvTest** (polyglot Go, Java, JS, Python function docstrings).
      - **RepoBench-R** (cross-file repository retrieval context).
      - **SWE-bench Lite** (git diff patch parsing for bug localization).
 4. **Statistical Significance Testing**:
-   - Hypothesis testing via [`SignificanceEvaluator`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/metrics/significance.rs): paired Student's $t$-test and Wilcoxon signed-rank test across metric distributions.
+   - Hypothesis testing via [`SignificanceEvaluator`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/metrics/significance.rs): paired Student's $t$-test and Wilcoxon signed-rank test across metric distributions.
 5. **Multi-Format Publication Exporters**:
-   - Exports GitHub markdown comparison tables (`report.md`), publication-ready LaTeX `booktabs` tables (`report.tex` via [`LatexReporter`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-bench/src/report/latex.rs)), machine-readable JSON (`report.json`), and tabular CSV (`report.csv`).
+   - Exports GitHub markdown comparison tables (`report.md`), publication-ready LaTeX `booktabs` tables (`report.tex` via [`LatexReporter`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/report/latex.rs)), machine-readable JSON (`report.json`), and tabular CSV (`report.csv`).
 
 ---
 
@@ -464,51 +464,51 @@ Engineered for empirical evaluation and ablation of all retrieval modes against 
 ### 11.1 SOTA Code Retrieval & High-Throughput Semantic Bridging (Completed / Delivered)
 *Authoritative RFC*: [[docs/roadmap/RFC-sota-code-retrieval-and-semantic-bridging]]  
 *Status*: **Completed / Delivered**  
-*Scope*: `ctxvault-common`, `ctxvault-core`, `ctxvault-mcp`, `ctxvault-cli`
+*Scope*: `groundcontrol-common`, `groundcontrol-core`, `groundcontrol-mcp`, `groundcontrol-cli`
 
 Eliminated the 35–55 minute ONNX CPU embedding bottleneck on 100K+ file repositories without dedicated GPUs via a 4-pillar sub-minute retrieval engine:
 
 1. **Sub-Minute CPU Semantic Bridging**:
-   - **Static SIF Projections**: Smooth Inverse Frequency weighted embeddings over Tree-sitter code tokens and document text ([`SifEngine`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/sif.rs)), executing in **~10 seconds for 500,000 symbols** entirely on CPU with power-iteration 1st principal component removal.
-   - **256-Bit Matryoshka Binary Embeddings (MRL)**: Sign-quantized binary fingerprints ([`BinaryFingerprint`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs), [`BinarySearchIndex`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/binary.rs)) requiring only **16 MB of total RAM** for 500k symbols, serialized via `postcard` to `.index/fingerprints.bin` and evaluated via single-cycle AVX2/AVX-512 `count_ones()` POPCOUNT (<1ms SIMD candidate scoring).
-   - **AST Pattern Injection**: Pre-tokenized syntactic pattern tokens ([`extract_semantic_tokens`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/code/patterns.rs)) injected directly into Tantivy BM25 postings, bridging lexical-semantic synonym gaps at zero marginal CPU cost.
+   - **Static SIF Projections**: Smooth Inverse Frequency weighted embeddings over Tree-sitter code tokens and document text ([`SifEngine`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/sif.rs)), executing in **~10 seconds for 500,000 symbols** entirely on CPU with power-iteration 1st principal component removal.
+   - **256-Bit Matryoshka Binary Embeddings (MRL)**: Sign-quantized binary fingerprints ([`BinaryFingerprint`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs), [`BinarySearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/binary.rs)) requiring only **16 MB of total RAM** for 500k symbols, serialized via `postcard` to `.index/fingerprints.bin` and evaluated via single-cycle AVX2/AVX-512 `count_ones()` POPCOUNT (<1ms SIMD candidate scoring).
+   - **AST Pattern Injection**: Pre-tokenized syntactic pattern tokens ([`extract_semantic_tokens`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/patterns.rs)) injected directly into Tantivy BM25 postings, bridging lexical-semantic synonym gaps at zero marginal CPU cost.
 2. **Query-Time Personalized PageRank (HippoRAG Diffusion)**:
-   - Eliminates graph edge bloat and pre-computation by executing 2-hop PPR random walks on demand across Petgraph at query time ([`personalized_pagerank`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/diffusion.rs)).
+   - Eliminates graph edge bloat and pre-computation by executing 2-hop PPR random walks on demand across Petgraph at query time ([`personalized_pagerank`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/diffusion.rs)).
    - Leaves Petgraph's topology completely clean (zero artificial `[:semantically_related]` edges), achieving sub-2ms diffusion without combinatorial path explosion.
 3. **Fast Hybrid Search Mode**:
-   - Exposed as `mode="fast"` across [`SearchService`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search_service.rs), [`search_fast`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/mod.rs), [`search_explain_fast`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/search/mod.rs), and the MCP `search` tool in [`crates/ctxvault-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs).
+   - Exposed as `mode="fast"` across [`SearchService`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search_service.rs), [`search_fast`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/mod.rs), [`search_explain_fast`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/mod.rs), and the MCP `search` tool in [`crates/groundcontrol-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs).
 
 ---
 
 ### 11.2 Pluggable Document Extractors & Derived Text Projections (Word, PDF, HTML) (Completed)
 *Authoritative RFC*: [[docs/roadmap/RFC-document-extractors-and-projections]]  
 *Status*: **Completed**  
-*Scope*: `ctxvault-common`, `ctxvault-core`, `ctxvault-mcp`, `ctxvault-cli`
+*Scope*: `groundcontrol-common`, `groundcontrol-core`, `groundcontrol-mcp`, `groundcontrol-cli`
 
-Expands `ctxvault` beyond Markdown notes into polyglot document vaults while strictly preserving Non-Negotiable Invariant #1 (disk as authoritative ground truth) and the Zero-Copy File-Offset architecture:
+Expands `groundcontrol` beyond Markdown notes into polyglot document vaults while strictly preserving Non-Negotiable Invariant #1 (disk as authoritative ground truth) and the Zero-Copy File-Offset architecture:
 
 1. **Corpus Modality Disambiguation**:
    - Deterministically separates code UI templates (`.html` in React/Vue/Go projects) from documentation articles (Sphinx/Doxygen/Confluence HTML exports).
-   - Implemented via [`FileClassifier`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/index/classifier.rs) with `CorpusType` (`code_repo`, `doc_vault`, `mixed`), explicit `doc_patterns` (`docs/**`, `specs/**`, `wiki/**`), and content-based text-to-tag density heuristics.
+   - Implemented via [`FileClassifier`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/index/classifier.rs) with `CorpusType` (`code_repo`, `doc_vault`, `mixed`), explicit `doc_patterns` (`docs/**`, `specs/**`, `wiki/**`), and content-based text-to-tag density heuristics.
    - Filters binary fixtures (`.pdf`, `.docx` in `tests/fixtures/`) from indexing unless explicitly opted into document roots.
 2. **Derived Text Projections (DTP)**:
    - Stores disposable, deterministic, line-numbered text projections under `.index/projections/<path>.txt`.
    - The authoritative `.docx`, `.pdf`, or `.html` file on disk remains the sole source of truth; projections are 100% rebuildable upon index refresh.
-   - Slices byte offsets (`start_byte..end_byte`) in [`fetch_chunk_text`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/engine.rs) and line ranges directly from the projected file for sub-millisecond [`get_snippet`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs) and [`read_file`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs) performance.
+   - Slices byte offsets (`start_byte..end_byte`) in [`fetch_chunk_text`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/engine.rs) and line ranges directly from the projected file for sub-millisecond [`get_snippet`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs) and [`read_file`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs) performance.
 3. **100% Pure-Rust Ingestion Adapters**:
-   - Managed via [`DocumentExtractorRegistry`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/document/mod.rs):
-     - **Word (`.docx`)**: [`DocxExtractor`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/document/docx.rs) using `quick-xml` + `zip` streaming OpenXML parser with heading-style mapping and GFM table generation (<2ms per document, zero C runtime).
-     - **PDF (`.pdf`)**: [`PdfExtractor`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/document/pdf.rs) using `lopdf` text-and-vector parser with `<!-- Page N -->` line anchors, annotation hyperlinks, and reading-order reconstruction.
-     - **HTML (`.html`)**: [`HtmlDocExtractor`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/document/html.rs) using `scraper` with automatic chrome stripping (`<nav>`, `<header>`, `<footer>`, `<script>`, `<style>`) and semantic Markdown synthesis.
+   - Managed via [`DocumentExtractorRegistry`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/document/mod.rs):
+     - **Word (`.docx`)**: [`DocxExtractor`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/document/docx.rs) using `quick-xml` + `zip` streaming OpenXML parser with heading-style mapping and GFM table generation (<2ms per document, zero C runtime).
+     - **PDF (`.pdf`)**: [`PdfExtractor`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/document/pdf.rs) using `lopdf` text-and-vector parser with `<!-- Page N -->` line anchors, annotation hyperlinks, and reading-order reconstruction.
+     - **HTML (`.html`)**: [`HtmlDocExtractor`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/document/html.rs) using `scraper` with automatic chrome stripping (`<nav>`, `<header>`, `<footer>`, `<script>`, `<style>`) and semantic Markdown synthesis.
 4. **Strict Read-Only Ingestion Boundary**:
-   - [`write_note`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs) strictly rejects non-markdown document formats with `NotPermitted`. Principle 3 knowledge crystallization authors canonical Markdown notes linking to extracted documents via `derived_from: ["specs/architecture.docx"]`.
+   - [`write_note`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs) strictly rejects non-markdown document formats with `NotPermitted`. Principle 3 knowledge crystallization authors canonical Markdown notes linking to extracted documents via `derived_from: ["specs/architecture.docx"]`.
 
 ---
 
 ### 11.3 cAST Structural Signal Boosting & Partitioned Multi-Channel Hyperplanes (Proposed)
 *Authoritative RFC*: [[docs/roadmap/RFC-cast-signal-boosting-and-partitioned-hyperplanes]]  
 *Status*: **Proposed**  
-*Scope*: `ctxvault-core`, `ctxvault-common`
+*Scope*: `groundcontrol-core`, `groundcontrol-common`
 
 Eliminates the 2D $\rightarrow$ 1D Bag-of-Words reduction loss and 64-bit quantization resolution blur in algorithmic binary embeddings via cAST concrete syntax tree metadata:
 

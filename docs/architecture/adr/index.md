@@ -1,6 +1,6 @@
 ---
 title: "Architectural Decision Records (ADR Catalog)"
-description: "Authoritative catalog of architectural decisions governing ctxvault design and invariants."
+description: "Authoritative catalog of architectural decisions governing groundcontrol design and invariants."
 category: "adr"
 status: "active"
 tags: ["adr", "decisions", "architecture", "invariants", "history"]
@@ -10,7 +10,7 @@ related:
 
 # Architectural Decision Records (ADR Catalog)
 
-All architectural design decisions in `ctxvault` are formally recorded as **Architectural Decision Records (ADRs)** with context, alternatives considered, decision rationale, and verified consequences.
+All architectural design decisions in `groundcontrol` are formally recorded as **Architectural Decision Records (ADRs)** with context, alternatives considered, decision rationale, and verified consequences.
 
 ---
 

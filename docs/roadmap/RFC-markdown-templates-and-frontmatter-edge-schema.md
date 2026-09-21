@@ -2,25 +2,25 @@
 
 **Status**: Proposed  
 **Author**: Architecture Team  
-**Scope**: `ctxvault-core`, `ctxvault-common`, `ctxvault-mcp`, `docs`  
+**Scope**: `groundcontrol-core`, `groundcontrol-common`, `groundcontrol-mcp`, `docs`  
 **Date**: September 2026  
 **Target Version**: `0.1.0`+  
-**Related Documents**: [coderoadmap.md](file:///c:/dev/ctx/ctxvault/docs/roadmap/coderoadmap.md), [GEMINI.md](file:///c:/dev/ctx/ctxvault/GEMINI.md), [RFC-cross-corpus-graph-federation.md](file:///c:/dev/ctx/ctxvault/docs/roadmap/RFC-cross-corpus-graph-federation.md)
+**Related Documents**: [coderoadmap.md](file:///c:/dev/ctx/groundcontrol/docs/roadmap/coderoadmap.md), [GEMINI.md](file:///c:/dev/ctx/groundcontrol/GEMINI.md), [RFC-cross-corpus-graph-federation.md](file:///c:/dev/ctx/groundcontrol/docs/roadmap/RFC-cross-corpus-graph-federation.md)
 
 ---
 
 ## 1. Executive Summary & Problem Statement
 
-`ctxvault` relies on continuous knowledge crystallization (Principle 3): ephemeral agent interactions, architectural choices, and investigation traces are distilled into permanent, schema-validated notes.
+`groundcontrol` relies on continuous knowledge crystallization (Principle 3): ephemeral agent interactions, architectural choices, and investigation traces are distilled into permanent, schema-validated notes.
 
 Currently, template definition and edge configuration suffer from an architectural **split-brain**:
-1. **Frontmatter & Section Schemas** are declared in TOML files located in `.templates/*.toml` ([`crates/ctxvault-core/src/template.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/template.rs)).
-2. **Graph Edge Relationships** derived from frontmatter (e.g., `supersedes`, `specifies`, `parent_of`) are configured separately in the global corpus configuration ([`CorpusConfig.graph.edge_types`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/config.rs#L159)).
+1. **Frontmatter & Section Schemas** are declared in TOML files located in `.templates/*.toml` ([`crates/groundcontrol-core/src/template.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/template.rs)).
+2. **Graph Edge Relationships** derived from frontmatter (e.g., `supersedes`, `specifies`, `parent_of`) are configured separately in the global corpus configuration ([`CorpusConfig.graph.edge_types`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/config.rs#L159)).
 3. **The Actual Notes** written by humans and agents are authored in Markdown (`.md`).
 
 This tripartite split creates severe ergonomic friction:
 * **No Authoring Scaffold**: `.toml` template files define abstract schemas, but provide no sample markdown content, heading boilerplate, or guidance comments. An agent calling `list_templates` receives disjoint field lists and must guess how to assemble the markdown body, frequently failing post-write validation.
-* **Disconnected Edge Governance**: Creating a new note category (e.g., `adr`, `incident`, `rfc`) requires coordinating changes across `.templates/*.toml` and `ctxv.toml`. Adding an edge relationship to a template requires editing global corpus configuration.
+* **Disconnected Edge Governance**: Creating a new note category (e.g., `adr`, `incident`, `rfc`) requires coordinating changes across `.templates/*.toml` and `gc.toml`. Adding an edge relationship to a template requires editing global corpus configuration.
 * **Invisible in Tooling**: `.toml` template files cannot be rendered, previewed, or edited as markdown documents in IDEs (VS Code, Cursor, Antigravity) or PKM tools (Obsidian, Logseq, GitHub preview).
 
 This RFC specifies a **unified `.templates/*.md` standard**: every template becomes a self-contained markdown document containing its own frontmatter schema, edge type declarations, and markdown body scaffold.
@@ -29,7 +29,7 @@ This RFC specifies a **unified `.templates/*.md` standard**: every template beco
 
 ## 2. Invariant Constraints & Core Principles
 
-Conforming to `ctxvault`'s architectural invariants ([`GEMINI.md`](file:///c:/dev/ctx/ctxvault/GEMINI.md)):
+Conforming to `groundcontrol`'s architectural invariants ([`GEMINI.md`](file:///c:/dev/ctx/groundcontrol/GEMINI.md)):
 
 1. **Markdown on disk is authoritative ground truth (Invariant 1)**: Templates should themselves be markdown files on disk, readable by humans, agents, and IDEs alike.
 2. **Deterministic graph topology (Invariant 2)**: Edges defined in template schemas are compiled directly into deterministic graph extraction rules—never inferred via stochastic LLM calls.
@@ -146,9 +146,9 @@ Template::load_from_dir
             - Enforces target_template & target_kind constraints
 ```
 
-### 4.1 Domain Types in `ctxvault-common`
+### 4.1 Domain Types in `groundcontrol-common`
 
-Add template edge schema declarations to [`ctxvault-common::config`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/config.rs):
+Add template edge schema declarations to [`groundcontrol-common::config`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/config.rs):
 
 ```rust
 /// Declarative edge rule defined directly inside a markdown template.
@@ -179,9 +179,9 @@ pub struct TemplateEdgeSchema {
 }
 ```
 
-### 4.2 Template Model in `ctxvault-core`
+### 4.2 Template Model in `groundcontrol-core`
 
-Extend [`Template`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/template.rs) to own the edge schemas and the raw markdown scaffold:
+Extend [`Template`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/template.rs) to own the edge schemas and the raw markdown scaffold:
 
 ```rust
 pub struct Template {
@@ -201,17 +201,17 @@ pub struct Template {
 ### 4.3 Ingestion Pipeline: `Template::load_from_dir`
 
 1. Scans `templates_dir` for all `*.md` files.
-2. Extracts YAML frontmatter and markdown body via `ctxvault_core::parser::split_frontmatter_and_content`.
+2. Extracts YAML frontmatter and markdown body via `groundcontrol_core::parser::split_frontmatter_and_content`.
 3. Deserializes frontmatter into the template schema struct.
 4. Stores the body as `scaffold`.
-5. Converts `TemplateEdgeSchema` entries into standard [`EdgeTypeConfig`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/config.rs#L164) items.
+5. Converts `TemplateEdgeSchema` entries into standard [`EdgeTypeConfig`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/config.rs#L164) items.
 
 ### 4.4 Dynamic Edge Registration in Graph Building
 
-When the indexing pipeline builds edges for a document ([`build_edges_for_document`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/mod.rs#L472)):
+When the indexing pipeline builds edges for a document ([`build_edges_for_document`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/mod.rs#L472)):
 1. It applies the corpus-level `config.graph.edge_types`.
 2. If `doc.template` is present and matches a loaded template in `TemplateRegistry`, it additionally evaluates the template's declared `edges`.
-3. Graph edges are inserted with the configured `class`, `direction`, and provenance [`EdgeProvenance::Frontmatter`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs#L557).
+3. Graph edges are inserted with the configured `class`, `direction`, and provenance [`EdgeProvenance::Frontmatter`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs#L557).
 
 ---
 

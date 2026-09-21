@@ -1,6 +1,6 @@
 ---
 title: "Search & Multimodal Retrieval Hub"
-description: "Theory, mathematics, and implementation of ctxvault 4-modality hybrid retrieval and Reciprocal Rank Fusion."
+description: "Theory, mathematics, and implementation of groundcontrol 4-modality hybrid retrieval and Reciprocal Rank Fusion."
 category: "search"
 status: "active"
 tags: ["search", "hybrid", "bm25", "vectors", "graph", "rrf", "multimodal"]
@@ -20,7 +20,7 @@ related:
 
 Code and technical documentation are fundamentally heterogeneous. A pure dense vector model excels at abstract conceptual queries ("how does rate limiting work?") but fails catastrophically on exact code identifiers (`AuthTokenClaims`, `ERR_CONNECTION_RESET`). Conversely, pure keyword search fails when synonyms are used.
 
-`ctxvault` implements a **4-modality hybrid retrieval architecture** unified via **3-Way Reciprocal Rank Fusion (RRF)**.
+`groundcontrol` implements a **4-modality hybrid retrieval architecture** unified via **3-Way Reciprocal Rank Fusion (RRF)**.
 
 ---
 
@@ -52,5 +52,5 @@ Code and technical documentation are fundamentally heterogeneous. A pure dense v
 * **[[docs/concepts/search/embeddings-vector]]**: 768-dimensional Jina Code v2 ONNX embeddings with DirectML acceleration.
 * **[[docs/concepts/search/graph-traversal]]**: Petgraph and recursive SQLite CTEs for typed AST dependency paths.
 * **[[docs/concepts/search/search-modes-modalities]]**: Parameterizing `mode="hybrid"|"bm25"|"semantic"|"graph"|"explain"` and `modality="code"|"docs"|"both"`.
-* **[[docs/concepts/search/benchmarking-harness]]**: Architecture and usage of the dedicated `ctxvault-bench` workspace crate and CLI (`ctxv-bench`).
+* **[[docs/concepts/search/benchmarking-harness]]**: Architecture and usage of the dedicated `groundcontrol-bench` workspace crate and CLI (`gc-bench`).
 * **[[docs/concepts/search/evaluation-methodology]]**: ArXiv-grade IR evaluation standards, public benchmarks (CodeSearchNet, RepoBench, SWE-bench), significance testing, and Turn-1 orientation metrics.

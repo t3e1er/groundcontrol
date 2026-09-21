@@ -15,13 +15,13 @@ related:
 
 While BM25 and vector search operate on isolated text chunks, software systems are fundamentally **graphs of dependencies and concepts**.
 
-`ctxvault` integrates two complementary graph representations:
+`groundcontrol` integrates two complementary graph representations:
 1. **In-Memory Petgraph**: For sub-millisecond Personalized PageRank (`search_related`) and shortest-path reachability.
 2. **Recursive SQLite CTE Engine**: Compiling linear **Cypher-Lite** patterns into recursive SQL queries with cycle guards for multi-hop path extraction (`graph_match`).
 
-* **Petgraph KnowledgeGraph**: [`crates/ctxvault-core/src/graph/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/mod.rs)
-* **SQLite Graph Traversal Backend**: [`crates/ctxvault-core/src/catalog/sqlite.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/catalog/sqlite.rs)
-* **GraphStore Port**: [`crates/ctxvault-common/src/ports.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/ports.rs)
+* **Petgraph KnowledgeGraph**: [`crates/groundcontrol-core/src/graph/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/mod.rs)
+* **SQLite Graph Traversal Backend**: [`crates/groundcontrol-core/src/catalog/sqlite.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/catalog/sqlite.rs)
+* **GraphStore Port**: [`crates/groundcontrol-common/src/ports.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs)
 
 ---
 
@@ -44,12 +44,12 @@ Traversals can filter across dedicated graph layers:
 * `hybrid`: Blended multi-layer traversals.
 
 ### Hierarchical Branching Tree & Hub Suppression
-Rather than returning flat Cartesian path lists that duplicate prefixes and waste context tokens, [`graph_match`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs) returns a hierarchical branching tree modeled by [`GraphMatchResult`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs):
+Rather than returning flat Cartesian path lists that duplicate prefixes and waste context tokens, [`graph_match`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs) returns a hierarchical branching tree modeled by [`GraphMatchResult`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs):
 
 ```json
 {
   "root": "detect_bundle",
-  "file": "crates/ctxvault-core/src/bundle.rs:32",
+  "file": "crates/groundcontrol-core/src/bundle.rs:32",
   "summary": {
     "direct": 2,
     "transitive": 3,
@@ -60,14 +60,14 @@ Rather than returning flat Cartesian path lists that duplicate prefixes and wast
     {
       "node": "build_pipeline",
       "rel": "calls",
-      "file": "crates/ctxvault-core/src/pipeline.rs",
+      "file": "crates/groundcontrol-core/src/pipeline.rs",
       "line": 45,
       "hop": 1,
       "branches": [
         {
           "node": "main",
           "rel": "calls",
-          "file": "crates/ctxvault-cli/src/main.rs",
+          "file": "crates/groundcontrol-cli/src/main.rs",
           "line": 110,
           "hop": 2
         }
@@ -84,7 +84,7 @@ Rather than returning flat Cartesian path lists that duplicate prefixes and wast
 * **Cycle Guarded**: Path ancestry sets prevent cycles and infinite loops across mutual call chains.
 * **Zero Semantic Duplication**: Redundant properties and syntax wrappers are omitted; file and line references provide direct jump targets.
 
-Execution by [`QueryEngine`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/query.rs) finishes in **under 1.8ms**.
+Execution by [`QueryEngine`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/query.rs) finishes in **under 1.8ms**.
 
 ---
 

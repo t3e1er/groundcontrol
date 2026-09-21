@@ -2,7 +2,7 @@
 
 **Status**: Accepted / Implementing  
 **Author**: Architecture Team  
-**Scope**: `crates/ctxvault-graphview`, `crates/ctxvault-mcp`, `crates/ctxvault-cli`, `crates/ctxvault-core`  
+**Scope**: `crates/groundcontrol-graphview`, `crates/groundcontrol-mcp`, `crates/groundcontrol-cli`, `crates/groundcontrol-core`  
 **Date**: September 2026  
 **Target Version**: `0.1.0`+  
 **Inspiration / Benchmark**: `codebase-memory-mcp` (Graph UI)  
@@ -16,15 +16,15 @@
 
 ## 1. Executive Summary
 
-This RFC specifies **GraphView**, a high-performance, standalone 3D knowledge graph visualization dashboard and real-time multi-agent activity substrate for `ctxvault`. 
+This RFC specifies **GraphView**, a high-performance, standalone 3D knowledge graph visualization dashboard and real-time multi-agent activity substrate for `groundcontrol`. 
 
-While `ctxvault`'s primary mission is headless, ultra-low-latency semantic retrieval for autonomous AI coding swarms, human developers and swarm orchestrators require visual intuition regarding repository topology, cross-corpus coupling, and agent focus areas.
+While `groundcontrol`'s primary mission is headless, ultra-low-latency semantic retrieval for autonomous AI coding swarms, human developers and swarm orchestrators require visual intuition regarding repository topology, cross-corpus coupling, and agent focus areas.
 
-GraphView introduces a dedicated sidecar service (`ctxv graphview`) that:
+GraphView introduces a dedicated sidecar service (`gc graphview`) that:
 1. Renders unified documentation, code ASTs, and cross-corpus links in an interactive 3D WebGL scene.
 2. Supports massive scale ($1\text{M}+$ nodes and $3\text{M}+$ edges) from Day 1 via parallel server-side Barnes-Hut layout, packed binary wire serialization, and 4-tier visual Level-of-Detail (LOD).
 3. Connects directly to the core MCP server over Server-Sent Events (SSE) to display real-time animated activation pulses as agents navigate and crystallize repository memory.
-4. Preserves absolute zero-overhead isolation on the core `ctxv` MCP daemon runtime.
+4. Preserves absolute zero-overhead isolation on the core `gc` MCP daemon runtime.
 
 ---
 
@@ -33,7 +33,7 @@ GraphView introduces a dedicated sidecar service (`ctxv graphview`) that:
 ### Functional Requirements
 1. **Multi-Modal Views**: User can toggle between `docs` (knowledge notes, ADRs), `code` (functions, structs, modules), and `hybrid` (cross-modal wikilinks and docstring ties) modes.
 2. **Entity Type Filtering & Highlights**: A persistent side panel allows selecting and isolating specific entity classes (e.g., functions, traits, modules, ADR notes) with dynamic neon highlighting.
-3. **Exposed Query Engine**: Live search bar connected to `ctxvault`'s query engine (BM25, hybrid, graph match), dynamically highlighting matched subgraphs and community clusters.
+3. **Exposed Query Engine**: Live search bar connected to `groundcontrol`'s query engine (BM25, hybrid, graph match), dynamically highlighting matched subgraphs and community clusters.
 4. **Rich Aesthetic Experience**: Modern dark-space design featuring custom bloom shaders, curated color palettes, glow halos, and smooth camera transitions.
 5. **Multi-Agent Temporal Activations**: Real-time visualization of agent activity over SSE, showing animated activation waves on accessed nodes with configurable persistence/decay controls.
 6. **Multi-Corpus & Galaxy Selection**: Ability to view a single repository corpus or federate all loaded corpora into a galaxy view with cluster separation.
@@ -65,7 +65,7 @@ We evaluated three potential deployment topologies:
 
 ### 4.1 Storage & Snapshot Ingest
 The sidecar loads graph topology directly from the cache directory:
-- **`graph.bin`**: Deserialized via `postcard` into a read-only [`KnowledgeGraph`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/mod.rs).
+- **`graph.bin`**: Deserialized via `postcard` into a read-only [`KnowledgeGraph`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/mod.rs).
 - **`meta.db`**: Opened with `rusqlite` using `OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI` and `PRAGMA busy_timeout = 5000`.
 
 ### 4.2 Parallel Barnes-Hut 3D Layout
@@ -92,9 +92,9 @@ Data is streamed to the browser via `/api/graph/corpus/:name` with `Content-Type
 
 ## 5. Implementation Plan & Milestones
 
-1. **M1: Crate Setup & Data Ingest**: Create `crates/ctxvault-graphview`, add dependencies, and implement read-only snapshot loading.
+1. **M1: Crate Setup & Data Ingest**: Create `crates/groundcontrol-graphview`, add dependencies, and implement read-only snapshot loading.
 2. **M2: Layout Engine**: Implement arena Barnes-Hut octree in pure safe Rust with Rayon parallelism.
 3. **M3: Binary Serializer & Axum Server**: Build binary wire protocol serializer and Axum REST/SSE endpoints.
-4. **M4: Agent Telemetry Hook**: Add lightweight event emission in `ctxvault-mcp` HTTP transport.
+4. **M4: Agent Telemetry Hook**: Add lightweight event emission in `groundcontrol-mcp` HTTP transport.
 5. **M5: React 19 / Three.js Frontend**: Develop the dashboard SPA with 4-tier LOD, particle shaders, and bloom effects.
-6. **M6: CLI Integration & Verification**: Add `ctxv graphview` command to `ctxvault-cli` and verify 60 FPS performance.
+6. **M6: CLI Integration & Verification**: Add `gc graphview` command to `groundcontrol-cli` and verify 60 FPS performance.

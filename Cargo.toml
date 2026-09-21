@@ -1,12 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/ctxvault-core",
-    "crates/ctxvault-mcp",
-    "crates/ctxvault-cli",
-    "crates/ctxvault-common",
-    "crates/ctxvault-graphview",
-    "crates/ctxvault-bench",
+    "crates/groundcontrol-core",
+    "crates/groundcontrol-mcp",
+    "crates/groundcontrol-cli",
+    "crates/groundcontrol-common",
+    "crates/groundcontrol-graphview",
+    "crates/groundcontrol-bench",
 ]
 
 [workspace.package]
@@ -14,7 +14,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
 license = "MIT"
-repository = "https://github.com/t3e1er/ctxvault"
+repository = "https://github.com/t3e1er/groundcontrol"
 authors = ["Trent <trent@example.com>"]
 
 [workspace.lints.rust]

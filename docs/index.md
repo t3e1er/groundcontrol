@@ -1,5 +1,5 @@
 ---
-title: "ctxvault Knowledge Corpus Hub"
+title: "groundcontrol Knowledge Corpus Hub"
 category: "root"
 status: "active"
 tags: ["architecture", "search", "cast", "graph", "retrieval", "mcp", "polyglot", "karpathy", "wiki", "trust", "roadmap", "concepts"]
@@ -9,9 +9,9 @@ related:
   - "[[docs/roadmap/index]]"
 ---
 
-# ctxvault Knowledge Corpus Hub
+# groundcontrol Knowledge Corpus Hub
 
-Welcome to the central technical documentation and knowledge corpus for **ctxvault** (`ctxv`), the enterprise semantic Model Context Protocol (MCP) server for AI coding agents, written in 100% pure safe Rust (`#![forbid(unsafe_code)]`).
+Welcome to the central technical documentation and knowledge corpus for **groundcontrol** (`gc`), the enterprise semantic Model Context Protocol (MCP) server for AI coding agents, written in 100% pure safe Rust (`#![forbid(unsafe_code)]`).
 
 This documentation is organized into three core technical pillars following **Principle 3: Continuous Knowledge Crystallization**. Rather than leaving technical designs in ephemeral session traces, every architectural decision, mathematical proof, and systems design is documented as a dense, cross-linked, schema-validated markdown asset.
 

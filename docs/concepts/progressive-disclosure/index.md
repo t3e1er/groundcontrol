@@ -18,7 +18,7 @@ related:
 
 In agentic software development, **context window pollution is the leading cause of reasoning degradation**. When an agent receives hundreds of lines of irrelevant source code, its ability to reason accurately drops exponentially.
 
-`ctxvault` eliminates context rot through **Progressive Disclosure**—a formal contract that bounds token usage at every step of an agent's reasoning loop.
+`groundcontrol` eliminates context rot through **Progressive Disclosure**—a formal contract that bounds token usage at every step of an agent's reasoning loop.
 
 ---
 
@@ -41,7 +41,7 @@ Traditional RAG (Full File / Large Chunk Dumping):
 │ 15,000 - 45,000 tokens dumped into Turn 1 context window │  --> High Cost, Reasoning Degradation
 └──────────────────────────────────────────────────────────┘
 
-ctxvault 3-Tier Progressive Disclosure:
+groundcontrol 3-Tier Progressive Disclosure:
 ┌──────────────────────────────────────────────────────────┐
 │ Turn 1: 300 - 800 tokens (Snippets + Graph Affordances)  │  --> 85-90% Token Savings
 ├──────────────────────────────────────────────────────────┤

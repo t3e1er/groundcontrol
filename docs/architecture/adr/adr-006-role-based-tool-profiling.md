@@ -15,10 +15,10 @@ related:
 Accepted / Implemented
 
 ## Context
-As `ctxvault` expanded to 39 registered MCP tools, serializing the full tool registry in `tools/list` consumed ~5,500 tokens of prompt context on every interaction. Furthermore, exposing mutating tools (`delete_note`, `move_note`, `reindex_corpus`) to read-only exploratory agents created operational security risks.
+As `groundcontrol` expanded to 39 registered MCP tools, serializing the full tool registry in `tools/list` consumed ~5,500 tokens of prompt context on every interaction. Furthermore, exposing mutating tools (`delete_note`, `move_note`, `reindex_corpus`) to read-only exploratory agents created operational security risks.
 
 ## Decision
-We implemented a hierarchical `--profile` command-line flag in `ctxvault-cli` and `ctxvault-mcp`:
+We implemented a hierarchical `--profile` command-line flag in `groundcontrol-cli` and `groundcontrol-mcp`:
 $$\text{scout} \subset \text{analysis} \subset \text{all}$$
 
 1. **`scout` (9 tools)**: Minimal retrieve/navigate set for fast exploratory agents.

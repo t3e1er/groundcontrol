@@ -14,14 +14,14 @@ related:
 Accepted / Implemented
 
 ## Context
-Early prototypes allowed internal storage types (such as `rusqlite::Connection`, `tantivy::IndexReader`, and `ort::Session`) to leak through helper functions into `ctxvault-core::engine` and `ctxvault-mcp`. This tightly coupled the domain to specific third-party storage crates, making testing difficult and preventing modular backend replacement.
+Early prototypes allowed internal storage types (such as `rusqlite::Connection`, `tantivy::IndexReader`, and `ort::Session`) to leak through helper functions into `groundcontrol-core::engine` and `groundcontrol-mcp`. This tightly coupled the domain to specific third-party storage crates, making testing difficult and preventing modular backend replacement.
 
 ## Decision
 We implemented a strict **Hexagonal Architecture encapsulation barrier**:
-1. All core infrastructure capabilities are defined as pure Rust traits (**ports**) in `ctxvault-common::ports`.
-2. Adapters in `ctxvault-core` implement these ports and completely encapsulate their underlying infrastructure crates.
+1. All core infrastructure capabilities are defined as pure Rust traits (**ports**) in `groundcontrol-common::ports`.
+2. Adapters in `groundcontrol-core` implement these ports and completely encapsulate their underlying infrastructure crates.
 3. No concrete backend type is ever exposed in port method signatures.
-4. Construction of concrete adapters is restricted exclusively to the **Composition Root** (`ctxvault-cli/src/main.rs`).
+4. Construction of concrete adapters is restricted exclusively to the **Composition Root** (`groundcontrol-cli/src/main.rs`).
 
 ## Consequences
 
@@ -31,4 +31,4 @@ We implemented a strict **Hexagonal Architecture encapsulation barrier**:
 - Unit testing with mock ports is trivial and fast.
 
 ### Trade-offs
-- Requires boilerplate trait definitions and mapping from storage-specific row types to `ctxvault-common` domain structs.
+- Requires boilerplate trait definitions and mapping from storage-specific row types to `groundcontrol-common` domain structs.

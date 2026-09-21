@@ -30,7 +30,7 @@ While attractive in academic prototypes, this pattern is fundamentally flawed fo
 
 ## The Deterministic Grammar Invariant
 
-`ctxvault` eliminates LLM entity extraction entirely in favor of **100% deterministic Tree-sitter cAST parsing and link grammars**:
+`groundcontrol` eliminates LLM entity extraction entirely in favor of **100% deterministic Tree-sitter cAST parsing and link grammars**:
 
 ```mermaid
 flowchart LR

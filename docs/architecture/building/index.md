@@ -14,7 +14,7 @@ related:
 
 # Building & Deployment Hub
 
-`ctxvault` (`ctxv`) is delivered as a **single standalone native binary** with zero external runtime dependencies. This hub covers installing prebuilt release binaries, compiling from source with hardware acceleration, configuring coding agents, and deploying multi-corpus daemons.
+`groundcontrol` (`gc`) is delivered as a **single standalone native binary** with zero external runtime dependencies. This hub covers installing prebuilt release binaries, compiling from source with hardware acceleration, configuring coding agents, and deploying multi-corpus daemons.
 
 ---
 
@@ -22,7 +22,7 @@ related:
 
 * **[[docs/architecture/building/installation]]**: One-command platform installers for Windows, macOS, and Linux, with pre-bundled ONNX sidecar models.
 * **[[docs/architecture/building/build-from-source]]**: Compiling from source via Cargo, MSRV 1.80 verification, DirectML/ONNX hardware acceleration, and fast indexing mode.
-* **[[docs/architecture/building/client-setup]]**: Drop-in MCP configuration for Cursor, Claude Desktop, Antigravity IDE, Gemini CLI, Windsurf, and Zed via `ctxvault install -y`.
+* **[[docs/architecture/building/client-setup]]**: Drop-in MCP configuration for Cursor, Claude Desktop, Antigravity IDE, Gemini CLI, Windsurf, and Zed via `groundcontrol install -y`.
 * **[[docs/architecture/building/daemon-and-server]]**: Running the shared auto-daemon, hosting multi-corpus servers over HTTP SSE, and CLI automation.
 
 ---
@@ -42,14 +42,14 @@ related:
 
 ```bash
 # 1. One-command installer (Windows)
-irm https://raw.githubusercontent.com/t3e1er/ctxvault/master/install.ps1 | iex
+irm https://raw.githubusercontent.com/t3e1er/groundcontrol/master/install.ps1 | iex
 
 # 2. One-command installer (macOS / Linux)
-curl -fsSL https://raw.githubusercontent.com/t3e1er/ctxvault/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/t3e1er/groundcontrol/master/install.sh | sh
 
 # 3. Auto-configure coding agents
-ctxvault install -y
+groundcontrol install -y
 
 # 4. Verify installation & health
-ctxvault status --scope all
+groundcontrol status --scope all
 ```

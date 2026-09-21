@@ -1,6 +1,6 @@
 ---
 title: "Schema Validation & Taxonomy Enforcement"
-description: "How ctxvault validates note templates, catches broken wikilinks, and maintains corpus health."
+description: "How groundcontrol validates note templates, catches broken wikilinks, and maintains corpus health."
 category: "trust"
 status: "active"
 tags: ["schema", "validation", "templates", "taxonomy", "linting", "corpus-health"]
@@ -12,13 +12,13 @@ related:
 
 # Schema Validation & Taxonomy Enforcement
 
-To prevent documentation decay, `ctxvault` includes native schema validation tools: `validate` and `list_templates`.
+To prevent documentation decay, `groundcontrol` includes native schema validation tools: `validate` and `list_templates`.
 
 ---
 
 ## 1. Formal Note Templates (`.templates/`)
 
-Knowledge vaults define required frontmatter schemas in a `.templates/` directory (or via `ctxvault.toml`). For example, an Architectural Decision Record template:
+Knowledge vaults define required frontmatter schemas in a `.templates/` directory (or via `groundcontrol.toml`). For example, an Architectural Decision Record template:
 
 ```markdown
 ---

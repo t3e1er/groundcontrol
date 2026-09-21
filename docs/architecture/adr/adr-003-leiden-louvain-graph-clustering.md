@@ -14,7 +14,7 @@ related:
 Accepted / Implemented
 
 ## Context
-To provide architectural intelligence via `get_architecture` and `graph_communities`, `ctxvault` clusters cross-modal Petgraph graphs (AST code symbols + markdown documentation).
+To provide architectural intelligence via `get_architecture` and `graph_communities`, `groundcontrol` clusters cross-modal Petgraph graphs (AST code symbols + markdown documentation).
 
 The classical Louvain algorithm suffers from a known pathological flaw: it can produce **internally disconnected communities**. Two completely unrelated components that have no path between them may be assigned the same community ID if both share weak indirect ties to common central hub nodes.
 

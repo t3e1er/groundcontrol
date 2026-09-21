@@ -1,5 +1,5 @@
-# ctxvault Universal Installer for Windows
-# Installs standalone native binary directly into %LOCALAPPDATA%\Programs\ctxvault\bin\ctxvault.exe
+# groundcontrol Universal Installer for Windows
+# Installs standalone native binary directly into %LOCALAPPDATA%\Programs\groundcontrol\bin\groundcontrol.exe
 
 param(
     [switch]$Fast,
@@ -9,8 +9,8 @@ param(
     [switch]$SkipRules,
     [switch]$Auth,
     [string]$Agents,
-    [string]$Repo = $(if ($env:CTXV_GITHUB_REPO) { $env:CTXV_GITHUB_REPO } elseif ($env:CXTV_GITHUB_REPO) { $env:CXTV_GITHUB_REPO } else { "t3e1er/ctxvault" }),
-    [string]$InstallDir = $(if ($env:CTXV_INSTALL_DIR) { $env:CTXV_INSTALL_DIR } elseif ($env:CXTV_INSTALL_DIR) { $env:CXTV_INSTALL_DIR } else { "$env:LOCALAPPDATA\Programs\ctxvault\bin" })
+    [string]$Repo = $(if ($env:CTXV_GITHUB_REPO) { $env:CTXV_GITHUB_REPO } elseif ($env:CXTV_GITHUB_REPO) { $env:CXTV_GITHUB_REPO } else { "t3e1er/groundcontrol" }),
+    [string]$InstallDir = $(if ($env:CTXV_INSTALL_DIR) { $env:CTXV_INSTALL_DIR } elseif ($env:CXTV_INSTALL_DIR) { $env:CXTV_INSTALL_DIR } else { "$env:LOCALAPPDATA\Programs\groundcontrol\bin" })
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,7 +18,7 @@ $ErrorActionPreference = 'Stop'
 if (-not $Tag) {
     Write-Host "[*] Resolving latest release for $Repo..." -ForegroundColor Cyan
     try {
-        $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ "User-Agent" = "ctxvault-installer" }
+        $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ "User-Agent" = "groundcontrol-installer" }
         $Tag = $Release.tag_name
     } catch {
         Write-Error "Failed to query latest release from GitHub API: $_"
@@ -34,11 +34,11 @@ if (-not $Tag) {
 }
 
 $Target = "x86_64-pc-windows-msvc"
-$ArchiveName = "ctxvault-$Tag-$Target.zip"
+$ArchiveName = "groundcontrol-$Tag-$Target.zip"
 $DownloadUrl = "https://github.com/$Repo/releases/download/$Tag/$ArchiveName"
 
 Write-Host "[*] Downloading $DownloadUrl..." -ForegroundColor Cyan
-$TempDir = Join-Path $env:TEMP ("ctxvault-install-" + [Guid]::NewGuid().ToString())
+$TempDir = Join-Path $env:TEMP ("groundcontrol-install-" + [Guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 
 $ZipFile = Join-Path $TempDir $ArchiveName
@@ -87,14 +87,14 @@ try {
 
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-    $SourceExe = Get-ChildItem -Path $TempDir -Filter "ctxvault.exe" -Recurse | Select-Object -First 1
+    $SourceExe = Get-ChildItem -Path $TempDir -Filter "groundcontrol.exe" -Recurse | Select-Object -First 1
     if (-not $SourceExe) {
-        Write-Error "ctxvault.exe not found in extracted archive."
+        Write-Error "groundcontrol.exe not found in extracted archive."
         exit 1
     }
 
     # In-place Windows executable retirement (retires locked running binary to allow hot upgrade)
-    $DestExe = Join-Path $InstallDir "ctxvault.exe"
+    $DestExe = Join-Path $InstallDir "groundcontrol.exe"
     if (Test-Path $DestExe) {
         $Timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
         $RetiredExe = "$DestExe.retired-$Timestamp"
@@ -106,19 +106,19 @@ try {
         }
     }
     # Clean up stale retired binaries older than 24h
-    Get-ChildItem -Path $InstallDir -Filter "ctxvault.exe.retired-*" -ErrorAction SilentlyContinue |
+    Get-ChildItem -Path $InstallDir -Filter "groundcontrol.exe.retired-*" -ErrorAction SilentlyContinue |
         Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) } |
         Remove-Item -Force -ErrorAction SilentlyContinue
 
-    Copy-Item -Path $SourceExe.FullName -Destination "$InstallDir\ctxvault.exe" -Force
+    Copy-Item -Path $SourceExe.FullName -Destination "$InstallDir\groundcontrol.exe" -Force
     # Optional alias copy
     Copy-Item -Path $SourceExe.FullName -Destination "$InstallDir\ctxv.exe" -Force -ErrorAction SilentlyContinue
 
-    # GraphView convenience wrapper: allow direct invocation via ctxvault-graphview
-    $GraphviewCmd = Join-Path $InstallDir "ctxvault-graphview.cmd"
-    Set-Content -Path $GraphviewCmd -Value "@echo off`r`n`"%~dp0ctxvault.exe`" graphview %*" -Force -Encoding ASCII
+    # GraphView convenience wrapper: allow direct invocation via groundcontrol-graphview
+    $GraphviewCmd = Join-Path $InstallDir "groundcontrol-graphview.cmd"
+    Set-Content -Path $GraphviewCmd -Value "@echo off`r`n`"%~dp0groundcontrol.exe`" graphview %*" -Force -Encoding ASCII
 
-    # Place updater script beside binary so ctxvault update points to local immutable script
+    # Place updater script beside binary so groundcontrol update points to local immutable script
     if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
         Copy-Item -Path $PSCommandPath -Destination (Join-Path $InstallDir "install.ps1") -Force -ErrorAction SilentlyContinue
     }
@@ -138,7 +138,7 @@ try {
     }
 
     Write-Host ""
-    Write-Host "[+] Successfully installed 'ctxvault.exe' to $InstallDir\ctxvault.exe" -ForegroundColor Green
+    Write-Host "[+] Successfully installed 'groundcontrol.exe' to $InstallDir\groundcontrol.exe" -ForegroundColor Green
     Write-Host ""
 
     # Ensure $InstallDir is in User PATH
@@ -158,9 +158,9 @@ try {
     if ($SkipRules) { $InstallArgs += "--rules=false" }
     if ($Auth) { $InstallArgs += "--auth" }
     if ($Agents) { $InstallArgs += "--agents=$Agents" }
-    & "$InstallDir\ctxvault.exe" @InstallArgs
+    & "$InstallDir\groundcontrol.exe" @InstallArgs
 
-    Write-Host "[>] Run 'ctxvault --version' to verify your installation." -ForegroundColor Cyan
+    Write-Host "[>] Run 'groundcontrol --version' to verify your installation." -ForegroundColor Cyan
 } finally {
     Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
 }

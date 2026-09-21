@@ -1,6 +1,6 @@
-# Multi-Agent Swarm Orchestration with ctxvault
+# Multi-Agent Swarm Orchestration with groundcontrol
 
-This guide provides blueprint architectures for orchestrating multi-agent swarms powered by `ctxvault` as a sub-millisecond, shared semantic memory substrate (17 authoritative tools).
+This guide provides blueprint architectures for orchestrating multi-agent swarms powered by `groundcontrol` as a sub-millisecond, shared semantic memory substrate (17 authoritative tools).
 
 ```mermaid
 flowchart TD
@@ -14,7 +14,7 @@ flowchart TD
         Orch -->|4a. Draft Spec / ADR| Writer[Writer Agent]
         Orch -->|4b. Episodic Distillation| Cryst[Crystallizer Agent]
         
-        Writer -->|5a. Validated Markdown| Vault[(ctxvault Knowledge Base)]
+        Writer -->|5a. Validated Markdown| Vault[(groundcontrol Knowledge Base)]
         Cryst -->|5b. Lineage & Concepts| Vault
     end
     

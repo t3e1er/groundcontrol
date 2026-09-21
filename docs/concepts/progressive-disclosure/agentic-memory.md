@@ -26,16 +26,16 @@ In an evaluation across 20 multi-step engineering tasks, we measured token consu
 |---|---|---|---|
 | **Raw File Loading (Dump)** | 18,400 tokens | **184,000 tokens (Exhausted)** | **42%** |
 | **Naive Top-10 Vector RAG** | 6,200 tokens | **62,000 tokens** | **28%** (Missed exact symbols) |
-| **ctxvault 3-Tier Progressive** | **680 tokens** | **6,800 tokens** | **< 4%** |
+| **groundcontrol 3-Tier Progressive** | **680 tokens** | **6,800 tokens** | **< 4%** |
 
 ### Key Takeaway
-`ctxvault` achieves an **85% to 90% reduction in context window token consumption** while delivering superior factual accuracy through compiler-derived AST symbols and affordances.
+`groundcontrol` achieves an **85% to 90% reduction in context window token consumption** while delivering superior factual accuracy through compiler-derived AST symbols and affordances.
 
 ---
 
 ## Long-Term Memory Substrate
 
-Beyond single sessions, `ctxvault` serves as a persistent memory substrate:
+Beyond single sessions, `groundcontrol` serves as a persistent memory substrate:
 1. **Shared In-Memory & Disk Index**: Multiple agent processes (or editor windows) share the same underlying SQLite catalog and Tantivy readers without duplicate memory allocation.
 2. **Deterministic Recall**: Because indexing is deterministic, identical queries yield consistent rank scores and graph paths across sessions.
 3. **Compound Intelligence**: As agents crystallize notes via `write_note`, the memory substrate grows richer, reducing future search hops.
