@@ -13,7 +13,7 @@ related:
 
 # DirectML Acceleration & AIMD GPU Governor
 
-To avoid locking users into proprietary CUDA runtimes, `ctxvault` uses **DirectX 12 DirectML** on Windows. This enables hardware acceleration across all modern discrete and integrated GPUs (AMD, Intel, NVIDIA, Qualcomm).
+To avoid locking users into proprietary CUDA runtimes, `groundcontrol` uses **DirectX 12 DirectML** on Windows. This enables hardware acceleration across all modern discrete and integrated GPUs (AMD, Intel, NVIDIA, Qualcomm).
 
 ---
 
@@ -21,7 +21,7 @@ To avoid locking users into proprietary CUDA runtimes, `ctxvault` uses **DirectX
 
 Batching large token sequences into a GPU can cause Out-Of-Memory (OOM) crashes if another application (e.g. an IDE or browser) consumes VRAM.
 
-`ctxvault` implements an **Additive Increase / Multiplicative Decrease (AIMD)** hardware governor:
+`groundcontrol` implements an **Additive Increase / Multiplicative Decrease (AIMD)** hardware governor:
 * **VRAM Ceiling**: Caps total process VRAM allocation at **70%** of available adapter memory.
 * **Dynamic Batch Scaling**:
   * If batch latency < 150ms and VRAM < 70%: increases token batch size additively ($+64$ tokens).
@@ -33,7 +33,7 @@ Batching large token sequences into a GPU can cause Out-Of-Memory (OOM) crashes 
 
 Indexing large codebases requires reading files from disk, tokenizing via HuggingFace tokenizers, and running ONNX tensor passes.
 
-`ctxvault` uses a double-buffered staging pipeline:
+`groundcontrol` uses a double-buffered staging pipeline:
 ```
 Stage 1 (CPU Threadpool):   [Tokenize Batch N+1] ──┐
                                                     ▼
@@ -47,4 +47,4 @@ While the GPU processes Batch $N$, CPU worker threads tokenize and pack tensors 
 
 On Windows, the GPU scheduler triggers a **Timeout Detection and Recovery (TDR)** reset (error `0x887A0006`) if any single compute dispatch occupies the GPU for more than 2 seconds.
 
-`ctxvault` enforces a strict **400ms per-dispatch execution ceiling**. Long document sequences are automatically chunked and staged across multiple micro-dispatches, guaranteeing zero Windows desktop freezes or driver crashes.
+`groundcontrol` enforces a strict **400ms per-dispatch execution ceiling**. Long document sequences are automatically chunked and staged across multiple micro-dispatches, guaranteeing zero Windows desktop freezes or driver crashes.

@@ -15,7 +15,7 @@ related:
 Accepted / Implemented
 
 ## Context
-Early versions of `ctxvault` used fixed-size batch dispatching ($B=64$). When a batch contained one or more long code files near 2,000+ tokens, the quadratic attention activation matrix ($B \times S^2$) spiked memory consumption over 12+ GB, triggering fatal DirectX 12 driver resets (`0x887A0006`) when GPU execution exceeded the Windows 2.0-second TDR threshold.
+Early versions of `groundcontrol` used fixed-size batch dispatching ($B=64$). When a batch contained one or more long code files near 2,000+ tokens, the quadratic attention activation matrix ($B \times S^2$) spiked memory consumption over 12+ GB, triggering fatal DirectX 12 driver resets (`0x887A0006`) when GPU execution exceeded the Windows 2.0-second TDR threshold.
 
 ## Decision
 We implemented a **Dynamic Token-Budgeting Batching Pipeline** with a strict **400ms Per-Dispatch Safety Ceiling**:

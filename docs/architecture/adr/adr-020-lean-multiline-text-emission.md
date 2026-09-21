@@ -30,13 +30,13 @@ Standard JSON serialization imposes a severe context window tax and increases au
 3. **Double Escaping on Turn 3 Code Reads**: When emitting code or whole files (`read_file`, `get_snippet`) inside JSON strings, every newline is escaped as `\n`, every quote as `\"`, and backslashes as `\\`, inflating token count by 15-25% and degrading code understanding in language models.
 4. **Attention Dilution**: Autoregressive transformer attention heads are optimized for natural language and indented source code. High-entropy JSON punctuation dilutes attention away from primary file paths, line ranges, and symbols.
 
-Inspired by the compact output philosophy of `codebase-memory-mcp`'s `compact_out`, ctxvault required an industrial-grade, semantically rich multiline text protocol across all progressive disclosure tiers.
+Inspired by the compact output philosophy of `codebase-memory-mcp`'s `compact_out`, groundcontrol required an industrial-grade, semantically rich multiline text protocol across all progressive disclosure tiers.
 
 ## Decision
 
 Standardize on **Lean Multiline Text Emission** across Turns 1, 2a, 2b, and 3:
 
-1. **Native Wire Emission**: At the MCP transport boundary in [`dispatch.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/transport/dispatch.rs), if a tool handler produces `Value::String(s)`, the dispatch layer emits the raw string directly into `CallToolResponse { content: vec![Content::Text { text: s }] }` without re-wrapping it in JSON string escaping.
+1. **Native Wire Emission**: At the MCP transport boundary in [`dispatch.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/transport/dispatch.rs), if a tool handler produces `Value::String(s)`, the dispatch layer emits the raw string directly into `CallToolResponse { content: vec![Content::Text { text: s }] }` without re-wrapping it in JSON string escaping.
 2. **Default Wire Protocol**: MCP tool dispatch defaults `arguments.format` to `"lean"` for all external client invocations. Clients needing machine-parseable JSON can explicitly pass `format: "json"`.
 3. **Turn 1 (`search`) Lean Protocol**: Emits human/agent-readable Markdown with partitioned hits (`## Code Hits`, `## Doc Hits`), stripped zero score components, bounded Turn 1 snippets in fenced code blocks, and explicit next-turn affordance scents:
    - `-> [T2a fetch] get_snippet(name: "...")`
@@ -47,7 +47,7 @@ Standardize on **Lean Multiline Text Emission** across Turns 1, 2a, 2b, and 3:
 
 ## Implementation Architecture
 
-The protocol is implemented in the pure Rust formatting engine [`crates/ctxvault-mcp/src/format/lean.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/format/lean.rs) and wired into tool handlers in [`crates/ctxvault-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs):
+The protocol is implemented in the pure Rust formatting engine [`crates/groundcontrol-mcp/src/format/lean.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/format/lean.rs) and wired into tool handlers in [`crates/groundcontrol-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs):
 
 ```mermaid
 flowchart TD

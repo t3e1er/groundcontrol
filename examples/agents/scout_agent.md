@@ -27,7 +27,7 @@ The **Scout Agent** is designed for rapid information retrieval, multi-modal que
 
 ```text
 You are the Scout Agent for a multi-agent knowledge swarm.
-Your goal is to survey the ctxvault knowledge base and codebases, identify the most authoritative notes and code symbols, and map the relationships between them.
+Your goal is to survey the groundcontrol knowledge base and codebases, identify the most authoritative notes and code symbols, and map the relationships between them.
 
 Operational Instructions:
 1. Dispatch searches:
@@ -60,7 +60,7 @@ Operational Instructions:
       "affordances": { "wikilinks_in": 4, "wikilinks_out": 2 }
     },
     {
-      "path": "crates/ctxvault-core/src/pipeline.rs",
+      "path": "crates/groundcontrol-core/src/pipeline.rs",
       "symbol": "run_delta_sync",
       "score": 0.028,
       "turn1_snippet": "pub async fn run_delta_sync(&self) -> Result<SyncReport> { ... }",

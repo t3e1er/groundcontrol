@@ -1,37 +1,37 @@
-# ctxvault (`ctxv`)
+# groundcontrol (`gc`)
 
 **The Pure Rust Model Context Protocol (MCP) Server for AI Coding Agents**
 
 *Sub-millisecond hybrid BM25 + ONNX vector + AST knowledge graph retrieval with 3-tier progressive disclosure.*
 
-[![CI](https://github.com/t3e1er/ctxvault/actions/workflows/mergebuild.yml/badge.svg)](https://github.com/t3e1er/ctxvault/actions/workflows/mergebuild.yml)
-[![Release](https://img.shields.io/github/v/release/t3e1er/ctxvault?style=flat&color=3b82f6)](https://github.com/t3e1er/ctxvault/releases)
-[![Crates.io](https://img.shields.io/crates/v/ctxvault-cli?style=flat&color=f59e0b)](https://crates.io/crates/ctxvault-cli)
+[![CI](https://github.com/t3e1er/groundcontrol/actions/workflows/mergebuild.yml/badge.svg)](https://github.com/t3e1er/groundcontrol/actions/workflows/mergebuild.yml)
+[![Release](https://img.shields.io/github/v/release/t3e1er/groundcontrol?style=flat&color=3b82f6)](https://github.com/t3e1er/groundcontrol/releases)
+[![Crates.io](https://img.shields.io/crates/v/groundcontrol?style=flat&color=f59e0b)](https://crates.io/crates/groundcontrol)
 [![MSRV](https://img.shields.io/badge/MSRV-1.80-orange?style=flat)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Safety: forbid(unsafe)](https://img.shields.io/badge/unsafe_code-forbid-success.svg)](crates/ctxvault-core/src/lib.rs)
-[![Star History](https://img.shields.io/github/stars/t3e1er/ctxvault?style=flat&color=8b5cf6)](https://star-history.com/#t3e1er/ctxvault&Date)
+[![Safety: forbid(unsafe)](https://img.shields.io/badge/unsafe_code-forbid-success.svg)](crates/groundcontrol-core/src/lib.rs)
+[![Star History](https://img.shields.io/github/stars/t3e1er/groundcontrol?style=flat&color=8b5cf6)](https://star-history.com/#t3e1er/groundcontrol&Date)
 
-[Quickstart](#-quickstart--one-command-setup) • [Why ctxvault?](#-why-ctxvault-the-numbers) • [Trust & Determinism](#-built-on-trust--determinism) • [Core Concepts](#-core-concepts) • [Architecture](#-architecture) • [MCP Tool Surface](#-mcp-tool-surface-17-tools) • [Docs](#-documentation-hub)
+[Quickstart](#-quickstart--one-command-setup) • [Why groundcontrol?](#why-groundcontrol-the-numbers) • [Trust & Determinism](#-built-on-trust--determinism) • [Core Concepts](#-core-concepts) • [Architecture](#-architecture) • [MCP Tool Surface](#-mcp-tool-surface-17-tools) • [Docs](#-documentation-hub)
 
 
 <div align="center">
-  <img src="docs/assets/banner.jpg" alt="ctxvault — Pure Rust MCP Server for AI Coding Agents" width="100%" />
+  <img src="docs/assets/banner.jpg" alt="groundcontrol — Pure Rust MCP Server for AI Coding Agents" width="100%" />
 </div>
 
-## What is `ctxvault`?
+## What is `groundcontrol`?
 
 Modern coding agents (Cursor, Claude Desktop, Antigravity, Windsurf, Zed) suffer from **context exhaustion** and **reasoning rot**. Dumping entire directories burns millions of tokens, while naive vector RAG misses exact symbols and traditional knowledge-graph tools rely on expensive, flaky LLM extraction pipelines.
 
-`ctxvault` (`ctxv`) solves this with a **100% pure Rust** semantic Model Context Protocol server. It unifies polyglot AST code chunking, full-text Tantivy BM25, local 768-dimensional ONNX dense vectors, and typed graph traversal into a **sub-millisecond, multi-modal retrieval engine**.
+`groundcontrol` (`gc`) solves this with a **100% pure Rust** semantic Model Context Protocol server. It unifies polyglot AST code chunking, full-text Tantivy BM25, local 768-dimensional ONNX dense vectors, and typed graph traversal into a **sub-millisecond, multi-modal retrieval engine**.
 
 Through **strict 3-Tier Progressive Disclosure**, agents get answers in a single round-trip with up to **90% token savings**.
 
 ---
 
-## Why `ctxvault`? The Numbers
+## Why `groundcontrol`? The Numbers
 
-| Metric / Dimension | `ctxvault` (`ctxv`) | Naive Vector-Only RAG | Full File / Repo Dumping | LLM Graph Extraction |
+| Metric / Dimension | `groundcontrol` (`gc`) | Naive Vector-Only RAG | Full File / Repo Dumping | LLM Graph Extraction |
 |---|---|---|---|---|
 | **Lexical Retrieval (p50)** | **~2.2 ms** (Tantivy BM25) | 150–400 ms | N/A | N/A |
 | **Graph Traversal (p50)** | **~1.8 ms** (SQLite CTE / Petgraph) | N/A | N/A | 800–2500 ms |
@@ -44,7 +44,7 @@ Through **strict 3-Tier Progressive Disclosure**, agents get answers in a single
 
 ## Built on Trust & Determinism
 
-`ctxvault` was engineered from day one around 5 uncompromising invariants:
+`groundcontrol` was engineered from day one around 5 uncompromising invariants:
 
 ```
                       AUTHORITATIVE GROUND TRUTH
@@ -81,7 +81,7 @@ Through **strict 3-Tier Progressive Disclosure**, agents get answers in a single
 
 ### 1. 3-Tier Progressive Disclosure
 
-Rather than overwhelming the LLM with raw files or fragmented chunks, `ctxvault` enforces a 3-tier progressive retrieval contract that preserves token budgets and eliminates hallucination:
+Rather than overwhelming the LLM with raw files or fragmented chunks, `groundcontrol` enforces a 3-tier progressive retrieval contract that preserves token budgets and eliminates hallucination:
 
 ```mermaid
 flowchart TD
@@ -138,7 +138,7 @@ Supports 5 typed edge classes:
 
 ### 4. Polyglot Language & Capability Matrix (50+ Formats)
 
-`ctxvault` incorporates Tree-sitter AST parsers and syntax engines across 50+ languages, organized into three capability tiers:
+`groundcontrol` incorporates Tree-sitter AST parsers and syntax engines across 50+ languages, organized into three capability tiers:
 
 | Tier | Languages | Capabilities & Graph Affordances |
 |---|---|---|
@@ -156,25 +156,25 @@ Install the native binary and bundled ONNX embedding sidecar for your platform:
 
 **macOS & Linux**:
 ```
-curl -fsSL https://raw.githubusercontent.com/t3e1er/ctxvault/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/t3e1er/groundcontrol/master/install.sh | sh
 ```
 
 **Windows (PowerShell)**:
 ```
-irm https://raw.githubusercontent.com/t3e1er/ctxvault/master/install.ps1 | iex
+irm https://raw.githubusercontent.com/t3e1er/groundcontrol/master/install.ps1 | iex
 ```
 
 **From Source (Cargo)**:
 ```
-cargo install --locked --path crates/ctxvault-cli
+cargo install --locked --path crates/groundcontrol
 ```
 
 ### 2. Auto-Configure Your Coding Agents
 
-`ctxvault` features a built-in agent installer that automatically detects installed IDEs and configures their MCP configurations:
+`groundcontrol` features a built-in agent installer that automatically detects installed IDEs and configures their MCP configurations:
 
 ```
-ctxvault install -y
+groundcontrol install -y
 ```
 *Auto-detects: Cursor, Claude Desktop, Claude Code, Antigravity IDE, Gemini CLI, Windsurf, VS Code, Zed, and Kiro CLI.*
 
@@ -186,8 +186,8 @@ ctxvault install -y
 ```json
 {
   "mcpServers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": ["--corpus", "${workspaceFolder}", "--sync"]
     }
   }
@@ -198,8 +198,8 @@ ctxvault install -y
 ```json
 {
   "mcpServers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": ["--corpus", "${workspaceFolder}", "--sync"]
     }
   }
@@ -210,8 +210,8 @@ ctxvault install -y
 ```json
 {
   "mcpServers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": ["--corpus", "C:\\path\\to\\project", "--sync"]
     }
   }
@@ -222,8 +222,8 @@ ctxvault install -y
 ```json
 {
   "mcpServers": {
-    "ctxvault": {
-      "command": "ctxvault",
+    "groundcontrol": {
+      "command": "groundcontrol",
       "args": ["--corpus", "${workspaceRoot}", "--sync"]
     }
   }
@@ -233,7 +233,7 @@ ctxvault install -y
 ### Multi-Corpus / Shared HTTP Daemon
 Serve multiple repositories to team swarms over HTTP SSE:
 ```bash
-ctxvault --mode server --bind 0.0.0.0:9090 \
+groundcontrol --mode server --bind 0.0.0.0:9090 \
   --corpus docs=/path/to/docs --corpus repo=/path/to/code \
   --default-corpus repo --profile all --sync
 ```
@@ -242,7 +242,7 @@ ctxvault --mode server --bind 0.0.0.0:9090 \
 
 ## MCP Tool Surface (17 Authoritative Tools)
 
-The authoritative tool surface lives in `crates/ctxvault-mcp/src/tools/mod.rs` (17 tools across 5 domains):
+The authoritative tool surface lives in `crates/groundcontrol-mcp/src/tools/mod.rs` (17 tools across 5 domains):
 
 | Domain | Count | Tools | Description |
 |---|---|---|---|
@@ -272,13 +272,13 @@ flowchart LR
         C4["Zed / Windsurf"]
     end
 
-    subgraph MCP["ctxvault-mcp"]
+    subgraph MCP["groundcontrol-mcp"]
         T1["Stdio Transport"]
         T2["HTTP SSE Server"]
         REG["17 Authoritative Tools Registry"]
     end
 
-    subgraph Core["ctxvault-core (Engine)"]
+    subgraph Core["groundcontrol-core (Engine)"]
         CM["CorpusManager"]
         RRF["3-Way RRF Fusion"]
         
@@ -306,11 +306,11 @@ flowchart LR
 ```
 
 ### Workspace Crates
-* [`crates/ctxvault-common`](crates/ctxvault-common): Domain types, ports traits, TOML configuration, error types.
-* [`crates/ctxvault-core`](crates/ctxvault-core): Engine orchestration, Tantivy BM25, ONNX embedder (`ort` / DirectML), Petgraph, SQLite metadata, Tree-sitter cAST parser.
-* [`crates/ctxvault-mcp`](crates/ctxvault-mcp): Model Context Protocol server (stdio & HTTP SSE), 17-tool registry, tool profiles.
-* [`crates/ctxvault-cli`](crates/ctxvault-cli): Composition root binary, multi-corpus manager, agent auto-installer.
-* [`examples`](examples): Steering rules ([Cursor](examples/steering/cursorrules.md), [Claude](examples/steering/claude-system-prompt.md), [Antigravity](examples/steering/ctxvault-rules.md)), [skills](examples/skills/), and [starter-vault](examples/starter-vault/).
+* [`crates/groundcontrol-common`](crates/groundcontrol-common): Domain types, ports traits, TOML configuration, error types.
+* [`crates/groundcontrol-core`](crates/groundcontrol-core): Engine orchestration, Tantivy BM25, ONNX embedder (`ort` / DirectML), Petgraph, SQLite metadata, Tree-sitter cAST parser.
+* [`crates/groundcontrol-mcp`](crates/groundcontrol-mcp): Model Context Protocol server (stdio & HTTP SSE), 17-tool registry, tool profiles.
+* [`crates/groundcontrol-cli`](crates/groundcontrol-cli): Composition root binary, multi-corpus manager, agent auto-installer.
+* [`examples`](examples): Steering rules ([Cursor](examples/steering/cursorrules.md), [Claude](examples/steering/claude-system-prompt.md), [Antigravity](examples/steering/groundcontrol-rules.md)), [skills](examples/skills/), and [starter-vault](examples/starter-vault/).
 
 ---
 
@@ -326,7 +326,7 @@ The complete documentation is structured into three authoritative pillars as a s
 
 We love contributions that honor our core principles:
 * Check our [Contributing Guide](CONTRIBUTING.md) and [Pull Request Template](.github/PULL_REQUEST_TEMPLATE.md).
-* Discuss ideas in [GitHub Discussions](https://github.com/t3e1er/ctxvault/discussions).
+* Discuss ideas in [GitHub Discussions](https://github.com/t3e1er/groundcontrol/discussions).
 * Report issues via our structured [Issue Templates](.github/ISSUE_TEMPLATE/).
 
 ---

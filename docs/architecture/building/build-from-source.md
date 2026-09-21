@@ -1,6 +1,6 @@
 ﻿---
 title: "Building from Source"
-description: "Compiling ctxvault from source, managing Rust MSRV 1.80, DirectML dependencies, and fetching models."
+description: "Compiling groundcontrol from source, managing Rust MSRV 1.80, DirectML dependencies, and fetching models."
 category: "building"
 status: "active"
 tags: ["rust", "cargo", "msrv", "compilation", "directml", "onnx", "fast-mode"]
@@ -13,7 +13,7 @@ related:
 
 # Building from Source
 
-`ctxvault` compiles using standard `cargo` workflows with **zero external C library dependencies**.
+`groundcontrol` compiles using standard `cargo` workflows with **zero external C library dependencies**.
 
 ---
 
@@ -33,8 +33,8 @@ related:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/t3e1er/ctxvault.git
-cd ctxvault
+git clone https://github.com/t3e1er/groundcontrol.git
+cd groundcontrol
 ```
 
 ### 2. Fetch Embedding Model Sidecar
@@ -49,7 +49,7 @@ export CTX_MODELS_DIR="$(pwd)/models"
 cargo build --workspace --release --locked
 ```
 The optimized native binary is produced at:
-`target/release/ctxvault` (or `target/release/ctxvault.exe`).
+`target/release/groundcontrol` (or `target/release/groundcontrol.exe`).
 
 ---
 
@@ -58,7 +58,7 @@ The optimized native binary is produced at:
 ### `--fast` (BM25 + Graph Only)
 If you do not want to download the 768-dimensional ONNX embedding model or wish to index large source repositories instantly:
 ```bash
-ctxvault --corpus /path/to/repo --fast
+groundcontrol --corpus /path/to/repo --fast
 ```
 Fast mode runs purely on Tantivy Okapi BM25 and Petgraph cAST syntax graphs. Indexing completes in seconds with zero vector model overhead.
 

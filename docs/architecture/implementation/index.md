@@ -1,6 +1,6 @@
 ---
 title: "Implementation & Systems Architecture Hub"
-description: "Internals of ctxvault: hexagonal ports and adapters, Tree-sitter cAST parsing, GPU governor, and federation."
+description: "Internals of groundcontrol: hexagonal ports and adapters, Tree-sitter cAST parsing, GPU governor, and federation."
 category: "implementation"
 status: "active"
 tags: ["implementation", "internals", "architecture", "hexagonal", "cast", "gpu", "directml"]
@@ -18,7 +18,7 @@ related:
 
 # Implementation & Systems Architecture Hub
 
-`ctxvault` is engineered in pure safe Rust (`#![forbid(unsafe_code)]`) with a clean hexagonal architecture. This hub details internal systems design, hardware memory governors, AST parsing engines, and zero-copy storage layouts.
+`groundcontrol` is engineered in pure safe Rust (`#![forbid(unsafe_code)]`) with a clean hexagonal architecture. This hub details internal systems design, hardware memory governors, AST parsing engines, and zero-copy storage layouts.
 
 ---
 
@@ -39,18 +39,18 @@ related:
 
 ```
                   ┌───────────────────────┐
-                  │      ctxvault-cli     │ (Composition Root)
+                  │      groundcontrol-cli     │ (Composition Root)
                   └───────────┬───────────┘
                               │
                   ┌───────────▼───────────┐
-                  │      ctxvault-mcp     │ (Transport & 17 Tools)
+                  │      groundcontrol-mcp     │ (Transport & 17 Tools)
                   └───────────┬───────────┘
                               │
                   ┌───────────▼───────────┐
-                  │     ctxvault-core     │ (Engine & Backend Adapters)
+                  │     groundcontrol-core     │ (Engine & Backend Adapters)
                   └───────────┬───────────┘
                               │
                   ┌───────────▼───────────┐
-                  │    ctxvault-common    │ (Domain Types & Port Traits)
+                  │    groundcontrol-common    │ (Domain Types & Port Traits)
                   └───────────────────────┘
 ```

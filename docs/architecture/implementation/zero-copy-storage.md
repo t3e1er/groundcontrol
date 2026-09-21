@@ -11,7 +11,7 @@ related:
 
 # Zero-Copy Storage & Binary Vector Layouts
 
-To eliminate memory duplication and guarantee sub-millisecond cold starts, `ctxvault` employs zero-copy byte offsets and packed binary vector stores.
+To eliminate memory duplication and guarantee sub-millisecond cold starts, `groundcontrol` employs zero-copy byte offsets and packed binary vector stores.
 
 ---
 
@@ -19,7 +19,7 @@ To eliminate memory duplication and guarantee sub-millisecond cold starts, `ctxv
 
 Storing floating-point embedding vectors in JSON or text format inflates disk footprint by 400% and requires parsing overhead on every startup.
 
-`ctxvault` persists embeddings in a contiguous, aligned binary format:
+`groundcontrol` persists embeddings in a contiguous, aligned binary format:
 ```
 [Header: 32 bytes]
   - Magic Bytes: 0x43 0x54 0x58 0x56 ("CTXV")
@@ -37,7 +37,7 @@ During startup, vectors are memory-mapped directly into the HNSW search space wi
 
 Rather than duplicating source code strings inside SQLite or Tantivy:
 * The SQLite metadata catalog records only `(file_path, byte_start, byte_end, line_start, line_end)`.
-* When `get_snippet` or `read_file` is invoked, `ctxvault` seeks directly to `byte_start` on disk, reading the exact slice without loading the entire file into memory.
+* When `get_snippet` or `read_file` is invoked, `groundcontrol` seeks directly to `byte_start` on disk, reading the exact slice without loading the entire file into memory.
 
 ---
 

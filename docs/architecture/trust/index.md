@@ -17,7 +17,7 @@ related:
 
 In modern AI-assisted engineering, **trust is the primary bottleneck**. When an AI tool hallucinates code relationships, corrupts knowledge files, or relies on proprietary opaque vector stores, developer velocity collapses.
 
-`ctxvault` is architected as an **uncompromising trust layer** between AI models and your filesystem.
+`groundcontrol` is architected as an **uncompromising trust layer** between AI models and your filesystem.
 
 ---
 
@@ -33,7 +33,7 @@ In modern AI-assisted engineering, **trust is the primary bottleneck**. When an 
 
 ## Summary Matrix
 
-| Principle | Traditional AI Tools | `ctxvault` Architecture |
+| Principle | Traditional AI Tools | `groundcontrol` Architecture |
 |---|---|---|
 | **Authoritative State** | Hidden Vector Database / Cloud Cache | **Files on Disk (Git-Tracked)** |
 | **Relationship Extraction** | Stochastic LLM prompt pipelines | **Deterministic Tree-sitter AST & Link Parsers** |

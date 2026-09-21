@@ -1,0 +1,52 @@
+[package]
+name = "groundcontrol-cli"
+description = "CLI binary: argument parsing, mode selection, startup orchestration"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "groundcontrol"
+path = "src/main.rs"
+
+[dependencies]
+groundcontrol-common = { path = "../groundcontrol-common" }
+groundcontrol-core = { path = "../groundcontrol-core" }
+groundcontrol-mcp = { path = "../groundcontrol-mcp" }
+groundcontrol-graphview = { path = "../groundcontrol-graphview" }
+
+# Async
+tokio = { workspace = true }
+
+# CLI
+clap = { workspace = true }
+
+# Tracing
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+toml = { workspace = true }
+serde_json = { workspace = true }
+
+# HTTP client for probe
+reqwest = { workspace = true }
+
+# Archiving
+tar = { workspace = true }
+zstd = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[features]
+default = []
+

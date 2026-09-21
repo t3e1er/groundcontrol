@@ -1,5 +1,5 @@
 {
-  "_comment": "Example ctxvault multi-agent client credentials and theme registry. Copy to clients.json or generate via 'ctxvault client init'.",
+  "_comment": "Example groundcontrol multi-agent client credentials and theme registry. Copy to clients.json or generate via 'groundcontrol client init'.",
   "require_auth": false,
   "daemon_key": "daemon_replace_with_secure_token",
   "clients": [

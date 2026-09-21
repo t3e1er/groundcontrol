@@ -12,7 +12,7 @@ related:
 
 # Files are Ground Truth
 
-In `ctxvault`, **files on disk are king**.
+In `groundcontrol`, **files on disk are king**.
 
 All internal indices—Tantivy Okapi BM25 indices, HNSW vector graphs, SQLite metadata tables, and Petgraph relational graphs—are strictly **derived, disposable, and 100% rebuildable artifacts**.
 
@@ -27,9 +27,9 @@ Many AI knowledge bases treat a vector database (such as Pinecone, Chroma, or Mi
 
 ---
 
-## The `ctxvault` Ground-Truth Contract
+## The `groundcontrol` Ground-Truth Contract
 
 1. **Pure Markdown & Source**: Notes, architectural decision records (ADRs), specifications, and code are stored as plain files within the repository.
-2. **Disposable `.index/`**: The entire `.index/` directory can be deleted at any time with `rm -rf .index`. Running `ctxvault sync` or restarting the server completely reconstructs BM25 postings, vector embeddings, and AST graphs from scratch.
+2. **Disposable `.index/`**: The entire `.index/` directory can be deleted at any time with `rm -rf .index`. Running `groundcontrol sync` or restarting the server completely reconstructs BM25 postings, vector embeddings, and AST graphs from scratch.
 3. **Zero Synchronization Drift**: File system watchers (`notify`) detect file modification timestamps (`mtime`) and trigger immediate atomic incremental updates in memory.
-4. **Git-Native Collaboration**: Teams collaborate using standard Git pull requests, code reviews, and blame histories. `ctxvault` simply indexes whatever is checked out.
+4. **Git-Native Collaboration**: Teams collaborate using standard Git pull requests, code reviews, and blame histories. `groundcontrol` simply indexes whatever is checked out.

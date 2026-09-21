@@ -2,15 +2,15 @@
 
 **Status**: Proposed  
 **Author**: Antigravity & Architecture Team  
-**Scope**: `ctxvault-core`, `ctxvault-mcp`, `ctxvault-common`  
+**Scope**: `groundcontrol-core`, `groundcontrol-mcp`, `groundcontrol-common`  
 **Date**: September 2026  
-**Related Documents**: [CODEROADMAP.md](file:///C:/dev/semantic/ctxvault/docs/CODEROADMAP.md), [optimisation.md](file:///C:/dev/semantic/ctxvault/docs/optimisation.md), [why-hybrid-retrieval.md](file:///C:/dev/semantic/ctxvault/docs/why-hybrid-retrieval.md)
+**Related Documents**: [CODEROADMAP.md](file:///C:/dev/semantic/groundcontrol/docs/CODEROADMAP.md), [optimisation.md](file:///C:/dev/semantic/groundcontrol/docs/optimisation.md), [why-hybrid-retrieval.md](file:///C:/dev/semantic/groundcontrol/docs/why-hybrid-retrieval.md)
 
 ---
 
 ## 1. Executive Summary & Problem Statement
 
-`ctxvault` was designed to provide AI agents with sub-millisecond, high-signal context without file dumping or non-deterministic LLM entity extraction. However, empirical benchmarking against large monorepos (such as the 27,000-file, 356,127-edge `kubernetes` corpus) identified two systemic architectural bottlenecks:
+`groundcontrol` was designed to provide AI agents with sub-millisecond, high-signal context without file dumping or non-deterministic LLM entity extraction. However, empirical benchmarking against large monorepos (such as the 27,000-file, 356,127-edge `kubernetes` corpus) identified two systemic architectural bottlenecks:
 
 ```mermaid
 flowchart TD
@@ -28,7 +28,7 @@ flowchart TD
    Tools like `detect_changes` attempt to perform a full working-tree delta scan across 27,000 files, clone all 356,127 Petgraph edges, and linearly filter them in memory (`edges.iter().filter(...)`). On large enterprise repositories, this triggers catastrophic 3-minute MCP transport timeouts. Similarly, unconstrained BFS multi-hop traversals on high-degree nodes (e.g. `k8s.io/api/core/v1`) trigger exponential combinatorial explosions.
 
 2. **Tool Surface Sprawl vs. Agent Cognitive Friction**:  
-   `ctxvault` currently registers **39 tools**. Of these, **12 separate tools** (`find_callers`, `backlinks`, `forwardlinks`, `graph_subgraph`, `graph_path`, `graph_stats`, `traverse_lineage`, `list_edge_types`, `get_symbol_definition`, `get_architecture`, `detect_changes`, `graph_communities`) fragment graph navigation into overlapping micro-APIs. This consumes ~1,800 prompt tokens per request just for JSON schemas and forces agent indecision.
+   `groundcontrol` currently registers **39 tools**. Of these, **12 separate tools** (`find_callers`, `backlinks`, `forwardlinks`, `graph_subgraph`, `graph_path`, `graph_stats`, `traverse_lineage`, `list_edge_types`, `get_symbol_definition`, `get_architecture`, `detect_changes`, `graph_communities`) fragment graph navigation into overlapping micro-APIs. This consumes ~1,800 prompt tokens per request just for JSON schemas and forces agent indecision.
 
 3. **The "Blind Turn 1" and "Rigid Schema Trap"**:  
    - Turn 1 (`search` with `detail="ids"`) returns bare file paths and line coordinates with **zero information scent** (no in-degree, out-degree, or edge types). The agent is forced to fly blind when deciding whether to call `find_callers`, `get_snippet`, or inspect documentation.
@@ -38,7 +38,7 @@ flowchart TD
 
 ## 2. Core Architectural Invariants
 
-Any architectural evolution must strictly uphold `ctxvault`'s greenfield invariants:
+Any architectural evolution must strictly uphold `groundcontrol`'s greenfield invariants:
 
 1. **Markdown and Source Code are Ground Truth**: Files on disk are authoritative. All indices (SQLite catalog, Tantivy BM25, HNSW vectors, Graph stores) are derived, disposable, and 100% rebuildable.
 2. **100% Pure Rust (`#![forbid(unsafe_code)]`)**: Zero C-runtime dependencies, zero external database daemon requirements (e.g., no external Neo4j instances).
@@ -91,12 +91,12 @@ Any architectural evolution must strictly uphold `ctxvault`'s greenfield invaria
 sequenceDiagram
     autonumber
     actor Agent as AI Agent (Scout / Planner)
-    participant MCP as ctxvault-mcp
-    participant Core as ctxvault-core (Engine)
+    participant MCP as groundcontrol-mcp
+    participant Core as groundcontrol-core (Engine)
     participant SQLite as meta.db (SQLite Catalog)
 
     Note over Agent, SQLite: Turn 1: Search with Graph Affordances
-    Agent->>MCP: ctxvault.search(query="SelectVictimsOnNode", detail="ids")
+    Agent->>MCP: groundcontrol.search(query="SelectVictimsOnNode", detail="ids")
     MCP->>Core: hybrid_search() + fetch_affordances()
     Core->>SQLite: Indexed lookup for top-K nodes + degree counts
     SQLite-->>Core: Degrees: in(calls:0, implements:1), out(calls:8), docs(1)
@@ -106,7 +106,7 @@ sequenceDiagram
     Note over Agent: Agent observes: in.calls=0, but implements=1 and docs=1.<br/>Synthesizes targeted heterogeneous expansion.
 
     Note over Agent, SQLite: Turn 2: Directional Cypher-Lite Path Match
-    Agent->>MCP: ctxvault.graph_match(pattern="(:CodeSymbol {name: 'SelectVictimsOnNode'})-[:implements]->(:Interface)<-[:calls*1..2]-(:CodeSymbol)")
+    Agent->>MCP: groundcontrol.graph_match(pattern="(:CodeSymbol {name: 'SelectVictimsOnNode'})-[:implements]->(:Interface)<-[:calls*1..2]-(:CodeSymbol)")
     MCP->>Core: compile_and_execute_pattern()
     Core->>SQLite: Parameterized 2-hop indexed join with cycle guard
     SQLite-->>Core: Matched caller symbols & interface boundaries
@@ -114,7 +114,7 @@ sequenceDiagram
     MCP-->>Agent: High-signal architectural impact consensus
 ```
 
-### 4.1. SQLite Relational Graph Schema (`crates/ctxvault-core/src/persistence/mod.rs`)
+### 4.1. SQLite Relational Graph Schema (`crates/groundcontrol-core/src/persistence/mod.rs`)
 
 We replace the Postcard blob with a first-class indexed relational schema in `meta.db`:
 
@@ -234,7 +234,7 @@ Properties   := Identifier ':' StringLiteral ( ',' Identifier ':' StringLiteral 
 
 ### 4.4. Internal Query Compilation (Pure Rust)
 
-`ctxvault-core` translates the AST pattern into indexed SQLite queries with automatic cycle protection:
+`groundcontrol-core` translates the AST pattern into indexed SQLite queries with automatic cycle protection:
 
 ```rust
 // Internally generated parameterized query for (:A)-[:implements]->(:B)<-[:calls*1..2]-(:C)
@@ -277,9 +277,9 @@ flowchart LR
     end
 
     subgraph Consolidated Protocol
-        C1["ctxvault.search<br/>(Find node + Schema Envelope)"]
-        C2["ctxvault.graph_match<br/>(Cypher-Lite Directional Path Expansion)"]
-        C3["ctxvault.status(scope='graph')<br/>(Topology metrics & counts)"]
+        C1["groundcontrol.search<br/>(Find node + Schema Envelope)"]
+        C2["groundcontrol.graph_match<br/>(Cypher-Lite Directional Path Expansion)"]
+        C3["groundcontrol.status(scope='graph')<br/>(Topology metrics & counts)"]
     end
 
     T1 & T2 & T3 & T4 & T5 & T6 --> C2
@@ -296,20 +296,20 @@ flowchart LR
 
 ## 6. Implementation Roadmap
 
-### Phase 1: Turn 1 Graph Affordance Envelope (`ctxvault-core` & `ctxvault-mcp`)
+### Phase 1: Turn 1 Graph Affordance Envelope (`groundcontrol-core` & `groundcontrol-mcp`)
 * Augment `Engine::search()` to query direct node degree tallies from Petgraph for the top-$K$ returned items.
 * Enrich `search` JSON output with `graph_affordances` and `schema_envelope`.
 * **Zero Breaking Changes**: Non-intrusive metadata addition.
 
 ### Phase 2: Relational SQLite Edge Migration
-* Add the `edges` table schema and indexes to `crates/ctxvault-core/src/persistence/mod.rs`.
-* Update the indexing pipeline (`crates/ctxvault-core/src/index/pipeline.rs`) to insert extracted Tree-sitter AST relations into SQLite during indexing.
+* Add the `edges` table schema and indexes to `crates/groundcontrol-core/src/persistence/mod.rs`.
+* Update the indexing pipeline (`crates/groundcontrol-core/src/index/pipeline.rs`) to insert extracted Tree-sitter AST relations into SQLite during indexing.
 * Retain `graph.bin` serialization temporarily as a fast-load in-memory cache during validation.
 
 ### Phase 3: "Cypher-Lite" Path Matcher Implementation
-* Implement the pure-Rust linear path grammar using `winnow` in `crates/ctxvault-core/src/graph/query.rs`.
+* Implement the pure-Rust linear path grammar using `winnow` in `crates/groundcontrol-core/src/graph/query.rs`.
 * Implement the SQL query generator translating linear patterns into indexed SQLite joins with cycle guards.
-* Expose the `ctxvault.graph_match` MCP tool handler in `crates/ctxvault-mcp/src/tools/mod.rs`.
+* Expose the `groundcontrol.graph_match` MCP tool handler in `crates/groundcontrol-mcp/src/tools/mod.rs`.
 
 ### Phase 4: Deprecation & Greenfield Code Cleanup
 * In accordance with `GEMINI.md` Non-Negotiable Invariants (*"Never add compatibility shims, replace old shape outright"*), delete deprecated handlers: `detect_changes`, `find_callers`, `backlinks`, `forwardlinks`, `traverse_lineage`, `graph_subgraph`.

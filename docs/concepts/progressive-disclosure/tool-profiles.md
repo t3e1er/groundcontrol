@@ -15,7 +15,7 @@ related:
 
 Exposing 17 tools to every agent can cause cognitive distraction. An exploratory scout agent might mistakenly attempt to write files, or an analytical reader might trigger re-indexing.
 
-`ctxvault` solves this using **Role-Based Tool Profiles** configured via the `--profile` CLI argument.
+`groundcontrol` solves this using **Role-Based Tool Profiles** configured via the `--profile` CLI argument.
 
 ---
 
@@ -57,8 +57,8 @@ Exposing 17 tools to every agent can cause cognitive distraction. An exploratory
 
 ```bash
 # Launch read-only scout server
-ctxvault --corpus /path/to/repo --profile scout
+groundcontrol --corpus /path/to/repo --profile scout
 
 # Launch read-only architecture analyzer
-ctxvault --corpus /path/to/repo --profile analysis
+groundcontrol --corpus /path/to/repo --profile analysis
 ```

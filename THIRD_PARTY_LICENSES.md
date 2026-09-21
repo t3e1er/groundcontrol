@@ -1,6 +1,6 @@
-﻿# Third-Party Software & Dependency License Notices
+# Third-Party Software & Dependency License Notices
 
-This project (`ctxvault` / `ctxvault`) is licensed under the **MIT License**.
+This project (`groundcontrol` / `gc`) is licensed under the **MIT License**.
 
 The binary distributions include static linkages of third-party open-source libraries. In compliance with open-source license agreements, this document provides the attributions and license terms for all dependencies in the software supply chain.
 

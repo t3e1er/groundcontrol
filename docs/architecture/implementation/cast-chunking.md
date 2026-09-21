@@ -14,11 +14,11 @@ related:
 
 Naive chunkers split source code on fixed character counts (e.g. 500 characters) or newline intervals. This slices functions in half, separates docstrings from signatures, and renders code chunks unparseable.
 
-`ctxvault` features **cAST (Concrete Abstract Syntax Tree) Chunking** powered by Tree-sitter.
+`groundcontrol` features **cAST (Concrete Abstract Syntax Tree) Chunking** powered by Tree-sitter.
 
-* **Parser Modules**: [`crates/ctxvault-core/src/parser/code/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/code/mod.rs)
-* **Rust cAST Grammar**: [`crates/ctxvault-core/src/parser/code/rust.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/code/rust.rs)
-* **Markdown Chunking**: [`crates/ctxvault-core/src/parser/markdown/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/markdown/mod.rs)
+* **Parser Modules**: [`crates/groundcontrol-core/src/parser/code/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/mod.rs)
+* **Rust cAST Grammar**: [`crates/groundcontrol-core/src/parser/code/rust.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/rust.rs)
+* **Markdown Chunking**: [`crates/groundcontrol-core/src/parser/markdown/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/markdown/mod.rs)
 
 ---
 

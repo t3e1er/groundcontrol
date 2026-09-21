@@ -1,6 +1,6 @@
-# Ctxvault — Gemini & Antigravity Steering Rules
+# GroundControl — Gemini & Antigravity Steering Rules
 
-Place this file at the root of your repository as `GEMINI.md` (or `.agents/rules/ctxvault.md`) to guide Gemini Code Assist and Google Antigravity agents when working with `ctxvault`.
+Place this file at the root of your repository as `GEMINI.md` (or `.agents/rules/groundcontrol.md`) to guide Gemini Code Assist and Google Antigravity agents when working with `groundcontrol`.
 
 ---
 

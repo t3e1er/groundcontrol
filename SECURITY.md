@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We actively maintain and provide security updates for the latest released version of `ctxvault`.
+We actively maintain and provide security updates for the latest released version of `groundcontrol`.
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -11,11 +11,11 @@ We actively maintain and provide security updates for the latest released versio
 
 ## Reporting a Vulnerability
 
-The `ctxvault` team takes security vulnerabilities seriously.
+The `groundcontrol` team takes security vulnerabilities seriously.
 
-If you discover a security vulnerability within `ctxvault`, please **DO NOT** open a public issue. Instead, report it privately:
+If you discover a security vulnerability within `groundcontrol`, please **DO NOT** open a public issue. Instead, report it privately:
 
-1. **GitHub Security Advisory**: Use the [GitHub Security Advisory reporting tab](https://github.com/t3e1er/ctxvault/security/advisories/new) to report vulnerabilities directly and privately.
+1. **GitHub Security Advisory**: Use the [GitHub Security Advisory reporting tab](https://github.com/t3e1er/groundcontrol/security/advisories/new) to report vulnerabilities directly and privately.
 2. **Email**: If you prefer, send an encrypted or direct email to `trent@example.com` with:
    - A clear description of the vulnerability.
    - Steps or proof-of-concept scripts to reproduce the issue.

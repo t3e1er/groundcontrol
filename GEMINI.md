@@ -1,12 +1,12 @@
-# ctxvault — Gemini & Antigravity Steering Guide
+# groundcontrol — Gemini & Antigravity Steering Guide
 
-> **Authoritative Source of Truth**: This steering document governs AI pair programming, architectural discipline, and Model Context Protocol (MCP) interactions for `ctxvault`.
+> **Authoritative Source of Truth**: This steering document governs AI pair programming, architectural discipline, and Model Context Protocol (MCP) interactions for `groundcontrol`.
 
 ---
 
 ## 1. Product Context & Core Invariants
 
-`ctxvault` (`ctxv`) is an enterprise semantic **Model Context Protocol (MCP) server** for markdown knowledge bases and polyglot codebases. It provides AI agents with fast, minimal, high-signal context without file dumping or non-deterministic LLM entity extraction.
+`groundcontrol` (`gc`) is an enterprise semantic **Model Context Protocol (MCP) server** for markdown knowledge bases and polyglot codebases. It provides AI agents with fast, minimal, high-signal context without file dumping or non-deterministic LLM entity extraction.
 
 Written in 100% pure Rust (`unsafe_code = "forbid"`) for memory safety, zero C-runtime dependencies, and sub-millisecond graph and lexical retrieval.
 
@@ -18,10 +18,10 @@ Written in 100% pure Rust (`unsafe_code = "forbid"`) for memory safety, zero C-r
 
 ### Retrieval, Configuration & Multi-Corpus Architecture
 - **Central vs Local Configuration Separation**:
-  - *Central Machine Config* (`${CTXV_CACHE_DIR}/config.toml`): Daemon host/port, client authentication registry, GraphView telemetry relay, and persistent corpus registry. Lazily generated on first run with cryptographic keys via [`ensure_global_config`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/config.rs).
-  - *Local Repository Config* (`<repo_root>/ctxvault.toml`): Authoritative per-repo rules (`[docs.patterns]`, `[exclude.patterns]`, `[templates]`, `[chunking]`, `[graph]`). Initialized via `ctxvault init` with automatic `.gitignore` importing.
-  - *Zero-Config Repository Indexing*: Unconfigured repositories dynamically import local `.gitignore` rules in memory and index directly into central storage (`${CTXV_CACHE_DIR}/corpora/<name>/`) without polluting git working trees.
-  - *Automated Agent Configuration*: `install.ps1`, `install.sh`, and `ctxvault install -y` auto-detect installed coding agents and configure zero-arg MCP entries with optional auth tokens via [`run_install`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-cli/src/installer/mod.rs).
+  - *Central Machine Config* (`${GROUNDCONTROL_CACHE_DIR}/config.toml`): Daemon host/port, client authentication registry, GraphView telemetry relay, and persistent corpus registry. Lazily generated on first run with cryptographic keys via [`ensure_global_config`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/config.rs).
+  - *Local Repository Config* (`<repo_root>/groundcontrol.toml`): Authoritative per-repo rules (`[docs.patterns]`, `[exclude.patterns]`, `[templates]`, `[chunking]`, `[graph]`). Initialized via `groundcontrol init` with automatic `.gitignore` importing.
+  - *Zero-Config Repository Indexing*: Unconfigured repositories dynamically import local `.gitignore` rules in memory and index directly into central storage (`${GROUNDCONTROL_CACHE_DIR}/corpora/<name>/`) without polluting git working trees.
+  - *Automated Agent Configuration*: `install.ps1`, `install.sh`, and `groundcontrol install -y` auto-detect installed coding agents and configure zero-arg MCP entries with optional auth tokens via [`run_install`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-cli/src/installer/mod.rs).
 - **4-Modality Hybrid Retrieval**: Fused via 3-way Reciprocal Rank Fusion (RRF) across Tantivy Okapi BM25, dense ONNX embeddings (`jina-embeddings-v2-base-code`, 768-dim), and Petgraph typed graph traversal.
 - **Cross-Modal Linking**: Unifies documentation and polyglot source code (Rust, TS/JS, Python, Go, Java, C/C++) in a single graph.
 - **Multi-Corpus Serving**: A central MCP process serves $N$ index roots via `CorpusManager`. Tools accept optional `corpus` or fan-out `corpora` (`["a", "b"]` or `"all"`).
@@ -34,7 +34,7 @@ Written in 100% pure Rust (`unsafe_code = "forbid"`) for memory safety, zero C-r
 
 ## 2. Greenfield Engineering Principles
 
-ctxvault has no legacy external consumers to protect. Optimize for a clean, minimal, cohesive codebase.
+groundcontrol has no legacy external consumers to protect. Optimize for a clean, minimal, cohesive codebase.
 
 ### Simplification & Generalization Strategy (Prompt First)
 - **Proactive Simplification**: Continuously seek to simplify architectures, collapse overlapping modes, prune bloated parameter surfaces, and generalize bespoke abstractions into clean, robust primitives.
@@ -52,18 +52,18 @@ ctxvault has no legacy external consumers to protect. Optimize for a clean, mini
 - Do not leave TODO stubs, commented-out code, or duplicate code paths. Collapse duplicate paths immediately.
 
 ### Hexagonal Architecture (Ports & Adapters)
-Every major concern is defined as a trait (**port**) in `ctxvault-common::ports` or `ctxvault-core`; concrete backends (**adapters**) implement them:
+Every major concern is defined as a trait (**port**) in `groundcontrol-common::ports` or `groundcontrol-core`; concrete backends (**adapters**) implement them:
 - **Major Ports**: `MetadataCatalog` (SQLite), `TextIndex` (Tantivy BM25), `VectorStore` (HNSW), `GraphStore` (Petgraph), `EmbeddingProvider` (ONNX), `SearchService` (multi-modal dispatch + RRF).
-- **Encapsulation Barrier**: Adapters never leak backend types (`rusqlite::Connection`, `tantivy::*`, `hnsw_rs::*`, `petgraph::*`, `ort::*`) across ports. Port signatures use domain types from `ctxvault-common` only.
-- **Domain Decoupling**: `Engine` holds ports; it does not own concrete backends and does not expose concrete accessors. `ctxvault-mcp` depends on ports, `SearchService`, and domain types, never core internals.
-- **Composition Root**: `crates/ctxvault-cli/src/main.rs` is the *only* place adapters are named, constructed, and injected via `CorpusManager` / engine builders.
+- **Encapsulation Barrier**: Adapters never leak backend types (`rusqlite::Connection`, `tantivy::*`, `hnsw_rs::*`, `petgraph::*`, `ort::*`) across ports. Port signatures use domain types from `groundcontrol-common` only.
+- **Domain Decoupling**: `Engine` holds ports; it does not own concrete backends and does not expose concrete accessors. `groundcontrol-mcp` depends on ports, `SearchService`, and domain types, never core internals.
+- **Composition Root**: `crates/groundcontrol-cli/src/main.rs` is the *only* place adapters are named, constructed, and injected via `CorpusManager` / engine builders.
 - **Rust DI Policy**: Prefer generics with trait bounds on hot paths (zero-cost monomorphization). Use `Arc<dyn Trait>` only for runtime pluggable boundaries.
 
 ---
 
 ## 3. MCP Tool Surface (17 Tools) & Usage Directives
 
-Authoritative tool registry: `crates/ctxvault-mcp/src/tools/mod.rs`. Handlers are `ReadOnly(fn(&Engine, Value))` or `ReadWrite(fn(&mut Engine, Value))`.
+Authoritative tool registry: `crates/groundcontrol-mcp/src/tools/mod.rs`. Handlers are `ReadOnly(fn(&Engine, Value))` or `ReadWrite(fn(&mut Engine, Value))`.
 
 ### Registered Tool Inventory (17 Tools)
 
@@ -84,7 +84,7 @@ Authoritative tool registry: `crates/ctxvault-mcp/src/tools/mod.rs`. Handlers ar
 ### Agent Directives
 1. **MCP Retrieval-First Invariant (No Direct File Dumps)**:
    - **Never** begin code/docs exploration, search, or architectural discovery with raw file reads (`view_file`), full file dumps, or directory-wide grep searches.
-   - **Always** use `ctxvault` MCP tools (`search`, `get_snippet`, `graph_match`, `search_related`) as the primary intake mechanism for high-signal, token-efficient context.
+   - **Always** use `groundcontrol` MCP tools (`search`, `get_snippet`, `graph_match`, `search_related`) as the primary intake mechanism for high-signal, token-efficient context.
    - Direct file reads (`read_file` or native `view_file`) are strictly a **Tier 3 last resort**, permitted only when actively preparing a code edit or when exhaustive contiguous context is proven necessary after Tier 1 & 2 elaboration. Files on disk remain authoritative for applying modifications, but discovery must be mediated via MCP.
 2. **Select optimal `search` mode & leverage Turn 1 snippets**:
    - `mode="hybrid"`: Default for broad exploratory queries (3-way RRF fusion).
@@ -110,17 +110,17 @@ Authoritative tool registry: `crates/ctxvault-mcp/src/tools/mod.rs`. Handlers ar
 ## 4. Workspace Structure & Module Layout
 
 ```
-ctxvault/
+groundcontrol/
 ├── crates/
-│   ├── ctxvault-common/  # Domain types, ports traits, config, errors
-│   ├── ctxvault-core/    # Engine, Tantivy, embeddings (DirectML/ort), Petgraph, AST chunkers
-│   ├── ctxvault-mcp/     # Stdio & HTTP transport, MCP protocol, tool registry (17 tools)
-│   └── ctxvault-cli/     # Composition root binary, multi-corpus CLI
+│   ├── groundcontrol-common/  # Domain types, ports traits, config, errors
+│   ├── groundcontrol-core/    # Engine, Tantivy, embeddings (DirectML/ort), Petgraph, AST chunkers
+│   ├── groundcontrol-mcp/     # Stdio & HTTP transport, MCP protocol, tool registry (17 tools)
+│   └── groundcontrol-cli/     # Composition root binary, multi-corpus CLI
 ├── docs/                 # Authoritative architecture, concepts, and roadmap docs
 └── .index/               # Derived indices: meta.db, tantivy/, vectors.json, graph.bin
 ```
 
-### Key Modules in `ctxvault-core`
+### Key Modules in `groundcontrol-core`
 - `engine.rs` / `engine_builder.rs`: Core engine orchestration and port assembly.
 - `corpus_manager.rs`: Multi-corpus routing and cross-corpus symbol resolution (`link_cross_corpus_symbols`).
 - `search/`: Modal search strategies (`bm25`, `semantic`, `hybrid`, `graph`, `related`, `explain`) and RRF fusion.
@@ -155,7 +155,7 @@ ctxvault/
 
 ## 7. Evergreen Documentation & Bidirectional Code Links
 
-Documentation in `ctxvault` is not passive prose; it is a **compiled, structured knowledge corpus** that dogfoods `ctxvault`'s own semantic indexing and graph retrieval.
+Documentation in `groundcontrol` is not passive prose; it is a **compiled, structured knowledge corpus** that dogfoods `groundcontrol`'s own semantic indexing and graph retrieval.
 
 ### Strict 3-Pillar Documentation Hierarchy
 All documentation must conform to the 3-pillar directory layout:
@@ -165,6 +165,6 @@ All documentation must conform to the 3-pillar directory layout:
 
 ### Invariants for AI Pair Programming
 1. **Never Let Documentation Rot**: Whenever modifying a port trait, tool signature, CLI argument, indexing pipeline, or core data structure, you MUST update the corresponding documentation under `docs/` in the same commit.
-2. **Bidirectional Code Linking**: Technical documentation must link directly to active Rust source files and symbols using `[Symbol](file:///c:/dev/ctx/ctxvault/crates/...)` syntax to provide ground-truth provenance.
+2. **Bidirectional Code Linking**: Technical documentation must link directly to active Rust source files and symbols using `[Symbol](file:///c:/dev/ctx/groundcontrol/crates/...)` syntax to provide ground-truth provenance.
 3. **Wikilink & Frontmatter Integrity**: Every document must maintain valid YAML frontmatter (`title`, `category`, `status`, `tags`, `related`) and valid `[[wikilinks]]`. Never create broken links.
 

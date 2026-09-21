@@ -1,11 +1,11 @@
 # Cursor AI Steering Rules (.cursorrules)
 
-Place the following content into `.cursorrules` (or `.cursor/rules/ctxvault.mdc`) in your project root to instruct Cursor AI when using `ctxvault` MCP server tools.
+Place the following content into `.cursorrules` (or `.cursor/rules/groundcontrol.mdc`) in your project root to instruct Cursor AI when using `groundcontrol` MCP server tools.
 
 ```markdown
-# Ctxvault Knowledge & Codebase Protocol
+# GroundControl Knowledge & Codebase Protocol
 
-You have access to the `ctxvault` MCP server (17 authoritative tools). Follow these rules when querying or modifying knowledge and source code in this repository:
+You have access to the `groundcontrol` MCP server (17 authoritative tools). Follow these rules when querying or modifying knowledge and source code in this repository:
 
 1. Retrieval Strategy & Turn 1 Snippets:
    - Use `search` with `mode="hybrid"` as your default exploratory query tool.

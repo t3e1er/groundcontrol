@@ -698,192 +698,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ctxvault-bench"
-version = "0.1.0"
-dependencies = [
- "clap",
- "ctxvault-common",
- "ctxvault-core",
- "rayon",
- "serde",
- "serde_json",
- "sysinfo",
- "tempfile",
- "thiserror 2.0.20",
- "tokio",
- "toml",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "ctxvault-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "ctxvault-common",
- "ctxvault-core",
- "ctxvault-graphview",
- "ctxvault-mcp",
- "reqwest",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "tokio",
- "toml",
- "tracing",
- "tracing-subscriber",
- "zstd 0.14.0",
-]
-
-[[package]]
-name = "ctxvault-common"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.20",
- "toml",
-]
-
-[[package]]
-name = "ctxvault-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "assert_fs",
- "blake3",
- "bytemuck",
- "crossbeam-channel",
- "ctxvault-common",
- "fs4",
- "hnsw_rs",
- "ignore",
- "lopdf",
- "notify",
- "notify-debouncer-full",
- "ort",
- "petgraph",
- "postcard",
- "protobuf",
- "pulldown-cmark",
- "quick-xml",
- "rusqlite",
- "scip",
- "scraper",
- "serde",
- "serde_json",
- "serde_yaml",
- "sysinfo",
- "tantivy",
- "tar",
- "tempfile",
- "thiserror 2.0.20",
- "tokenizers",
- "tokio",
- "toml",
- "tracing",
- "tree-sitter",
- "tree-sitter-bash",
- "tree-sitter-bicep",
- "tree-sitter-c",
- "tree-sitter-c-sharp",
- "tree-sitter-cmake",
- "tree-sitter-containerfile",
- "tree-sitter-cpp",
- "tree-sitter-css",
- "tree-sitter-cuda",
- "tree-sitter-d",
- "tree-sitter-dart",
- "tree-sitter-elixir",
- "tree-sitter-gleam",
- "tree-sitter-go",
- "tree-sitter-graphql",
- "tree-sitter-haskell",
- "tree-sitter-hcl",
- "tree-sitter-html",
- "tree-sitter-java",
- "tree-sitter-json",
- "tree-sitter-julia",
- "tree-sitter-kotlin-ng",
- "tree-sitter-lua",
- "tree-sitter-make",
- "tree-sitter-nix",
- "tree-sitter-ocaml",
- "tree-sitter-php",
- "tree-sitter-powershell",
- "tree-sitter-proto",
- "tree-sitter-python",
- "tree-sitter-r",
- "tree-sitter-ruby",
- "tree-sitter-rust",
- "tree-sitter-scala",
- "tree-sitter-sequel",
- "tree-sitter-solidity",
- "tree-sitter-starlark",
- "tree-sitter-swift",
- "tree-sitter-tlaplus",
- "tree-sitter-toml-ng",
- "tree-sitter-typescript",
- "tree-sitter-verilog",
- "tree-sitter-wgsl-bevy",
- "tree-sitter-yaml",
- "tree-sitter-zig",
- "zip",
- "zstd 0.14.0",
-]
-
-[[package]]
-name = "ctxvault-graphview"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "ctxvault-common",
- "ctxvault-core",
- "futures-util",
- "petgraph",
- "postcard",
- "rayon",
- "reqwest",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "tokio",
- "tower",
- "tower-http 0.7.1",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "ctxvault-mcp"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "axum",
- "ctxvault-common",
- "ctxvault-core",
- "futures-util",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yaml",
- "tempfile",
- "thiserror 2.0.20",
- "tokio",
- "tower",
- "tower-http 0.7.1",
- "tracing",
-]
-
-[[package]]
 name = "darling"
 version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1521,6 +1335,192 @@ dependencies = [
  "bitflags 2.13.2",
  "ignore",
  "walkdir",
+]
+
+[[package]]
+name = "groundcontrol-bench"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "groundcontrol-common",
+ "groundcontrol-core",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "groundcontrol-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "groundcontrol-common",
+ "groundcontrol-core",
+ "groundcontrol-graphview",
+ "groundcontrol-mcp",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "zstd 0.14.0",
+]
+
+[[package]]
+name = "groundcontrol-common"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+ "toml",
+]
+
+[[package]]
+name = "groundcontrol-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "assert_fs",
+ "blake3",
+ "bytemuck",
+ "crossbeam-channel",
+ "fs4",
+ "groundcontrol-common",
+ "hnsw_rs",
+ "ignore",
+ "lopdf",
+ "notify",
+ "notify-debouncer-full",
+ "ort",
+ "petgraph",
+ "postcard",
+ "protobuf",
+ "pulldown-cmark",
+ "quick-xml",
+ "rusqlite",
+ "scip",
+ "scraper",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sysinfo",
+ "tantivy",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokenizers",
+ "tokio",
+ "toml",
+ "tracing",
+ "tree-sitter",
+ "tree-sitter-bash",
+ "tree-sitter-bicep",
+ "tree-sitter-c",
+ "tree-sitter-c-sharp",
+ "tree-sitter-cmake",
+ "tree-sitter-containerfile",
+ "tree-sitter-cpp",
+ "tree-sitter-css",
+ "tree-sitter-cuda",
+ "tree-sitter-d",
+ "tree-sitter-dart",
+ "tree-sitter-elixir",
+ "tree-sitter-gleam",
+ "tree-sitter-go",
+ "tree-sitter-graphql",
+ "tree-sitter-haskell",
+ "tree-sitter-hcl",
+ "tree-sitter-html",
+ "tree-sitter-java",
+ "tree-sitter-json",
+ "tree-sitter-julia",
+ "tree-sitter-kotlin-ng",
+ "tree-sitter-lua",
+ "tree-sitter-make",
+ "tree-sitter-nix",
+ "tree-sitter-ocaml",
+ "tree-sitter-php",
+ "tree-sitter-powershell",
+ "tree-sitter-proto",
+ "tree-sitter-python",
+ "tree-sitter-r",
+ "tree-sitter-ruby",
+ "tree-sitter-rust",
+ "tree-sitter-scala",
+ "tree-sitter-sequel",
+ "tree-sitter-solidity",
+ "tree-sitter-starlark",
+ "tree-sitter-swift",
+ "tree-sitter-tlaplus",
+ "tree-sitter-toml-ng",
+ "tree-sitter-typescript",
+ "tree-sitter-verilog",
+ "tree-sitter-wgsl-bevy",
+ "tree-sitter-yaml",
+ "tree-sitter-zig",
+ "zip",
+ "zstd 0.14.0",
+]
+
+[[package]]
+name = "groundcontrol-graphview"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "futures-util",
+ "groundcontrol-common",
+ "groundcontrol-core",
+ "petgraph",
+ "postcard",
+ "rayon",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+ "tower",
+ "tower-http 0.7.1",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "groundcontrol-mcp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "futures-util",
+ "groundcontrol-common",
+ "groundcontrol-core",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "tower",
+ "tower-http 0.7.1",
+ "tracing",
 ]
 
 [[package]]

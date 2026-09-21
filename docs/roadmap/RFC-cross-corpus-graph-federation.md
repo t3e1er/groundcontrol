@@ -2,17 +2,17 @@
 
 **Status**: Implemented
 **Author**: Architecture Team
-**Scope**: `ctxvault-core`, `ctxvault-common`, `ctxvault-mcp`, `ctxvault-cli`
+**Scope**: `groundcontrol-core`, `groundcontrol-common`, `groundcontrol-mcp`, `groundcontrol-cli`
 **Date**: September 2026
 **Target Version**: `0.1.0`+
 **Inspiration / Benchmark**: `codebase-memory-mcp` (the comparative benchmark this RFC seeks to match and surpass)
-**Related Documents**: [RFC-treesitter-expansion-and-lsp-analysis.md](file:///c:/dev/ctx/ctxvault/docs/RFC-treesitter-expansion-and-lsp-analysis.md), [RFC-adaptive-graph-expansion.md](file:///c:/dev/ctx/ctxvault/docs/RFC-adaptive-graph-expansion.md), [ARCHITECTURE.md](file:///c:/dev/ctx/ctxvault/docs/ARCHITECTURE.md)
+**Related Documents**: [RFC-treesitter-expansion-and-lsp-analysis.md](file:///c:/dev/ctx/groundcontrol/docs/RFC-treesitter-expansion-and-lsp-analysis.md), [RFC-adaptive-graph-expansion.md](file:///c:/dev/ctx/groundcontrol/docs/RFC-adaptive-graph-expansion.md), [ARCHITECTURE.md](file:///c:/dev/ctx/groundcontrol/docs/ARCHITECTURE.md)
 
 ---
 
 ## 1. Executive Summary
 
-`ctxvault` indexes **one repository at a time** into a self-contained *corpus* (its own tantivy BM25 index, HNSW vector index, petgraph knowledge graph `graph.bin`, and SQLite metadata store), routed by `CorpusManager`. This "one repo at a time" isolation is a deliberate invariant and must be preserved.
+`groundcontrol` indexes **one repository at a time** into a self-contained *corpus* (its own tantivy BM25 index, HNSW vector index, petgraph knowledge graph `graph.bin`, and SQLite metadata store), routed by `CorpusManager`. This "one repo at a time" isolation is a deliberate invariant and must be preserved.
 
 The comparative benchmark, `codebase-memory-mcp`, keeps the same physical isolation (one SQLite DB per project; its SQLite authorizer *denies* `ATTACH`/`DETACH`, so a single query physically cannot join across databases). Its flagship differentiator is a batch **cross-repo-intelligence** pass that matches service boundaries (HTTP routes, async topics, pub/sub channels, gRPC/GraphQL/tRPC endpoints) across projects and materializes bidirectional `CROSS_*` edges into both project databases, carrying the remote endpoint identity (`target_project`/`target_function`/`target_file`) in edge properties. Its `trace_path` `cross_service` mode simply includes those `CROSS_*` edge types; the walk stays inside one database and surfaces the remote endpoint via edge properties, requiring the user to re-invoke against the target project to continue.
 
@@ -27,7 +27,7 @@ This RFC documents the current state of both systems and proposes a plan that:
 
 ## 2. Invariant Constraints
 
-Any implementation must conform to `ctxvault`'s architectural invariants (see [`GEMINI.md`](file:///c:/dev/ctx/ctxvault/GEMINI.md)):
+Any implementation must conform to `groundcontrol`'s architectural invariants (see [`GEMINI.md`](file:///c:/dev/ctx/groundcontrol/GEMINI.md)):
 
 1. **Source on disk is authoritative ground truth.** All indices are disposable and rebuildable.
 2. **Single-repo indexing is preserved.** Cross-repo resolution is a *post-processing reconciliation step* over independently built corpora, never a change to how a single corpus is indexed.
@@ -40,18 +40,18 @@ Any implementation must conform to `ctxvault`'s architectural invariants (see [`
 
 ## 3. Current State (Verified Against Source)
 
-### 3.1 ctxvault
+### 3.1 groundcontrol
 
 | Concern | Current behaviour | Source |
 | :--- | :--- | :--- |
-| Scoping unit | One *corpus* = one indexed root with own BM25/vector/graph/SQLite. `CorpusManager` holds `HashMap<String, Engine>` routed by name. | `crates/ctxvault-core/src/corpus_manager.rs` |
-| Storage | Repo-local `.index/` when `.index` or `ctxvault.toml` exists, else central `${CTXV_CACHE_DIR}/corpora/<name>/`. | `corpus_manager.rs::ensure_corpus` |
-| Cross-corpus **search** | Read tools accept `corpus` (single) or `corpora` (array / `"all"`); `resolve_corpus_target` resolves the target **before** the tool runs (mode-agnostic); `fan_out_read` runs per corpus and merges with `rrf_fuse_cross_corpus` (RRF K=60, keyed by `(corpus, path)`, tagged with origin corpus). Write tools never fan out. | `crates/ctxvault-mcp/src/tools/mod.rs`, `crates/ctxvault-core/src/search/mod.rs` |
+| Scoping unit | One *corpus* = one indexed root with own BM25/vector/graph/SQLite. `CorpusManager` holds `HashMap<String, Engine>` routed by name. | `crates/groundcontrol-core/src/corpus_manager.rs` |
+| Storage | Repo-local `.index/` when `.index` or `groundcontrol.toml` exists, else central `${GROUNDCONTROL_CACHE_DIR}/corpora/<name>/`. | `corpus_manager.rs::ensure_corpus` |
+| Cross-corpus **search** | Read tools accept `corpus` (single) or `corpora` (array / `"all"`); `resolve_corpus_target` resolves the target **before** the tool runs (mode-agnostic); `fan_out_read` runs per corpus and merges with `rrf_fuse_cross_corpus` (RRF K=60, keyed by `(corpus, path)`, tagged with origin corpus). Write tools never fan out. | `crates/groundcontrol-mcp/src/tools/mod.rs`, `crates/groundcontrol-core/src/search/mod.rs` |
 | Modalities | BM25 (tantivy), semantic (Jina v2 base-code, 768-dim, INT8; the only live model — `bge` is a config-accepted string that falls back to Jina), plus `hybrid` (3-signal), `graph`, `explain`, `related`, `multihop`. | `search_service.rs`, `search/mod.rs`, `embedding.rs` |
-| Graph traversal | `KnowledgeGraph` = one `petgraph::DiGraph` per corpus; `traverse_bfs` walks **only that graph**. | `crates/ctxvault-core/src/graph/mod.rs` |
+| Graph traversal | `KnowledgeGraph` = one `petgraph::DiGraph` per corpus; `traverse_bfs` walks **only that graph**. | `crates/groundcontrol-core/src/graph/mod.rs` |
 | Cross-corpus edges | Modeled as a **proxy node** `"<corpus>::<scope_path>"` + `GraphEdge.target_corpus` + `confidence`. Created **only** by `link_cross_corpus_symbols` for **document frontmatter** targets resolving to **exactly one** symbol in another corpus. Traversal following such an edge **lands on the stub and stops**. | `corpus_manager.rs::link_cross_corpus_symbols`, `graph/mod.rs::add_edge_full` |
-| Doc↔code (cross-modality) | First-class: `EdgeClass::CrossModal`, `EdgeProvenance::DocumentsCode` / `ImplementsAdr`. Intra-corpus frontmatter target hitting a code `scope_path` lands on the real symbol node. | `graph/mod.rs`, `ctxvault-common/src/types.rs` |
-| Code extraction | `graph/code.rs` produces `scope_path` qualified names and resolves callees with a **confidence band** (`High` unique / `Medium` same-dir / `Speculative`). Unresolved callees are currently **dropped**. `hybrid_lsp` and `scip` modules already exist. | `crates/ctxvault-core/src/graph/code.rs`, `graph/hybrid_lsp.rs`, `graph/scip.rs` |
+| Doc↔code (cross-modality) | First-class: `EdgeClass::CrossModal`, `EdgeProvenance::DocumentsCode` / `ImplementsAdr`. Intra-corpus frontmatter target hitting a code `scope_path` lands on the real symbol node. | `graph/mod.rs`, `groundcontrol-common/src/types.rs` |
+| Code extraction | `graph/code.rs` produces `scope_path` qualified names and resolves callees with a **confidence band** (`High` unique / `Medium` same-dir / `Speculative`). Unresolved callees are currently **dropped**. `hybrid_lsp` and `scip` modules already exist. | `crates/groundcontrol-core/src/graph/code.rs`, `graph/hybrid_lsp.rs`, `graph/scip.rs` |
 
 ### 3.2 codebase-memory-mcp (benchmark)
 
@@ -69,7 +69,7 @@ Any implementation must conform to `ctxvault`'s architectural invariants (see [`
 - **Objective 2 (federated traversal with hop indication + live continuation):** Largest gap. Cross-corpus edges (a) exist only for doc-frontmatter targets, (b) carry only `target_corpus` (no rich `target_path`/`target_symbol`/`target_kind` payload), and (c) dead-end at the proxy node. There is **no** service-boundary (route/RPC/channel) or infra-resource matching, and **no** live multi-graph continuation.
 - **Objective 3 (export/commit loadable per-corpus indexes):** Pieces exist (`ensure_corpus` hybrid storage; postcard `graph.bin`; SQLite; `vectors.bin`; `tar`/`zstd` already in workspace deps). **Gap:** no single-artifact bundle export + import/bootstrap + version/compat stamp.
 
-**ctxvault already wins** on: cross-corpus RRF search fan-out (the benchmark has none) and first-class doc↔code/ADR edges (the benchmark has none).
+**groundcontrol already wins** on: cross-corpus RRF search fan-out (the benchmark has none) and first-class doc↔code/ADR edges (the benchmark has none).
 
 ---
 
@@ -123,7 +123,7 @@ This live multi-graph continuation is something the benchmark **cannot** do (its
 
 ### 4.6 Index bundle export/import
 
-Add `export`/`import` (CLI + daemon tool) that bundles a corpus `.index/` (graph.bin + vectors.bin + meta.db + tantivy/) into a single `zstd`-compressed `tar` artifact with a **manifest** recording: corpus name, embedding model + dims, graph schema version, ctxvault version, source commit. Import validates the manifest (reject on embedding-model/dim mismatch) and mounts the corpus into the running daemon. Mirrors the benchmark's `.codebase-memory/graph.db.zst` team-sharing artifact.
+Add `export`/`import` (CLI + daemon tool) that bundles a corpus `.index/` (graph.bin + vectors.bin + meta.db + tantivy/) into a single `zstd`-compressed `tar` artifact with a **manifest** recording: corpus name, embedding model + dims, graph schema version, groundcontrol version, source commit. Import validates the manifest (reject on embedding-model/dim mismatch) and mounts the corpus into the running daemon. Mirrors the benchmark's `.codebase-memory/graph.db.zst` team-sharing artifact.
 
 ---
 
@@ -159,4 +159,4 @@ Add `export`/`import` (CLI + daemon tool) that bundles a corpus `.index/` (graph
 
 ## 8. Implementation Plan
 
-See [`todo.txt`](file:///c:/dev/ctx/ctxvault/todo.txt) in the repository root for the phased, subagent-executable task breakdown. Phases are ordered so each is independently verifiable (`cargo build` + `cargo test` green) before the next is dispatched.
+See [`todo.txt`](file:///c:/dev/ctx/groundcontrol/todo.txt) in the repository root for the phased, subagent-executable task breakdown. Phases are ordered so each is independently verifiable (`cargo build` + `cargo test` green) before the next is dispatched.

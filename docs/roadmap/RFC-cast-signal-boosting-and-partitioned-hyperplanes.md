@@ -15,7 +15,7 @@ related:
 # RFC: cAST Structural Signal Boosting & Partitioned Multi-Channel Hyperplanes
 
 **Status**: Proposed  
-**Scope**: `ctxvault-core`, `ctxvault-common`  
+**Scope**: `groundcontrol-core`, `groundcontrol-common`  
 **Date**: September 2026  
 **Related Documents**: [[docs/concepts/search/binary-hamming-embedding]], [[docs/roadmap/RFC-algorithmic-semantic-bridging]], [[docs/architecture/implementation/cast-chunking]], [[docs/roadmap/coderoadmap]]
 
@@ -23,7 +23,7 @@ related:
 
 ## 1. Executive Summary & Problem Statement
 
-The [Binary Hamming Distance Embedding Architecture](file:///c:/dev/ctx/ctxvault/docs/concepts/search/binary-hamming-embedding.md) delivers sub-millisecond search across hundreds of thousands of code symbols by eliminating neural model forward passes. However, collapsing rich source code into a 64-bit binary integer incurs three major semantic loss bottlenecks:
+The [Binary Hamming Distance Embedding Architecture](file:///c:/dev/ctx/groundcontrol/docs/concepts/search/binary-hamming-embedding.md) delivers sub-millisecond search across hundreds of thousands of code symbols by eliminating neural model forward passes. However, collapsing rich source code into a 64-bit binary integer incurs three major semantic loss bottlenecks:
 
 1. **2D $\rightarrow$ 1D Superposition Loss (Sequence & Role Collapse)**:
    Summing token vectors into a single 1D vector ($\sum \text{IDF}(t) \cdot \mathbf{v}_t$) commits the classic **Bag-of-Words fallacy**. It cannot distinguish between subject and object (`client.send(packet)` vs `packet.send(client)`), drops negation polarity (`if (auth)` vs `if (!auth)`), and cannot trace long-range variable dependencies.
@@ -32,7 +32,7 @@ The [Binary Hamming Distance Embedding Architecture](file:///c:/dev/ctx/ctxvault
 3. **Out-of-Vocabulary (OOV) Drift**:
    Domain-specific composite identifiers (e.g., `processKubeletSyncBatch`) fall back to pseudo-random hash vectors, losing their natural semantic ties to `sync` or `batch`.
 
-Because `ctxvault` parses code via **cAST (Concrete Abstract Syntax Tree)** powered by Tree-sitter, we do not need to treat code like flat natural language prose. This RFC specifies **five cAST structural signal-boosting enhancements** that inject tree topology, execution flow, and partitioned hyperplanes directly into the binary embedding pipeline.
+Because `groundcontrol` parses code via **cAST (Concrete Abstract Syntax Tree)** powered by Tree-sitter, we do not need to treat code like flat natural language prose. This RFC specifies **five cAST structural signal-boosting enhancements** that inject tree topology, execution flow, and partitioned hyperplanes directly into the binary embedding pipeline.
 
 ---
 
@@ -171,7 +171,7 @@ Syntactic conventions differ across programming languages, creating artificial s
 
 ## 3. Implementation Plan & Rust API
 
-### 3.1 Proposed Data Structures (`ctxvault-core::semantic`)
+### 3.1 Proposed Data Structures (`groundcontrol-core::semantic`)
 
 ```rust
 /// Channel configuration for partitioned 64-bit signatures.
@@ -199,7 +199,7 @@ impl MultiChannelSignature {
 ### 3.2 Phased Rollout
 
 1. **Phase 1: cAST Role Tagging & Tree-Depth Attenuation**
-   - Update [`crates/ctxvault-core/src/parser/code/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/code/mod.rs) to emit `role:` prefixes during token extraction.
+   - Update [`crates/groundcontrol-core/src/parser/code/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/mod.rs) to emit `role:` prefixes during token extraction.
    - Implement $1/\sqrt{1 + \text{depth}}$ weighting in token accumulation.
 2. **Phase 2: Deterministic Idiom Injection**
    - Extend grammar extractors for Rust, TypeScript, Go, and Python to inject `$sem:*` synthetic tokens on recognized AST patterns.

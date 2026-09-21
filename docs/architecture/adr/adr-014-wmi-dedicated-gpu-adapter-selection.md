@@ -14,7 +14,7 @@ related:
 Accepted / Implemented
 
 ## Context
-On multi-GPU Windows workstations and laptops (e.g. Intel Core CPU with integrated Intel HD Graphics alongside a dedicated NVIDIA GeForce GTX GPU), DirectML by default binds to **Adapter 0**. On many systems, Adapter 0 is the integrated Intel GPU with shared system RAM. This caused `ctxvault` to exhaust iGPU memory and crawl at sluggish inference speeds while the high-performance dedicated GPU sat completely idle.
+On multi-GPU Windows workstations and laptops (e.g. Intel Core CPU with integrated Intel HD Graphics alongside a dedicated NVIDIA GeForce GTX GPU), DirectML by default binds to **Adapter 0**. On many systems, Adapter 0 is the integrated Intel GPU with shared system RAM. This caused `groundcontrol` to exhaust iGPU memory and crawl at sluggish inference speeds while the high-performance dedicated GPU sat completely idle.
 
 ## Decision
 We implemented **Automated Dedicated GPU Selection** in safe Rust:

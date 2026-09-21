@@ -15,7 +15,7 @@ related:
 
 # Architecture & Systems Engineering Hub
 
-Welcome to the **Architecture & Systems Engineering** section of `ctxvault` (`ctxv`). This hub covers system-level design, hardware governors, systems safety, build operations, and formal architectural decisions.
+Welcome to the **Architecture & Systems Engineering** section of `groundcontrol` (`gc`). This hub covers system-level design, hardware governors, systems safety, build operations, and formal architectural decisions.
 
 ---
 

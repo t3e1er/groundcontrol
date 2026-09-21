@@ -14,7 +14,7 @@ related:
 
 # The 3-Tier Progressive Disclosure Model
 
-`ctxvault` enforces a strict 3-tier retrieval progression to protect the agent's context window while guaranteeing complete answers.
+`groundcontrol` enforces a strict 3-tier retrieval progression to protect the agent's context window while guaranteeing complete answers.
 
 ```mermaid
 flowchart TD
@@ -49,7 +49,7 @@ flowchart TD
 ## Tier 1: `search` (Broad Sweep & Instant Answers)
 
 * **Tool**: `search(query, mode="hybrid", snippets=3)`
-* **Code Implementation**: [`crates/ctxvault-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs)
+* **Code Implementation**: [`crates/groundcontrol-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs)
 * **Token Budget**: 300 – 800 tokens total.
 * **Payload**:
   * Partitioned `docs` and `code` hits.
@@ -62,7 +62,7 @@ flowchart TD
 ## Tier 2: `get_snippet` & `graph_match` (Targeted Inspection)
 
 * **Tool**: `get_snippet(symbol="...")` or `graph_match(pattern="...")`
-* **Code Implementation**: [`crates/ctxvault-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs), backed by [`crates/ctxvault-core/src/catalog/sqlite.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/catalog/sqlite.rs)
+* **Code Implementation**: [`crates/groundcontrol-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs), backed by [`crates/groundcontrol-core/src/catalog/sqlite.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/catalog/sqlite.rs)
 * **Token Budget**: 150 – 500 tokens per call.
 * **Payload**:
   * Exact bounded AST function or struct definition with scope breadcrumbs (e.g. `impl Engine > fn search`).
@@ -74,14 +74,14 @@ flowchart TD
 ## Tier 3: `read_file` (Exhaustive Reading)
 
 * **Tool**: `read_file(path="...", start_line=1, end_line=100)`
-* **Code Implementation**: [`crates/ctxvault-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs)
+* **Code Implementation**: [`crates/groundcontrol-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs)
 * **Rule**: Full file reads without line boundaries are treated as an emergency fallback. Agents are instructed to read targeted slices.
 
 ---
 
 ## The Lean Multiline Text Emission Protocol (ADR-020)
 
-To maximize prompt reasoning context and eliminate syntactic JSON tax across the 3 tiers, `ctxvault` standardizes on **Lean Multiline Text Emission** (governed by [ADR-020](file:///c:/dev/ctx/ctxvault/docs/architecture/adr/adr-020-lean-multiline-text-emission.md) and [RFC-lean-multiline-text-emission](file:///c:/dev/ctx/ctxvault/docs/roadmap/RFC-lean-multiline-text-emission.md)):
+To maximize prompt reasoning context and eliminate syntactic JSON tax across the 3 tiers, `groundcontrol` standardizes on **Lean Multiline Text Emission** (governed by [ADR-020](file:///c:/dev/ctx/groundcontrol/docs/architecture/adr/adr-020-lean-multiline-text-emission.md) and [RFC-lean-multiline-text-emission](file:///c:/dev/ctx/groundcontrol/docs/roadmap/RFC-lean-multiline-text-emission.md)):
 
 ```mermaid
 flowchart LR
@@ -100,5 +100,5 @@ flowchart LR
 | **Turn 3** | `read_file` | `# File: \`path\` [lines: L<start>-L<end> of <total>, language: <lang>]` followed by line-numbered (`L<num>: `) fenced code blocks for single files or batch arrays. | **15%–25%** (eliminates JSON `\n` and `\"` escaping) | Fully authoritative context for line-exact editing. |
 
 > [!NOTE]
-> MCP clients invoking `ctxvault` automatically receive lean multiline text over stdio transport. Automated test suites or programmatic tools requiring machine-parsed JSON payloads can explicitly pass `"format": "json"`.
+> MCP clients invoking `groundcontrol` automatically receive lean multiline text over stdio transport. Automated test suites or programmatic tools requiring machine-parsed JSON payloads can explicitly pass `"format": "json"`.
 

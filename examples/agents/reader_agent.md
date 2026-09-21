@@ -60,7 +60,7 @@ Operational Instructions:
       "lines": "24-48"
     },
     {
-      "path": "crates/ctxvault-core/src/pipeline.rs",
+      "path": "crates/groundcontrol-core/src/pipeline.rs",
       "symbol": "run_delta_sync",
       "lines": "112-165"
     }

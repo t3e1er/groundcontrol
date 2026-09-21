@@ -13,7 +13,7 @@ related:
 
 # Search Modes & Modality Filters
 
-The authoritative `search` tool in `ctxvault` exposes a unified interface controlled by two parameters: `mode` and `modality`.
+The authoritative `search` tool in `groundcontrol` exposes a unified interface controlled by two parameters: `mode` and `modality`.
 
 ---
 

@@ -2,54 +2,54 @@
 
 **Status**: Implemented (Tier 1 Delivered; Tier 2 & Tier 3 on Roadmap)  
 **Author**: Antigravity & Architecture Team  
-**Scope**: `ctxvault-core`, `ctxvault-common`, `ctxvault-mcp`  
+**Scope**: `groundcontrol-core`, `groundcontrol-common`, `groundcontrol-mcp`  
 **Date**: September 2026  
 **Target Version**: `0.1.0`+  
-**Related Documents**: [CODEROADMAP.md](file:///c:/dev/semantic/ctxvault/docs/CODEROADMAP.md), [optimisation.md](file:///c:/dev/semantic/ctxvault/docs/optimisation.md), [RFC-adaptive-graph-expansion.md](file:///c:/dev/semantic/ctxvault/docs/RFC-adaptive-graph-expansion.md), [how-cast-chunking-works.md](file:///c:/dev/semantic/ctxvault/docs/how-cast-chunking-works.md)
+**Related Documents**: [CODEROADMAP.md](file:///c:/dev/semantic/groundcontrol/docs/CODEROADMAP.md), [optimisation.md](file:///c:/dev/semantic/groundcontrol/docs/optimisation.md), [RFC-adaptive-graph-expansion.md](file:///c:/dev/semantic/groundcontrol/docs/RFC-adaptive-graph-expansion.md), [how-cast-chunking-works.md](file:///c:/dev/semantic/groundcontrol/docs/how-cast-chunking-works.md)
 
 ---
 
 ## 1. Executive Summary & Problem Statement
 
-`ctxvault` (`ctxv`) is an enterprise semantic Model Context Protocol (MCP) server designed to deliver sub-millisecond, high-signal retrieval for AI coding agents without file dumping or non-deterministic LLM entity extraction. Central to this mission is **cAST (Syntactic Abstract Syntax Tree) chunking** and **deterministic code graph construction** (`defines`, `imports`, `calls`, `implements_trait`), executed in 100% safe, pure Rust (`#![forbid(unsafe_code)]`).
+`groundcontrol` (`gc`) is an enterprise semantic Model Context Protocol (MCP) server designed to deliver sub-millisecond, high-signal retrieval for AI coding agents without file dumping or non-deterministic LLM entity extraction. Central to this mission is **cAST (Syntactic Abstract Syntax Tree) chunking** and **deterministic code graph construction** (`defines`, `imports`, `calls`, `implements_trait`), executed in 100% safe, pure Rust (`#![forbid(unsafe_code)]`).
 
 ```mermaid
 flowchart TD
-    subgraph "Current State: ctxvault vs. codebase-memory-mcp"
+    subgraph "Current State: groundcontrol vs. codebase-memory-mcp"
         direction TB
         subgraph "Grammar Surface"
             CBM_G["codebase-memory-mcp<br/><b>162 Grammars</b> (Vendored C)"]
-            CV_G["ctxvault (Delivered)<br/><b>47 Languages / 48 Targets</b> (Pure Rust Crates)"]
+            CV_G["groundcontrol (Delivered)<br/><b>47 Languages / 48 Targets</b> (Pure Rust Crates)"]
         end
         subgraph "Cross-File Resolution"
             CBM_LSP["codebase-memory-mcp<br/><b>Hybrid LSP</b> (In-Engine C Type Resolver for 10 Families)"]
-            CV_LSP["ctxvault (Delivered)<br/><b>Hybrid LSP + SCIP</b> (Pure Rust TypeEnvironment & SCIP Ingestion)"]
+            CV_LSP["groundcontrol (Delivered)<br/><b>Hybrid LSP + SCIP</b> (Pure Rust TypeEnvironment & SCIP Ingestion)"]
         end
     end
 ```
 
 ### The Two Core Questions Addressed:
-1. **Grammar Parity**: What Tree-sitter parsers are missing compared to `codebase-memory-mcp` (which vendors 162 grammars)? Which open-source Rust Tree-sitter crates or vendoring strategies should `ctxvault` adopt?
+1. **Grammar Parity**: What Tree-sitter parsers are missing compared to `codebase-memory-mcp` (which vendors 162 grammars)? Which open-source Rust Tree-sitter crates or vendoring strategies should `groundcontrol` adopt?
 2. **LSP Integration**: What does "adding our own LSPs" mean in practice? How difficult is it to build an in-engine static semantic type resolver ("Hybrid LSP") versus hosting live Language Server Protocol daemons (`rust-analyzer`, `pyright`, `gopls`) or ingesting SCIP index archives?
 
 ---
 
-## 2. Invariant Constraints for `ctxvault`
+## 2. Invariant Constraints for `groundcontrol`
 
-Any implementation proposal must conform to `ctxvault`'s core architectural invariants defined in [`GEMINI.md`](file:///c:/dev/semantic/ctxvault/GEMINI.md):
+Any implementation proposal must conform to `groundcontrol`'s core architectural invariants defined in [`GEMINI.md`](file:///c:/dev/semantic/groundcontrol/GEMINI.md):
 
 1. **Source on disk is authoritative ground truth**: Indices (SQLite, Tantivy BM25, HNSW, Petgraph) are disposable and 100% rebuildable.
 2. **Sub-millisecond latency**: Query dispatch and graph traversal must remain sub-millisecond (lexical p50 ~2.2ms, graph BFS ~1.8ms). Cold indexing must not stall agent turns.
 3. **Pure Rust safety**: Maintained with `#![forbid(unsafe_code)]` at the workspace boundary. No mandatory runtime C compiler toolchains or external database daemons.
-4. **Zero external agent dependencies**: An MCP server must be zero-friction: installing `ctxvault` cannot require the user to have global installations of Node.js, `rust-analyzer`, Python 3.12, or `clangd` just to index a repository.
+4. **Zero external agent dependencies**: An MCP server must be zero-friction: installing `groundcontrol` cannot require the user to have global installations of Node.js, `rust-analyzer`, Python 3.12, or `clangd` just to index a repository.
 
 ---
 
-## 3. Comparative Grammar Audit: `codebase-memory-mcp` vs. `ctxvault`
+## 3. Comparative Grammar Audit: `codebase-memory-mcp` vs. `groundcontrol`
 
 ### 3.1 Quantitative Delta
 - **`codebase-memory-mcp`**: **162 vendored grammars** (143 verified upstream, 14 first-party/forked, 5 registry-resolved, recorded in [`internal/cbm/vendored/grammars/MANIFEST.md`](file:///c:/dev/semantic/codebase-memory-mcp/internal/cbm/vendored/grammars/MANIFEST.md)).
-- **`ctxvault`**: **16 language targets / 15 distinct languages** ([`crates/ctxvault-core/src/parser/code/languages.rs`](file:///c:/dev/semantic/ctxvault/crates/ctxvault-core/src/parser/code/languages.rs)):
+- **`groundcontrol`**: **16 language targets / 15 distinct languages** ([`crates/groundcontrol-core/src/parser/code/languages.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/parser/code/languages.rs)):
   - Rust, TypeScript, TSX, JavaScript, Python, Go, C, C++, Java, C#, Ruby, PHP, Swift, Elixir, Lua, Bash.
 - **Delta**: **147 missing grammars**.
 
@@ -65,10 +65,10 @@ Any implementation proposal must conform to `ctxvault`'s core architectural inva
 
 ---
 
-## 4. Grammar Implementation Strategies for `ctxvault`
+## 4. Grammar Implementation Strategies for `groundcontrol`
 
-### 4.1 The Current Architectural Bottleneck in `ctxvault`
-In `ctxvault-core`, language parsing is currently hardcoded procedurally in [`chunker.rs`](file:///c:/dev/semantic/ctxvault/crates/ctxvault-core/src/parser/code/chunker.rs) across nearly 1,400 lines:
+### 4.1 The Current Architectural Bottleneck in `groundcontrol`
+In `groundcontrol-core`, language parsing is currently hardcoded procedurally in [`chunker.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/parser/code/chunker.rs) across nearly 1,400 lines:
 ```rust
 // Current procedural approach in chunker.rs:
 fn traverse(&mut self, node: Node) {
@@ -125,13 +125,13 @@ flowchart LR
 
     subgraph "Path 2: External LSP Daemons"
         Files[Workspace Files] --> LSP_Daemon[rust-analyzer / pyright / gopls]
-        LSP_Daemon -- JSON-RPC / stdio --> Client[ctxvault LSP Client]
+        LSP_Daemon -- JSON-RPC / stdio --> Client[groundcontrol LSP Client]
         Client --> Petgraph
     end
 
     subgraph "Path 3: SCIP Index Ingestion"
         SCIP_Tool[scip-rust / scip-typescript] -- Offline Protobuf --> SCIP_File[index.scip]
-        SCIP_File --> Ingest[ctxvault SCIP Reader]
+        SCIP_File --> Ingest[groundcontrol SCIP Reader]
         Ingest --> Petgraph
     end
 ```
@@ -141,8 +141,8 @@ flowchart LR
 #### What It Is
 An embedded, pure-Rust static analysis pass that operates directly on Tree-sitter ASTs and SQLite symbol tables without launching any external processes. This is the exact mechanism used by `codebase-memory-mcp` (in [`internal/cbm/lsp/`](file:///c:/dev/semantic/codebase-memory-mcp/internal/cbm/lsp/)).
 
-#### How It Works in `ctxvault`
-Currently, [`crates/ctxvault-core/src/graph/code.rs`](file:///c:/dev/semantic/ctxvault/crates/ctxvault-core/src/graph/code.rs) resolves calls via basic lexical heuristics:
+#### How It Works in `groundcontrol`
+Currently, [`crates/groundcontrol-core/src/graph/code.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/graph/code.rs) resolves calls via basic lexical heuristics:
 1. Match in current file symbols.
 2. Match unique symbol in workspace.
 3. Fall back to same-directory candidate with `ResolutionConfidence::Medium` or `Speculative`.
@@ -183,14 +183,14 @@ Launching and managing actual Language Server Protocol daemons (`rust-analyzer`,
    - Querying `textDocument/prepareCallHierarchy` + `callHierarchy/incomingCalls` / `outgoingCalls`.
    - Querying `textDocument/references`.
 4. **Graph Synchronization**:
-   - Converting LSP `Location`, `Range`, and `CallHierarchyItem` objects into `ctxvault`'s `Edge` and `CodeSymbol` models.
+   - Converting LSP `Location`, `Range`, and `CallHierarchyItem` objects into `groundcontrol`'s `Edge` and `CodeSymbol` models.
 
 #### Fatal Operational Drawbacks for an MCP Context Server
 1. **Cold-Start Latency Breakdown**:
    - `rust-analyzer` takes **15 to 90 seconds** to scan `Cargo.lock`, compile procedural macros, and warm its Salsa database on medium repositories.
-   - `ctxvault`'s primary design goal is **immediate readiness**. Forcing an AI agent to wait 60 seconds on turn 1 degrades UX drastically.
+   - `groundcontrol`'s primary design goal is **immediate readiness**. Forcing an AI agent to wait 60 seconds on turn 1 degrades UX drastically.
 2. **Memory Footprint**:
-   - Running `rust-analyzer` + `pyright` + `gopls` concurrently consumes **2 to 6 GB of RAM**. `ctxvault` currently operates within ~100–300 MB.
+   - Running `rust-analyzer` + `pyright` + `gopls` concurrently consumes **2 to 6 GB of RAM**. `groundcontrol` currently operates within ~100–300 MB.
 3. **Host Environment Fragility**:
    - If the user machine lacks `pyright` or `gopls` in `$PATH`, or has mismatched compiler versions, the server fails silently or crashes.
    - Unsaved or partially typed files in IDE workflows frequently cause LSP daemons to produce error states or freeze.
@@ -204,8 +204,8 @@ SCIP (developed by Sourcegraph) is a language-agnostic, protobuf-based schema fo
 
 #### How It Works
 Instead of running heavy daemons dynamically:
-1. An offline tool (or CI pipeline, or optional user CLI command `ctxvault index --scip index.scip`) generates an `index.scip` protobuf file.
-2. `ctxvault` reads the protobuf file using `prost` or `quick-protobuf`.
+1. An offline tool (or CI pipeline, or optional user CLI command `groundcontrol index --scip index.scip`) generates an `index.scip` protobuf file.
+2. `groundcontrol` reads the protobuf file using `prost` or `quick-protobuf`.
 3. Directly loads 100% compiler-accurate `defines`, `calls`, and `references` edges into SQLite and Petgraph in **<100ms**.
 
 #### Feasibility & Cost
@@ -217,7 +217,7 @@ Instead of running heavy daemons dynamically:
 
 ## 6. Comprehensive Architectural Trade-Off Matrix
 
-| Evaluation Dimension | Status Quo (`ctxvault`) | Option 1: In-Engine Hybrid LSP | Option 2: Live LSP Daemons | Option 3: SCIP Ingestion |
+| Evaluation Dimension | Status Quo (`groundcontrol`) | Option 1: In-Engine Hybrid LSP | Option 2: Live LSP Daemons | Option 3: SCIP Ingestion |
 | :--- | :---: | :---: | :---: | :---: |
 | **Resolution Precision** | Medium (heuristic fallback) | High (type & scope aware) | Exact (100% compiler truth) | Exact (100% compiler truth) |
 | **Index Speed** | **Fastest** (<1s) | **Fast** (<1.2s) | **Slowest** (15s–90s+ cold start) | **Fastest** (<200ms ingestion) |
@@ -251,13 +251,13 @@ timeline
 
 ### 7.1 Tier 1: Declarative Specs, 47 Languages, Hybrid LSP & SCIP (Delivered)
 1. **Declarative `LanguageSpec` Architecture**:
-   Unified declarative table in [`crates/ctxvault-core/src/parser/code/spec.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/parser/code/spec.rs) covering 47 programming and config languages.
+   Unified declarative table in [`crates/groundcontrol-core/src/parser/code/spec.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/spec.rs) covering 47 programming and config languages.
 2. **Grammar Expansion**:
    Expanded from 15 to **47 supported languages** across systems, web, scripting, functional, cloud/infra, and schema domains.
 3. **In-Engine Pure-Rust Hybrid LSP**:
-   Implemented `TypeEnvironment` and lexical scopes in [`crates/ctxvault-core/src/graph/code.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/code.rs), enabling receiver method disambiguation (`x.method()` $\to$ `Type::method`) with `ResolutionConfidence::High`.
+   Implemented `TypeEnvironment` and lexical scopes in [`crates/groundcontrol-core/src/graph/code.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/code.rs), enabling receiver method disambiguation (`x.method()` $\to$ `Type::method`) with `ResolutionConfidence::High`.
 4. **SCIP Protobuf Index Ingestion**:
-   Added [`crates/ctxvault-core/src/graph/scip.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-core/src/graph/scip.rs) and `Engine::ingest_scip` with CLI `--scip <PATH>`, supporting <200ms ingestion of compiler-exact `.scip` dumps.
+   Added [`crates/groundcontrol-core/src/graph/scip.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/scip.rs) and `Engine::ingest_scip` with CLI `--scip <PATH>`, supporting <200ms ingestion of compiler-exact `.scip` dumps.
 
 ### 7.2 Tier 2: Upstream C/C++ Tree-Sitter Grammars via `cc` in `build.rs` (Roadmap)
 * **Goal**: Expand from 47 to 100+ languages by directly compiling upstream C grammars (`parser.c`, `scanner.c`) via `cc::Build` in `build.rs`.
@@ -266,4 +266,4 @@ timeline
 
 ### 7.3 Tier 3: Compiler-Grade Code Intelligence & LSP Daemon Integrations (Roadmap)
 * **Automated SCIP Pipeline**: Toolchain automation hooks for `scip-rust`, `scip-typescript`, `scip-python`, and `scip-clang` with incremental diffing and cross-corpus namespace resolution.
-* **External LSP Socket Connector**: Zero-overhead opt-in socket client (`--lsp-socket <lang>:<addr>`) connecting to pre-existing background IDE language servers without spawning unmanaged, memory-heavy daemon supervisor processes inside `ctxvault`.
+* **External LSP Socket Connector**: Zero-overhead opt-in socket client (`--lsp-socket <lang>:<addr>`) connecting to pre-existing background IDE language servers without spawning unmanaged, memory-heavy daemon supervisor processes inside `groundcontrol`.

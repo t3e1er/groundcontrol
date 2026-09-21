@@ -1,0 +1,40 @@
+[package]
+name = "groundcontrol-mcp"
+description = "MCP protocol layer: tool definitions, transport, request handling"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+groundcontrol-common = { path = "../groundcontrol-common" }
+groundcontrol-core = { path = "../groundcontrol-core" }
+
+# Async
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+# Tracing
+tracing = { workspace = true }
+
+# HTTP (server and client mode)
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+reqwest = { workspace = true }
+futures-util = { workspace = true }
+async-trait = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

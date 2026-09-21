@@ -14,7 +14,7 @@ related:
 # RFC: Zero-Copy File-Offset Architecture & Binary Vector Indexing
 
 **Status**: Implemented  
-**Scope**: `ctxvault-common`, `ctxvault-core`, `ctxvault-mcp`, `ctxvault-cli`  
+**Scope**: `groundcontrol-common`, `groundcontrol-core`, `groundcontrol-mcp`, `groundcontrol-cli`  
 **Date**: September 2026  
 **Related Documents**: [[docs/roadmap/coderoadmap]], [[docs/architecture/adr/adr-008-anchor-embedding-paradigm]], [[docs/architecture/implementation/zero-copy-storage]]
 
@@ -118,12 +118,12 @@ CREATE INDEX idx_chunks_file_chunk ON chunks(file_path, chunk_index);
 
 ---
 
-### 3.2 Tantivy Schema Tuning (`crates/ctxvault-core/src/index/mod.rs`)
+### 3.2 Tantivy Schema Tuning (`crates/groundcontrol-core/src/index/mod.rs`)
 
 Tantivy's `field_body` is stripped of the `STORED` flag:
 
 ```rust
-// File: crates/ctxvault-core/src/index/mod.rs
+// File: crates/groundcontrol-core/src/index/mod.rs
 
 fn build_schema() -> (Schema, Field, Field, Field, Field, Field, Field) {
     let mut builder = Schema::builder();
@@ -255,11 +255,11 @@ Based on the 14,644 indexed Kubernetes files:
 3. Eliminate `serde_json` serialization paths for vector persistence (greenfield policy: no backwards compatibility shims).
 
 ### Phase 2: Tantivy `body` Unstored Field Tuning
-1. Change `builder.add_text_field("body", TEXT | STORED)` to `builder.add_text_field("body", TEXT)` in `crates/ctxvault-core/src/index/mod.rs`.
+1. Change `builder.add_text_field("body", TEXT | STORED)` to `builder.add_text_field("body", TEXT)` in `crates/groundcontrol-core/src/index/mod.rs`.
 2. Update search snippet generation to query byte coordinates from SQLite and slice from disk.
 
 ### Phase 3: SQLite `chunks` Schema Modernization
-1. Update SQLite migration in `crates/ctxvault-core/src/persistence/` to omit the `text` column in `chunks`.
+1. Update SQLite migration in `crates/groundcontrol-core/src/persistence/` to omit the `text` column in `chunks`.
 2. Update `ingest_parsed_record` and `Store::insert_chunks` to insert `start_byte`, `end_byte`, `start_line`, `end_line` without string allocations.
 3. Wire `Engine::fetch_chunk_text` across all MCP retrieval tools (`search`, `get_snippet`).
 

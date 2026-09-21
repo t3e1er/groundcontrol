@@ -13,7 +13,7 @@ related:
 
 # Concepts & Retrieval Theory Hub
 
-Welcome to the **Concepts & Retrieval Theory** section of `ctxvault` (`ctxv`). This hub covers mathematical foundations, multi-modal hybrid ranking, token economics, and agentic interaction models.
+Welcome to the **Concepts & Retrieval Theory** section of `groundcontrol` (`gc`). This hub covers mathematical foundations, multi-modal hybrid ranking, token economics, and agentic interaction models.
 
 ---
 

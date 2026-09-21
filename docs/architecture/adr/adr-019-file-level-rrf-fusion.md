@@ -19,7 +19,7 @@ Accepted / In Implementation
 
 ### The Granularity Bug
 
-`search_hybrid_full_single` in `crates/ctxvault-core/src/search/mod.rs` keys the RRF fusion map
+`search_hybrid_full_single` in `crates/groundcontrol-core/src/search/mod.rs` keys the RRF fusion map
 at `(path, chunk_index)` for code modality:
 
 ```rust

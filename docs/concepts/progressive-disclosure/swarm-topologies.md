@@ -1,6 +1,6 @@
 ﻿---
 title: "Multi-Agent Swarm Topologies"
-description: "Coordinating specialized Scout, Reader, Writer, and Crystallizer agents over a shared ctxvault substrate."
+description: "Coordinating specialized Scout, Reader, Writer, and Crystallizer agents over a shared groundcontrol substrate."
 category: "progressive-disclosure"
 status: "active"
 tags: ["swarms", "scout", "reader", "writer", "crystallizer", "orchestration"]
@@ -14,7 +14,7 @@ related:
 
 When executing complex tasks, deploying a single omnipotent agent leads to confusion and conflicting tool calls.
 
-`ctxvault` is designed to power **specialized multi-agent swarms**, where each agent operates with a bounded role, gated tool surface, and specific cognitive contract.
+`groundcontrol` is designed to power **specialized multi-agent swarms**, where each agent operates with a bounded role, gated tool surface, and specific cognitive contract.
 
 ---
 
@@ -26,7 +26,7 @@ flowchart TD
     Scout -->|High-signal paths| Reader["Reader Agent (--profile analysis)"]
     Reader -->|Verified implementation| Writer["Writer Agent (--profile all)"]
     Writer -->|Resolution artifacts| Crystallizer["Crystallizer Agent (--profile all)"]
-    Crystallizer -->|Permanent markdown note| Vault["ctxvault Knowledge Substrate"]
+    Crystallizer -->|Permanent markdown note| Vault["groundcontrol Knowledge Substrate"]
     
     style Scout fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff
     style Reader fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff

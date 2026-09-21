@@ -1,6 +1,6 @@
 ---
 title: "Project Roadmap & RFC Archive"
-description: "High-level technical roadmap, feature RFCs, and evolutionary specifications for ctxvault."
+description: "High-level technical roadmap, feature RFCs, and evolutionary specifications for groundcontrol."
 category: "roadmap"
 status: "active"
 tags: ["roadmap", "rfc", "planning", "evolution", "architecture"]
@@ -12,7 +12,7 @@ related:
 
 # Project Roadmap & RFC Archive
 
-This section tracks the technical roadmap and Request for Comments (RFC) engineering specifications for `ctxvault`.
+This section tracks the technical roadmap and Request for Comments (RFC) engineering specifications for `groundcontrol`.
 
 ---
 

@@ -15,7 +15,7 @@ related:
 Accepted / Implemented
 
 ## Context
-In building a 4-modality hybrid retrieval pipeline (Tantivy BM25, HNSW dense vectors, Petgraph graph hops), `ctxvault` needed an algorithm to merge heterogeneous candidate score distributions into a single, authoritative ranked list.
+In building a 4-modality hybrid retrieval pipeline (Tantivy BM25, HNSW dense vectors, Petgraph graph hops), `groundcontrol` needed an algorithm to merge heterogeneous candidate score distributions into a single, authoritative ranked list.
 
 Two primary paradigms were evaluated:
 1. **Parametric Linear / Learned Score Normalization**:

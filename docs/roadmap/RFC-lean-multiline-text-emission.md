@@ -16,9 +16,9 @@ related:
 
 **Status**: Implemented  
 **Author**: Architecture Team & Antigravity Pair  
-**Scope**: `ctxvault-mcp`, `ctxvault-core`, `ctxvault-common`  
+**Scope**: `groundcontrol-mcp`, `groundcontrol-core`, `groundcontrol-common`  
 **Date**: September 2026  
-**Related Documents**: [coderoadmap.md](file:///c:/dev/ctx/ctxvault/docs/roadmap/coderoadmap.md), [adr-020-lean-multiline-text-emission.md](file:///c:/dev/ctx/ctxvault/docs/architecture/adr/adr-020-lean-multiline-text-emission.md), [three-tier-model.md](file:///c:/dev/ctx/ctxvault/docs/concepts/progressive-disclosure/three-tier-model.md)
+**Related Documents**: [coderoadmap.md](file:///c:/dev/ctx/groundcontrol/docs/roadmap/coderoadmap.md), [adr-020-lean-multiline-text-emission.md](file:///c:/dev/ctx/groundcontrol/docs/architecture/adr/adr-020-lean-multiline-text-emission.md), [three-tier-model.md](file:///c:/dev/ctx/groundcontrol/docs/concepts/progressive-disclosure/three-tier-model.md)
 
 ---
 
@@ -31,13 +31,13 @@ While JSON provides rigorous schema enforcement for programmatic consumers, it i
 ```mermaid
 flowchart LR
     subgraph Current JSON Serialization Tax
-        A["ctxvault-core Engine AST"] --> B["serde_json Serializer"]
+        A["groundcontrol-core Engine AST"] --> B["serde_json Serializer"]
         B --> C["Raw JSON String in content[0].text<br/>(420 tokens per 14-node tree)"]
         C --> D["LLM Prompt Context Window<br/>(~60% tokens wasted on quotes, braces, repeated keys)"]
     end
 
     subgraph Proposed Lean Multiline Protocol
-        E["ctxvault-core Engine AST"] --> F["Lean Multiline Formatter"]
+        E["groundcontrol-core Engine AST"] --> F["Lean Multiline Formatter"]
         F --> G["Indented Cypher ASCII Tree<br/>(130 tokens per 14-node tree)"]
         G --> H["LLM Prompt Context Window<br/>(69% token reduction, zero syntax noise)"]
     end
@@ -46,7 +46,7 @@ flowchart LR
 ### The Three Pain Points of JSON Tool Responses:
 
 1. **Repetitive Key Overhead**:
-   In hierarchical trees ([`GraphMatchResult`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs)) or search hit lists, each entity redundantly emits `"node":`, `"rel":`, `"file":`, `"line":`, `"hop":`, `"branches":`, quotes, and colons. On a 20-node traversal or 10-hit search sweep, **50% to 70% of response tokens are structural boilerplate**.
+   In hierarchical trees ([`GraphMatchResult`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs)) or search hit lists, each entity redundantly emits `"node":`, `"rel":`, `"file":`, `"line":`, `"hop":`, `"branches":`, quotes, and colons. On a 20-node traversal or 10-hit search sweep, **50% to 70% of response tokens are structural boilerplate**.
 2. **Closing Delimiter Bloat**:
    Deeply nested JSON trees require cascades of closing brackets (`}]}}, \n }]}}`), burning valuable output budget without conveying semantic value.
 3. **Attentional Diffusion in Autoregressive Models**:
@@ -62,20 +62,20 @@ The open-source baseline `codebase-memory-mcp` recognized this exact limitation 
 
 In `codebase-memory-mcp`, all primary structural tools (`trace_path`, `query_graph`, `search_graph`) default to `format: "tree"` text emission rather than JSON, utilizing 2-space indentation and header-once column definitions.
 
-`ctxvault` can surpass this baseline by emitting **semantically rich, indented Cypher-Lite ASCII outlines** that combine human-readable indentation, direct compiler-style jump targets (`path:line`), and typed Cypher arrows.
+`groundcontrol` can surpass this baseline by emitting **semantically rich, indented Cypher-Lite ASCII outlines** that combine human-readable indentation, direct compiler-style jump targets (`path:line`), and typed Cypher arrows.
 
 ---
 
 ## 3. Concrete Token Economics: Side-by-Side Comparison
 
-Evaluating the exact 14-node multi-hop query executed on `ctxvault`'s codebase:  
+Evaluating the exact 14-node multi-hop query executed on `groundcontrol`'s codebase:  
 `(:CodeSymbol {name: "detect_bundle"})<-[:calls*1..2]-(caller)`
 
 ### A. Current JSON Representation (~420 tokens)
 ```json
 {
-  "corpus": "ctxvault",
-  "file": "crates/ctxvault-core/src/bundle.rs:216",
+  "corpus": "groundcontrol",
+  "file": "crates/groundcontrol-core/src/bundle.rs:216",
   "root": "detect_bundle",
   "summary": {
     "direct": 3,
@@ -88,14 +88,14 @@ Evaluating the exact 14-node multi-hop query executed on `ctxvault`'s codebase:
     {
       "branches": [
         {
-          "file": "crates/ctxvault-cli/src/main.rs",
+          "file": "crates/groundcontrol-cli/src/main.rs",
           "hop": 2,
           "line": 316,
           "node": "main",
           "rel": "calls"
         }
       ],
-      "file": "crates/ctxvault-cli/src/main.rs",
+      "file": "crates/groundcontrol-cli/src/main.rs",
       "hop": 1,
       "line": 279,
       "node": "prompt_bundle_extraction",
@@ -104,28 +104,28 @@ Evaluating the exact 14-node multi-hop query executed on `ctxvault`'s codebase:
     {
       "branches": [
         {
-          "file": "crates/ctxvault-core/src/corpus_manager.rs",
+          "file": "crates/groundcontrol-core/src/corpus_manager.rs",
           "hop": 2,
           "line": 180,
           "node": "CorpusManager > add_corpus",
           "rel": "calls"
         },
         {
-          "file": "crates/ctxvault-core/src/corpus_manager.rs",
+          "file": "crates/groundcontrol-core/src/corpus_manager.rs",
           "hop": 2,
           "line": 366,
           "node": "CorpusManager > import_corpus",
           "rel": "calls"
         },
         {
-          "file": "crates/ctxvault-core/src/corpus_manager.rs",
+          "file": "crates/groundcontrol-core/src/corpus_manager.rs",
           "hop": 2,
           "line": 1175,
           "node": "tests > add_test_corpus",
           "rel": "calls"
         }
       ],
-      "file": "crates/ctxvault-core/src/corpus_manager.rs",
+      "file": "crates/groundcontrol-core/src/corpus_manager.rs",
       "hop": 1,
       "line": 146,
       "node": "CorpusManager > add_corpus_with_index_dir",
@@ -137,21 +137,21 @@ Evaluating the exact 14-node multi-hop query executed on `ctxvault`'s codebase:
 
 ### B. Proposed Lean Multiline Text Representation (~130 tokens — 69% Reduction)
 ```text
-root: detect_bundle (crates/ctxvault-core/src/bundle.rs:216) [direct: 3, transitive: 9, files: 6, depth: 2, matches: 14]
-  <-[:calls]- prompt_bundle_extraction (crates/ctxvault-cli/src/main.rs:279)
-    <-[:calls]- main (crates/ctxvault-cli/src/main.rs:316)
-  <-[:calls]- CorpusManager > add_corpus_with_index_dir (crates/ctxvault-core/src/corpus_manager.rs:146)
-    <-[:calls]- CorpusManager > add_corpus (crates/ctxvault-core/src/corpus_manager.rs:180)
-    <-[:calls]- CorpusManager > import_corpus (crates/ctxvault-core/src/corpus_manager.rs:366)
-    <-[:calls]- tests > add_test_corpus (crates/ctxvault-core/src/corpus_manager.rs:1175)
-    <-[:calls]- tests > add_fast_corpus (crates/ctxvault-core/src/corpus_manager.rs:1331)
-    <-[:calls]- main (crates/ctxvault-cli/src/main.rs:316)
-    <-[:calls]- add_corpus (crates/ctxvault-core/tests/cross_corpus_federation_test.rs:28)
-    <-[:calls]- build_manager (crates/ctxvault-mcp/tests/mcp_http_server_test.rs:22)
-  <-[:calls]- CorpusManager > ensure_corpus_with_name (crates/ctxvault-core/src/corpus_manager.rs:196)
-    <-[:calls]- ensure_corpus (crates/ctxvault-core/src/corpus_manager.rs:191)
-    <-[:calls]- main (crates/ctxvault-cli/src/main.rs:316)
-    <-[:calls]- handle_index_corpus_manager (crates/ctxvault-mcp/src/tools/mod.rs:1173)
+root: detect_bundle (crates/groundcontrol-core/src/bundle.rs:216) [direct: 3, transitive: 9, files: 6, depth: 2, matches: 14]
+  <-[:calls]- prompt_bundle_extraction (crates/groundcontrol-cli/src/main.rs:279)
+    <-[:calls]- main (crates/groundcontrol-cli/src/main.rs:316)
+  <-[:calls]- CorpusManager > add_corpus_with_index_dir (crates/groundcontrol-core/src/corpus_manager.rs:146)
+    <-[:calls]- CorpusManager > add_corpus (crates/groundcontrol-core/src/corpus_manager.rs:180)
+    <-[:calls]- CorpusManager > import_corpus (crates/groundcontrol-core/src/corpus_manager.rs:366)
+    <-[:calls]- tests > add_test_corpus (crates/groundcontrol-core/src/corpus_manager.rs:1175)
+    <-[:calls]- tests > add_fast_corpus (crates/groundcontrol-core/src/corpus_manager.rs:1331)
+    <-[:calls]- main (crates/groundcontrol-cli/src/main.rs:316)
+    <-[:calls]- add_corpus (crates/groundcontrol-core/tests/cross_corpus_federation_test.rs:28)
+    <-[:calls]- build_manager (crates/groundcontrol-mcp/tests/mcp_http_server_test.rs:22)
+  <-[:calls]- CorpusManager > ensure_corpus_with_name (crates/groundcontrol-core/src/corpus_manager.rs:196)
+    <-[:calls]- ensure_corpus (crates/groundcontrol-core/src/corpus_manager.rs:191)
+    <-[:calls]- main (crates/groundcontrol-cli/src/main.rs:316)
+    <-[:calls]- handle_index_corpus_manager (crates/groundcontrol-mcp/src/tools/mod.rs:1173)
 ```
 
 ---
@@ -169,7 +169,7 @@ The Lean Multiline Text format applies coherently across the strict 3-tier progr
 ### 4.2 Tier 2A: `get_snippet` (Bounded Definition Block)
 Eliminate JSON envelope completely; return clean Markdown with metadata header line:
 ```markdown
-# symbol: detect_bundle (crates/ctxvault-core/src/bundle.rs:216-245, 30 lines) [total_file_lines: 412]
+# symbol: detect_bundle (crates/groundcontrol-core/src/bundle.rs:216-245, 30 lines) [total_file_lines: 412]
 ```rust
 pub fn detect_bundle(path: &Path) -> Result<Option<CorpusBundle>> {
     ...
@@ -180,15 +180,15 @@ pub fn detect_bundle(path: &Path) -> Result<Option<CorpusBundle>> {
 ### 4.3 Tier 1: `search` (Hits + Source Snippets)
 Replace JSON lists with partitioned Markdown sections:
 ```markdown
-# Search: 'detect_bundle' [corpus: ctxvault, total: 4 hits]
+# Search: 'detect_bundle' [corpus: groundcontrol, total: 4 hits]
 
 ## Code Hits
-1. detect_bundle (crates/ctxvault-core/src/bundle.rs:216) [score: 0.89, calls_in: 3, calls_out: 2]
+1. detect_bundle (crates/groundcontrol-core/src/bundle.rs:216) [score: 0.89, calls_in: 3, calls_out: 2]
 ```rust
 pub fn detect_bundle(path: &Path) -> Result<Option<CorpusBundle>> {
 ```
 
-2. prompt_bundle_extraction (crates/ctxvault-cli/src/main.rs:279) [score: 0.74, calls_in: 1, calls_out: 4]
+2. prompt_bundle_extraction (crates/groundcontrol-cli/src/main.rs:279) [score: 0.74, calls_in: 1, calls_out: 4]
 ```rust
 fn prompt_bundle_extraction(...) {
 ```
@@ -198,7 +198,7 @@ fn prompt_bundle_extraction(...) {
 
 ## 5. Architectural Implementation in Rust
 
-In [`crates/ctxvault-common/src/types.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs), add display formatters directly on domain types:
+In [`crates/groundcontrol-common/src/types.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs), add display formatters directly on domain types:
 
 ```rust
 impl GraphMatchResult {
@@ -244,7 +244,7 @@ impl GraphTreeNode {
 }
 ```
 
-In [`crates/ctxvault-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs):
+In [`crates/groundcontrol-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs):
 ```rust
 fn handle_graph_match(engine: &Engine, args: Value) -> Result<Value> {
     let params: GraphMatchParams = serde_json::from_value(args)?;
@@ -264,7 +264,7 @@ fn handle_graph_match(engine: &Engine, args: Value) -> Result<Value> {
    - When this RFC is accepted, tool handlers transition to emitting formatted text directly in `content[0].text`.
 2. **Deterministic Verification**:
    - Test suites assert on string line matching, regex jump targets, and cardinality counts (`match_result.total_matches`).
-   - Pure domain tests retain access to structured structs ([`GraphMatchResult`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-common/src/types.rs)), while the MCP wire transport emits the lean multiline text string.
+   - Pure domain tests retain access to structured structs ([`GraphMatchResult`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs)), while the MCP wire transport emits the lean multiline text string.
 
 ---
 
@@ -277,5 +277,5 @@ fn handle_graph_match(engine: &Engine, args: Value) -> Result<Value> {
   - **Turn 3 (`read_file`)**: Line-numbered markdown blocks for single files or batch arrays with zero JSON string quote/newline escaping overhead.
   - **Transport Layer**: MCP stdio `dispatch` defaults `format` to `"lean"` and emits `Value::String` directly without JSON wrapping, with `"json"` available as an explicit opt-in.
 - **Observed Savings**: **60% to 70% context token reduction** across multi-turn exploration trajectories with zero JSON syntax noise.
-- **Delivered**: September 2026 under Section 10.6 of [coderoadmap.md](file:///c:/dev/ctx/ctxvault/docs/roadmap/coderoadmap.md) and governed by [ADR-020](file:///c:/dev/ctx/ctxvault/docs/architecture/adr/adr-020-lean-multiline-text-emission.md).
-- **Core Implementation**: [`crates/ctxvault-mcp/src/format/lean.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/format/lean.rs), [`crates/ctxvault-mcp/src/transport/dispatch.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/transport/dispatch.rs), [`crates/ctxvault-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/ctxvault/crates/ctxvault-mcp/src/tools/mod.rs).
+- **Delivered**: September 2026 under Section 10.6 of [coderoadmap.md](file:///c:/dev/ctx/groundcontrol/docs/roadmap/coderoadmap.md) and governed by [ADR-020](file:///c:/dev/ctx/groundcontrol/docs/architecture/adr/adr-020-lean-multiline-text-emission.md).
+- **Core Implementation**: [`crates/groundcontrol-mcp/src/format/lean.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/format/lean.rs), [`crates/groundcontrol-mcp/src/transport/dispatch.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/transport/dispatch.rs), [`crates/groundcontrol-mcp/src/tools/mod.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp/src/tools/mod.rs).

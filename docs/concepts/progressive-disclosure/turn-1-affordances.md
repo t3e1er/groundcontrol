@@ -14,7 +14,7 @@ related:
 
 In single-turn search, standard vector databases return only chunk text and similarity floats. The agent has no idea if a returned function is a leaf utility, an entry point called by 50 modules, or an outdated duplicate.
 
-`ctxvault` enriches every Turn 1 search result with **Graph Affordances** and a dynamic **Schema Envelope**.
+`groundcontrol` enriches every Turn 1 search result with **Graph Affordances** and a dynamic **Schema Envelope**.
 
 ---
 
@@ -24,7 +24,7 @@ Every search hit includes deterministic graph relationships and degree previews 
 
 ```json
 {
-  "path": "crates/ctxvault-core/src/bundle.rs",
+  "path": "crates/groundcontrol-core/src/bundle.rs",
   "score": 0.0161,
   "score_components": { "bm25": 13.05 },
   "snippet": "pub fn detect_bundle(corpus_root: &Path) -> Option<PathBuf> { ... }",
