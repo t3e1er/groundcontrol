@@ -15,6 +15,7 @@ Written in 100% pure Rust (`unsafe_code = "forbid"`) for memory safety, zero C-r
 2. **Explicit graph topology, not LLM extraction**: Edges are generated deterministically from typed frontmatter fields, `#tags`, `[[wikilinks]]`, and AST code relations (`calls`, `defines`, `imports`, `implements`) — never from stochastic extraction pipelines.
 3. **Pure Rust sub-millisecond speed**: Multi-hop graph traversal and hybrid ranking operate in real time (lexical p50 ~2.2ms, graph BFS ~1.8ms) with no perceptible agent lag.
 4. **Multi-agent memory substrate**: A shared in-memory + on-disk semantic plane for specialized agent swarms (Scouts, Readers, Writers, Analysts).
+5. **Never git push**: AI agents must NEVER run `git push` under any circumstances. Staging, branching, and committing locally are permitted when requested, but pushing to remote repositories is strictly reserved for the human developer.
 
 ### Retrieval, Configuration & Multi-Corpus Architecture
 - **Central vs Local Configuration Separation**:
@@ -87,11 +88,13 @@ Authoritative tool registry: `crates/groundcontrol-mcp/src/tools/mod.rs`. Handle
    - **Always** use `groundcontrol` MCP tools (`search`, `get_snippet`, `graph_match`, `search_related`) as the primary intake mechanism for high-signal, token-efficient context.
    - Direct file reads (`read_file` or native `view_file`) are strictly a **Tier 3 last resort**, permitted only when actively preparing a code edit or when exhaustive contiguous context is proven necessary after Tier 1 & 2 elaboration. Files on disk remain authoritative for applying modifications, but discovery must be mediated via MCP.
 2. **Select optimal `search` mode & leverage Turn 1 snippets**:
-   - `mode="hybrid"`: Default for broad exploratory queries (3-way RRF fusion).
+   - `mode="hybrid"`: Default for broad exploratory queries. Respects full vs fast bimodality: fuses BM25 + dense ONNX embeddings + Petgraph for `docs`, and BM25 + 256-bit binary Hamming scan + Petgraph for `code` (3-way RRF).
+   - `mode="fast"`: Pure CPU algorithmic search across both docs and code (Tantivy BM25 + 256-bit Hamming scan + HippoRAG PPR). Zero ONNX inference in <2ms.
    - `mode="bm25"`: Exact symbols, identifiers, struct names, error strings, verbatim tokens.
-   - `mode="semantic"`: Conceptual similarity and abstract technical intentions.
+   - `mode="semantic"`: Conceptual similarity and abstract technical intentions across documentation.
    - `mode="graph"`: Typed graph traversal; filter by `edge_types` or `edge_class` (`code`, `structural`, `semantic`, `crossmodal`, `hybrid`).
    - `mode="explain"`: Introspect scoring breakdowns (BM25 vs vector vs graph).
+
    - `snippets=K`: Search automatically inlines source snippets for the top $K$ results (default 3) directly in Turn 1 across docs and code. Set `snippets=0` for pure handle sweeps.
    - `detail="ids"`: Strips Turn 1 snippets, graph affordances, and zero score breakdowns for minimal token consumption (<250 tokens) during wide identifier sweeps.
 3. **Turn 1 Affordance Grounding, Path Expansion & Structural Census**:
@@ -104,6 +107,7 @@ Authoritative tool registry: `crates/groundcontrol-mcp/src/tools/mod.rs`. Handle
    - Tier 3: Read whole files or bounded line slices (`read_file(path="...", line_range=[start, end])`) *only* when necessary for line-exact editing.
 5. **Schema discipline on writes**: Query `list_templates` before authoring, write via `write_note`, and confirm validity with `validate(path="...")`.
 6. **Destructive operations**: `delete_note` permanently removes files and index entries; confirm with user before executing.
+7. **Absolute Git Push Prohibition**: Never run `git push` or attempt automated remote push commands. Remote synchronization is strictly reserved for manual human execution.
 
 ---
 
@@ -167,4 +171,16 @@ All documentation must conform to the 3-pillar directory layout:
 1. **Never Let Documentation Rot**: Whenever modifying a port trait, tool signature, CLI argument, indexing pipeline, or core data structure, you MUST update the corresponding documentation under `docs/` in the same commit.
 2. **Bidirectional Code Linking**: Technical documentation must link directly to active Rust source files and symbols using `[Symbol](file:///c:/dev/ctx/groundcontrol/crates/...)` syntax to provide ground-truth provenance.
 3. **Wikilink & Frontmatter Integrity**: Every document must maintain valid YAML frontmatter (`title`, `category`, `status`, `tags`, `related`) and valid `[[wikilinks]]`. Never create broken links.
+
+---
+
+## 8. Sister Repository: `groundtruth` & Polyglot Benchmark Corpora
+
+Academic benchmarking and IR evaluation are decoupled from `groundcontrol` internals and live in the sister repository [`groundtruth`](file:///c:/dev/semantic/groundtruth).
+
+### Principles of Decoupled Evaluation
+- **Decoupled Universal Interface**: `groundtruth` interacts with `groundcontrol` solely as a black box via the Model Context Protocol (MCP over stdio JSON-RPC). Never reintroduce tight compile-time coupling or direct engine struct dependencies back into benchmark harnesses.
+- **Polyglot Benchmark Grounding**: Evaluation targets real-world, enterprise-grade multi-language architectures rather than isolated single-function snippets. The primary reference corpus is the **OpenTelemetry Astronomy Shop** (`corpora/otel-demo.toml`, covering 11+ languages across Rust, Go, TypeScript, Python, C#, Java, C++, Ruby, Kotlin, PHP, Elixir) and multi-repo architectures communicating via gRPC/Protobuf.
+- **Authoritative Metrics Substrate**: Standard IR metrics (Recall@K, Precision@K, MRR@K, nDCG@K with graded relevance), query latency distribution percentiles (p50, p90, p95, p99), and statistical significance (paired Student's t-test and Wilcoxon signed-rank test) are governed by `groundtruth-judge`.
+
 
