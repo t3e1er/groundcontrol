@@ -273,12 +273,13 @@ impl ToolRegistry {
         // Search tools
         self.register_read(
             "search",
-            "Tier 1 retrieval with Turn 1 hybrid snippets: returns handles across docs and code, with source snippets inlined for the top K results (configured via `snippets`, default 3). Modes: bm25, semantic, hybrid (default), graph, explain, fast.",
+            "Tier 1 retrieval with Turn 1 snippets: returns handles across docs and code with inlined source snippets for top K results (configured via `snippets`, default 3). Modes: hybrid (default: dense ONNX for docs, binary Hamming for code, fused with BM25 + graph), bm25, semantic, graph, explain, fast (pure CPU SIF + Binary + PPR).",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "query": { "type": "string", "description": "Search query" },
-                    "mode": { "type": "string", "enum": ["bm25", "semantic", "hybrid", "graph", "explain", "fast"], "description": "Retrieval mode (default: hybrid). Use 'fast' for sub-millisecond CPU SIF + Binary + PPR." },
+                    "mode": { "type": "string", "enum": ["bm25", "semantic", "hybrid", "graph", "explain", "fast"], "description": "Retrieval mode (default: hybrid). hybrid automatically routes docs through dense ONNX vectors and code through 256-bit binary Hamming fingerprints, fused with BM25 and Petgraph. Use 'fast' for instant sub-millisecond CPU-only search." },
+
                     "limit": { "type": "number", "description": "Maximum results to return (default 10)" },
                     "snippets": { "type": "number", "description": "Number of top results across docs and code to inline source snippets for in Turn 1 (default: 3). Set to 0 for pure handles." },
                     "depth": { "type": "string", "enum": ["precise", "broad", "adaptive"], "description": "Semantic mode only: retrieval depth — precise (chunk-level, default), broad (doc-level), adaptive (both + RRF)" },
