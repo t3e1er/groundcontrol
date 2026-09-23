@@ -25,6 +25,7 @@ related:
 ## Architectural Pillars
 
 * **[[docs/architecture/implementation/hexagonal-architecture]]**: Ports & adapters pattern; zero leaking of Tantivy, rusqlite, or ONNX types across module boundaries.
+* **[[docs/architecture/implementation/algorithm-substrate]]**: Pluggable algorithm components (`bm25`, `binary`, `graph`, `dense`, `composite`) conforming to `RetrievalAlgorithm`.
 * **[[docs/architecture/implementation/file-exclusion]]**: Central corpus gitignore-equivalent pattern matcher, subtree pruning, and multi-layered indexing skips.
 * **[[docs/architecture/implementation/cast-chunking]]**: Tree-sitter cAST polyglot parsing across 16+ languages with parent scope breadcrumb injection.
 * **[[docs/architecture/implementation/gpu-and-directml]]**: DirectX 12 DirectML acceleration, AIMD VRAM governor, and TDR driver watchdog resilience.

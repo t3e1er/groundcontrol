@@ -1,17 +1,8 @@
-//! Algorithm query dispatch, normalization, deduplication, and hit scoring.
-
-pub mod binary;
-pub mod bm25;
-pub mod fast;
-pub mod hybrid;
-pub mod ppr;
-pub mod sanitizer;
-pub mod semantic;
-
-pub use sanitizer::sanitize_lucene_query;
+//! Evaluation hit types, path normalization, deduplication, and candidate scoring.
 
 use groundcontrol_common::types::Modality;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// A ranked candidate result from an algorithmic retrieval query.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -68,8 +59,6 @@ pub fn deduplicate_hits(
     modality: Modality,
     query_text: &str,
 ) -> Vec<AlgoHit> {
-    use std::collections::HashMap;
-
     let query_terms: Vec<String> = query_text
         .split(|c: char| !c.is_alphanumeric())
         .filter(|w| w.len() >= 3)
@@ -128,11 +117,6 @@ pub fn deduplicate_hits(
     scored_files
         .into_iter()
         .enumerate()
-        .map(|(i, (path, score, symbol))| AlgoHit {
-            rank: i + 1,
-            path,
-            score,
-            symbol,
-        })
+        .map(|(i, (path, score, symbol))| AlgoHit { rank: i + 1, path, score, symbol })
         .collect()
 }

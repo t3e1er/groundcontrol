@@ -11,6 +11,7 @@
 //! these adapters and exposes them port-typed; [`engine_builder::EngineBuilder`]
 //! is the construction seam that builds and injects the concrete adapters.
 
+pub mod algorithm;
 pub mod analytics;
 pub mod bundle;
 pub mod corpus_manager;

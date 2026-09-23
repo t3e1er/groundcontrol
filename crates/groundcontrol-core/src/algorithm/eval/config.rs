@@ -1,12 +1,9 @@
-//! Algorithm configuration types.
+//! Algorithm configuration types for retrieval ablation and evaluation.
 
+use groundcontrol_common::types::BinaryProjectionKind;
 use serde::{Deserialize, Serialize};
 
-/// Runtime configuration for algorithm selection and tuning.
-///
-/// Passed to [`AlgorithmicIndex::build`](crate::index::AlgorithmicIndex::build) and
-/// [`AlgorithmicIndex::load`](crate::index::AlgorithmicIndex::load). Enables ablation
-/// across algorithm variants without recompilation.
+/// Runtime configuration for algorithm selection and tuning during evaluation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlgoConfig {
     /// Binary fingerprint projection variant (selects between flat SIF and 4-channel
@@ -34,6 +31,3 @@ impl Default for AlgoConfig {
         }
     }
 }
-
-pub use groundcontrol_common::types::BinaryProjectionKind;
-

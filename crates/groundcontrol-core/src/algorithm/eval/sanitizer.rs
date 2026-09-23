@@ -1,4 +1,4 @@
-//! Query sanitization and Lucene syntax escaping for Tantivy search queries.
+//! Query sanitization and Lucene syntax escaping for search queries.
 
 /// Sanitize a raw natural language or code query to eliminate Lucene/Tantivy syntax errors.
 pub fn sanitize_lucene_query(raw: &str) -> String {

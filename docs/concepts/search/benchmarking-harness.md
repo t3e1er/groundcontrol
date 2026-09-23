@@ -1,6 +1,6 @@
 ---
 title: "Retrieval & Indexing Data Science Benchmark Harness"
-description: "Architecture, metrics, resource profiling, and two-tier evaluation model across `groundcontrol-algo` and `groundtruth`."
+description: "Architecture, metrics, resource profiling, and two-tier evaluation model across `groundcontrol-core` and `groundtruth`."
 category: "concepts"
 status: "implemented"
 tags: ["benchmarks", "data-science", "retrieval", "metrics", "ndcg", "mrr", "profiling", "latency", "groundtruth"]
@@ -15,14 +15,14 @@ related:
 
 Benchmarking and Information Retrieval (IR) evaluation in the `groundcontrol` ecosystem follow a **Two-Tier Architecture**:
 
-1. **`groundcontrol-algo` (Crate & `gc-algo` CLI)**:
-   - Standalone per-algorithm retrieval library and CLI located in [`crates/groundcontrol-algo`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-algo).
+1. **`groundcontrol-core::algorithm::eval` & `gc-algo` CLI**:
+   - In-process algorithmic evaluation substrate located in [`crates/groundcontrol-core/src/algorithm/eval/`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/algorithm/eval/) and standalone CLI in [`crates/groundcontrol-cli/src/bin/gc_algo.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-cli/src/bin/gc_algo.rs).
    - Exposes every retrieval algorithm (`binary`, `bm25`, `ppr`, `fast`, `semantic`, `hybrid`) as an independently callable library function without MCP or subprocess overhead.
    - Provides runtime variant ablation knobs (`FlatSif` vs `PartitionedHyperplane`).
 
 2. **`groundtruth` (`gt` Evaluation Harness)**:
    - Decoupled academic evaluation suite located in [`groundtruth`](file:///c:/dev/semantic/groundtruth).
-   - Evaluates algorithm variants in serial (`gt ablate`) via direct Cargo path dependency on `groundcontrol-algo` (`AlgoBackend`).
+   - Evaluates algorithm variants in serial (`gt ablate`) via direct Cargo path dependency on `groundcontrol-core` (`AlgoBackend`).
    - Evaluates system-level multi-agent workflows (`gt run`) via stdio JSON-RPC against the production MCP server (`McpBackend`).
 
 ---
@@ -30,7 +30,7 @@ Benchmarking and Information Retrieval (IR) evaluation in the `groundcontrol` ec
 ## 1. Architectural Principles & Isolation
 
 1. **Zero Production Bloat**: All benchmark datasets, query catalogs (CodeSearchNet, RepoBench, SWE-bench, OpenTelemetry demo), ground-truth qrels, and statistical significance tests live in `groundtruth`. Production `groundcontrol` binaries remain completely free of evaluation artifacts.
-2. **Direct In-Process Access for Micro-Ablation**: Rather than paying MCP JSON-RPC transport overhead (~80ms) when benchmarking algorithmic differences, `groundtruth`'s `AlgoBackend` makes direct Rust function calls into `groundcontrol-algo` (~0µs overhead), ensuring jitter-free latency distributions.
+2. **Direct In-Process Access for Micro-Ablation**: Rather than paying MCP JSON-RPC transport overhead (~80ms) when benchmarking algorithmic differences, `groundtruth`'s `AlgoBackend` makes direct Rust function calls into `groundcontrol-core` (~0µs overhead), ensuring jitter-free latency distributions.
 3. **Decoupled System Testing**: Multi-agent retrieval, tool dispatch, and Turn 1-3 progressive disclosure contracts are evaluated through the universal MCP interface.
 
 

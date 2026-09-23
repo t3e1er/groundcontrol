@@ -488,4 +488,3 @@ pub enum BinaryProjectionKind {
     #[default]
     PartitionedHyperplane,
 }
-

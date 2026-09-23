@@ -6,9 +6,11 @@ use std::sync::{Arc, RwLock};
 use tracing::warn;
 
 use groundcontrol_common::config::CorpusConfig;
-use groundcontrol_common::ports::{GraphStore, MetadataCatalog};
+use groundcontrol_common::ports::{GraphStore, MetadataCatalog, RetrievalAlgorithm};
+use groundcontrol_common::types::ParsedArtifact;
 use groundcontrol_common::Result;
 
+use crate::algorithm::{BinaryAlgorithm, Bm25Algorithm, DenseAlgorithm, GraphAlgorithm};
 use crate::embedding::Embedder;
 use crate::graph::KnowledgeGraph;
 use crate::index::BM25Index;
@@ -19,10 +21,10 @@ use crate::vector_index::VectorIndex;
 pub struct Engine {
     pub(crate) config: CorpusConfig,
     pub(crate) store: Store,
-    pub(crate) bm25: BM25Index,
-    pub(crate) graph: KnowledgeGraph,
-    pub(crate) vector_index: Option<VectorIndex>,
-    pub(crate) binary_index: crate::search::binary::BinarySearchIndex,
+    pub(crate) bm25: Bm25Algorithm,
+    pub(crate) binary: BinaryAlgorithm,
+    pub(crate) graph: GraphAlgorithm,
+    pub(crate) dense: Option<DenseAlgorithm>,
     pub(crate) embedder: RwLock<Option<Arc<Embedder>>>,
     pub(crate) index_dir: PathBuf,
     pub(crate) exclude_matcher: Arc<crate::index::exclude::ExcludeMatcher>,
@@ -45,13 +47,19 @@ impl Engine {
             Arc::new(crate::index::exclude::ExcludeMatcher::new(&corpus_root, &config.exclude));
         let classifier =
             Arc::new(crate::index::classifier::FileClassifier::new(&corpus_root, &config));
+
+        let bm25_algo = Bm25Algorithm::new(bm25);
+        let binary_algo = BinaryAlgorithm::new(binary_index);
+        let graph_algo = GraphAlgorithm::new(graph);
+        let dense_algo = vector_index.map(|vi| DenseAlgorithm::new(vi, None));
+
         Self {
             config,
             store,
-            bm25,
-            graph,
-            vector_index,
-            binary_index,
+            bm25: bm25_algo,
+            binary: binary_algo,
+            graph: graph_algo,
+            dense: dense_algo,
             embedder: RwLock::new(None), // Lazily initialized
             index_dir,
             exclude_matcher,
@@ -101,13 +109,88 @@ impl Engine {
     /// Construct a [`crate::search_service::CoreSearchService`] borrowing all required ports from this engine.
     pub fn search_service(&self) -> crate::search_service::CoreSearchService<'_> {
         crate::search_service::CoreSearchService::new(
-            &self.bm25,
-            self.vector_index.as_ref(),
-            Some(&self.binary_index),
-            &self.graph,
+            self.bm25.index(),
+            self.dense.as_ref().map(|d| d.vector_index()),
+            Some(self.binary.index()),
+            self.graph.graph(),
             self.embedder_arc(),
             self.code_paths_set(),
         )
+    }
+
+    /// Access an algorithm by name (`"bm25"`, `"binary"`, `"ppr"` / `"graph"`, `"dense"` / `"semantic"`).
+    pub fn algorithm(&self, name: &str) -> Option<&dyn RetrievalAlgorithm> {
+        match name {
+            "bm25" => Some(&self.bm25),
+            "binary" => Some(&self.binary),
+            "ppr" | "graph" => Some(&self.graph),
+            "dense" | "semantic" => self.dense.as_ref().map(|d| d as &dyn RetrievalAlgorithm),
+            _ => None,
+        }
+    }
+
+    /// Access BM25 algorithm component.
+    pub fn bm25_algorithm(&self) -> &Bm25Algorithm {
+        &self.bm25
+    }
+
+    /// Access binary algorithm component.
+    pub fn binary_algorithm(&self) -> &BinaryAlgorithm {
+        &self.binary
+    }
+
+    /// Access graph algorithm component.
+    pub fn graph_algorithm(&self) -> &GraphAlgorithm {
+        &self.graph
+    }
+
+    /// Access dense algorithm component if registered.
+    pub fn dense_algorithm(&self) -> Option<&DenseAlgorithm> {
+        self.dense.as_ref()
+    }
+
+    /// Broadcast a parsed artifact to all registered algorithms.
+    pub fn broadcast_artifact(&mut self, artifact: &ParsedArtifact) -> Result<()> {
+        self.bm25.index_document(artifact)?;
+        self.binary.index_document(artifact)?;
+        self.graph.index_document(artifact)?;
+        if let Some(ref mut dense) = self.dense {
+            dense.index_document(artifact)?;
+        }
+        Ok(())
+    }
+
+    /// Remove a document path from all registered algorithms.
+    pub fn remove_artifact(&mut self, path: &str) -> Result<()> {
+        self.bm25.remove_document(path)?;
+        self.binary.remove_document(path)?;
+        self.graph.remove_document(path)?;
+        if let Some(ref mut dense) = self.dense {
+            dense.remove_document(path)?;
+        }
+        Ok(())
+    }
+
+    /// Clear all index state across all registered algorithms.
+    pub fn clear_algorithms(&mut self) -> Result<()> {
+        self.bm25.clear()?;
+        self.binary.clear()?;
+        self.graph.clear()?;
+        if let Some(ref mut dense) = self.dense {
+            dense.clear()?;
+        }
+        Ok(())
+    }
+
+    /// Commit pending updates across all registered algorithms.
+    pub fn commit_algorithms(&mut self) -> Result<()> {
+        self.bm25.commit()?;
+        self.binary.commit()?;
+        self.graph.commit()?;
+        if let Some(ref mut dense) = self.dense {
+            dense.commit()?;
+        }
+        Ok(())
     }
 
     /// Whether this engine is running in fast mode (no vector index or embeddings).
@@ -117,12 +200,22 @@ impl Engine {
 
     /// Get a reference to the binary search index.
     pub fn binary_index(&self) -> &crate::search::binary::BinarySearchIndex {
-        &self.binary_index
+        self.binary.index()
     }
 
     /// Get a mutable reference to the binary search index.
     pub fn binary_index_mut(&mut self) -> &mut crate::search::binary::BinarySearchIndex {
-        &mut self.binary_index
+        self.binary.index_mut()
+    }
+
+    /// Get a reference to the BM25 index.
+    pub fn bm25(&self) -> &BM25Index {
+        self.bm25.index()
+    }
+
+    /// Get a mutable reference to the BM25 index.
+    pub fn bm25_mut(&mut self) -> &mut BM25Index {
+        self.bm25.index_mut()
     }
 
     /// Dynamically update the index mode (e.g. from Fast to Full).
@@ -136,7 +229,7 @@ impl Engine {
     /// Ensure the vector index is instantiated (used when switching to Full mode).
     pub fn ensure_vector_index(&mut self) {
         if self.config.index_mode == groundcontrol_common::config::IndexMode::Full
-            && self.vector_index.is_none()
+            && self.dense.is_none()
         {
             let dim = self.embedding_dimension();
             let mut vi = VectorIndex::new_default(dim);
@@ -146,13 +239,14 @@ impl Engine {
                     vi = loaded;
                 }
             }
-            self.vector_index = Some(vi);
+            let embedder_arc = self.embedder_arc();
+            self.dense = Some(DenseAlgorithm::new(vi, embedder_arc));
         }
     }
 
     /// Check if a vector index is available (loaded and not Fast mode).
     pub fn has_vector_index(&self) -> bool {
-        self.vector_index.is_some()
+        self.dense.is_some()
     }
 
     /// Check if the embedder is currently active and usable.
@@ -166,7 +260,7 @@ impl Engine {
 
     /// Number of vectors in the vector index (0 if not in Full mode).
     pub fn vector_count(&self) -> usize {
-        self.vector_index.as_ref().map(|vi| vi.len()).unwrap_or(0)
+        self.dense.as_ref().map(|d| d.vector_index().len()).unwrap_or(0)
     }
 
     /// Get hardware acceleration runtime status for embeddings.
@@ -186,17 +280,27 @@ impl Engine {
 
     /// Get a reference to the knowledge graph implementing [`GraphStore`].
     pub fn graph(&self) -> &impl GraphStore {
-        &self.graph
+        self.graph.graph()
     }
 
     /// Get a direct reference to the concrete [`KnowledgeGraph`].
     pub fn knowledge_graph(&self) -> &crate::graph::KnowledgeGraph {
-        &self.graph
+        self.graph.graph()
     }
 
     /// Get a mutable reference to the knowledge graph implementing [`GraphStore`].
     pub fn graph_mut(&mut self) -> &mut impl GraphStore {
-        &mut self.graph
+        self.graph.graph_mut()
+    }
+
+    /// Get a reference to the vector index.
+    pub fn vector_index(&self) -> Option<&VectorIndex> {
+        self.dense.as_ref().map(|d| d.vector_index())
+    }
+
+    /// Get a mutable reference to the vector index.
+    pub fn vector_index_mut(&mut self) -> Option<&mut VectorIndex> {
+        self.dense.as_mut().map(|d| d.vector_index_mut())
     }
 
     /// Get a reference to the metadata store implementing [`MetadataCatalog`].
@@ -236,7 +340,7 @@ impl Engine {
 
     /// Get the embedding dimensions for this engine.
     pub fn embedding_dimension(&self) -> usize {
-        self.vector_index.as_ref().map(|vi| vi.dimensions()).unwrap_or_else(|| {
+        self.dense.as_ref().map(|d| d.vector_index().dimensions()).unwrap_or_else(|| {
             crate::embedding::ModelName::from_str_name(&self.config.embedding.model)
                 .unwrap_or_default()
                 .dimensions()
@@ -245,7 +349,7 @@ impl Engine {
 
     /// Check whether vectors are stale (model version mismatch).
     pub fn vectors_stale(&self) -> bool {
-        self.vector_index.as_ref().map(|vi| vi.is_stale()).unwrap_or(false)
+        self.dense.as_ref().map(|d| d.vector_index().is_stale()).unwrap_or(false)
     }
 
     /// Check whether the corpus has been indexed (has any files in the store).
@@ -255,6 +359,6 @@ impl Engine {
 
     /// Get the model version stored in the vector index.
     pub fn stored_model_version(&self) -> Option<&str> {
-        self.vector_index.as_ref().and_then(|vi| vi.model_version())
+        self.dense.as_ref().and_then(|d| d.vector_index().model_version())
     }
 }

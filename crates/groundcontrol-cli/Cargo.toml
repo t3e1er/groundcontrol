@@ -13,6 +13,10 @@ workspace = true
 name = "groundcontrol"
 path = "src/main.rs"
 
+[[bin]]
+name = "gc-algo"
+path = "src/bin/gc_algo.rs"
+
 [dependencies]
 groundcontrol-common = { path = "../groundcontrol-common" }
 groundcontrol-core = { path = "../groundcontrol-core" }

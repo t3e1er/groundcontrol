@@ -9,250 +9,105 @@ use tracing::{debug, info, warn};
 
 use groundcontrol_common::config::{ChunkingConfig, IndexMode};
 use groundcontrol_common::types::{
-    ChunkEmbedPolicy, ChunkRecord, Document, FileFormat, IndexingState, IndexingStatus, Modality,
+    ChunkEmbedPolicy, ChunkRecord, Document, FileFormat, IndexingState, IndexingStatus,
 };
 use groundcontrol_common::{Error, Result};
 
 use crate::embedding::Embedder;
-use crate::graph::KnowledgeGraph;
-use crate::index::pipeline::{AsyncEmbeddingPipeline, ParsedFileRecord};
-use crate::parser;
-use crate::parser::chunker;
-use crate::vector_index::VectorIndex;
+use crate::index::pipeline::AsyncEmbeddingPipeline;
+use groundcontrol_common::types::ParsedArtifact;
 
 use super::state::Engine;
 use super::types::{now_unix, walk_markdown_files, DeltaScanResult, PendingChunk};
 
+/// Convert a domain chunk into a pending chunk for vector embedding.
+fn chunk_to_pending(
+    chunk: &groundcontrol_common::types::Chunk,
+    doc_path: &str,
+    doc_title: &str,
+    is_code: bool,
+) -> PendingChunk {
+    let section = chunk.heading_chain.as_deref().unwrap_or("").trim();
+    let text = if !doc_title.is_empty() && !section.is_empty() {
+        format!("{} > {}: {}", doc_title, section, chunk.text)
+    } else if !doc_title.is_empty() {
+        format!("{}: {}", doc_title, chunk.text)
+    } else if !section.is_empty() {
+        format!("{}: {}", section, chunk.text)
+    } else {
+        chunk.text.clone()
+    };
+    let modality = chunk
+        .entity_kind
+        .as_ref()
+        .map(groundcontrol_common::types::EntityKind::modality_tag)
+        .unwrap_or_else(|| if is_code { "code" } else { "docs" })
+        .to_string();
+    PendingChunk {
+        doc_path: doc_path.to_string(),
+        chunk_index: chunk.chunk_index,
+        text,
+        embed_policy: chunk.embed_policy,
+        modality,
+    }
+}
+
 impl Engine {
-    /// Staged file indexing: parses, chunks, updates persistence, BM25, vector removal,
-    /// and graph edges without immediately triggering embedding inference.
+    /// Staged file indexing: parses, chunks, updates persistence, and broadcasts to all
+    /// registered retrieval algorithms without immediately triggering embedding inference.
     pub fn index_file_staged(
         &mut self,
         rel_path: &str,
         content: &str,
     ) -> Result<(Vec<PendingChunk>, Option<Document>)> {
         let path = Path::new(rel_path);
-        let modified_at = now_unix();
+        let bytes = content.as_bytes();
+        let hash = blake3::hash(bytes).to_hex().to_string();
 
-        if crate::parser::code::is_code_file(path) {
-            let parse_res = crate::parser::code::chunker::CodeChunker::parse_and_chunk(
-                path,
-                content,
-                &self.config.chunking,
-            );
-
-            let content_hash = blake3::hash(content.as_bytes()).to_hex().to_string();
-            let file_title =
-                path.file_name().and_then(|n| n.to_str()).unwrap_or(rel_path).to_string();
-
-            // 1. Store file record in persistence
-            self.store.insert_file(
-                rel_path,
-                &content_hash,
-                modified_at,
-                None,
-                Some(&file_title),
-                FileFormat::Source,
-            )?;
-
-            let pending = Vec::new();
-
-            // 2. Chunks and symbols
-            if let Some(res) = parse_res {
-                self.store.delete_chunks_for_file(rel_path)?;
-                let chunk_records: Vec<ChunkRecord> = res
-                    .chunks
-                    .iter()
-                    .map(|c| ChunkRecord {
-                        chunk_index: c.chunk_index,
-                        start_byte: c.start_byte,
-                        end_byte: c.end_byte,
-                        start_line: c.start_line,
-                        end_line: c.end_line,
-                    })
-                    .collect();
-                self.store.insert_chunks(rel_path, &chunk_records)?;
-                self.store.save_code_symbols(rel_path, &res.symbols)?;
-
-                // 3. BM25
-                self.bm25.remove_document(rel_path)?;
-                self.bm25.add_document(rel_path, Some(&file_title), &[], &res.chunks)?;
-
-                // 3b. Binary Fingerprints (Pillars 2 & 3)
-                {
-                    use groundcontrol_common::types::FingerprintRecord;
-                    let mut fps = Vec::new();
-                    let file_fp = self.binary_index.project_query(content).unwrap_or_default();
-                    fps.push(FingerprintRecord {
-                        id: rel_path.to_string(),
-                        fingerprint: file_fp,
-                        modality: Modality::Code,
-                    });
-                    for (i, sym) in res.symbols.iter().enumerate() {
-                        let fp = if let Some(sem) = res.grammar_semantics.get(i) {
-                            self.binary_index.project_semantics(sem)
-                        } else {
-                            let fp_text = format!(
-                                "{} {} {}",
-                                sym.name,
-                                sym.signature,
-                                sym.docstring.as_deref().unwrap_or("")
-                            );
-                            self.binary_index.project_query(&fp_text).unwrap_or_default()
-                        };
-                        fps.push(FingerprintRecord {
-                            id: format!("{}#{}", rel_path, sym.scope_path),
-                            fingerprint: fp,
-                            modality: Modality::Code,
-                        });
-                    }
-                    for chunk in &res.chunks {
-                        let fp = self.binary_index.project_query(&chunk.text).unwrap_or_default();
-                        fps.push(FingerprintRecord {
-                            id: format!("{rel_path}:chunk:{}", chunk.chunk_index),
-                            fingerprint: fp,
-                            modality: Modality::Code,
-                        });
-                    }
-                    if !fps.is_empty() {
-                        let _ = self.binary_index.index_fingerprints(&fps);
-                    }
-                }
-
-                // 4. Vector index: clear existing vectors for this code file (code is not dense embedded).
-                if let Some(ref mut vi) = self.vector_index {
-                    vi.remove_document(rel_path);
-                }
-
-                // 5. Code Graph
-                self.graph.remove_edges_for_node(rel_path);
-                let symbol_index =
-                    crate::graph::code::CodeGraphExtractor::build_symbol_index(&res.symbols);
-                let extraction =
-                    crate::graph::code::CodeGraphExtractor::extract_edges_for_file_with_index(
-                        path,
-                        content,
-                        &res.symbols,
-                        &symbol_index,
-                    );
-                for edge in &extraction.edges {
-                    self.graph.add_code_edge(edge);
-                }
-
-                // 6. Persist unresolved external references
-                self.store.clear_external_refs_for_file(rel_path)?;
-                if !extraction.external_refs.is_empty() {
-                    self.store.insert_external_refs(rel_path, &extraction.external_refs)?;
-                }
-            }
-
-            debug!("Staged code file: {}", rel_path);
-            return Ok((pending, None));
-        }
-
-        // 1. Parse document.
-        let doc = parser::parse_document(Path::new(rel_path), content)?;
-
-        // 2. Chunk document.
-        let chunks = chunker::chunk_document(rel_path, &doc.content, &self.config.chunking);
-
-        // 3. Store file record in persistence.
-        self.store.insert_file(
+        let record = parse_file_record(
             rel_path,
-            &doc.content_hash,
-            modified_at,
-            doc.template.as_deref(),
-            doc.title.as_deref(),
-            FileFormat::Source,
+            path,
+            bytes,
+            hash,
+            &self.classifier,
+            &self.config.chunking,
+            self.config.index_mode,
         )?;
 
-        // 4. Delete old chunks and insert new ones.
-        self.store.delete_chunks_for_file(rel_path)?;
-        let chunk_records: Vec<ChunkRecord> = chunks
+        let tag_configs: Vec<_> = self
+            .config
+            .graph
+            .edge_types
             .iter()
-            .map(|c| ChunkRecord {
-                chunk_index: c.chunk_index,
-                start_byte: c.start_byte,
-                end_byte: c.end_byte,
-                start_line: c.start_line,
-                end_line: c.end_line,
-            })
+            .filter(|et| et.source == groundcontrol_common::config::EdgeSource::Tag)
+            .cloned()
             .collect();
-        self.store.insert_chunks(rel_path, &chunk_records)?;
 
-        // 5. Remove old document from BM25, add new.
-        self.bm25.remove_document(rel_path)?;
-        self.bm25.add_document(rel_path, doc.title.as_deref(), &doc.tags, &chunks)?;
-
-        // 5b. Binary Fingerprints (Pillars 2 & 3)
+        let pending = if self.config.index_mode == groundcontrol_common::config::IndexMode::Full
+            && !record.is_code
         {
-            use groundcontrol_common::types::FingerprintRecord;
-            let mut fps = Vec::new();
-            for chunk in &chunks {
-                let fp = self.binary_index.project_query(&chunk.text).unwrap_or_default();
-                fps.push(FingerprintRecord {
-                    id: if chunk.chunk_index == 0 {
-                        rel_path.to_string()
-                    } else {
-                        format!("{rel_path}:chunk:{}", chunk.chunk_index)
-                    },
-                    fingerprint: fp,
-                    modality: Modality::Docs,
-                });
-            }
-            if !fps.is_empty() {
-                let _ = self.binary_index.index_fingerprints(&fps);
-            }
-        }
+            record
+                .chunks
+                .iter()
+                .map(|c| {
+                    chunk_to_pending(
+                        c,
+                        &record.path,
+                        record.title.as_deref().unwrap_or(""),
+                        record.is_code,
+                    )
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let doc = record.doc_metadata.clone();
 
-        // 6. Vector index: clear existing vectors for this doc
-        if let Some(ref mut vi) = self.vector_index {
-            vi.remove_document(rel_path);
-        }
+        let mut dummy_docs = Vec::new();
+        self.ingest_parsed_record(record, &tag_configs, &mut dummy_docs)?;
 
-        // Build context-prefixed text for embedding in Full mode (skipped in Fast mode).
-        let doc_title = doc.title.as_deref().unwrap_or("").trim();
-        let pending: Vec<PendingChunk> =
-            if self.config.index_mode == groundcontrol_common::config::IndexMode::Full {
-                chunks
-                    .iter()
-                    .map(|c| {
-                        let section = c.heading_chain.as_deref().unwrap_or("").trim();
-                        let text = if !doc_title.is_empty() && !section.is_empty() {
-                            format!("{} > {}: {}", doc_title, section, c.text)
-                        } else if !doc_title.is_empty() {
-                            format!("{}: {}", doc_title, c.text)
-                        } else if !section.is_empty() {
-                            format!("{}: {}", section, c.text)
-                        } else {
-                            c.text.clone()
-                        };
-                        let modality = c
-                            .entity_kind
-                            .as_ref()
-                            .map(groundcontrol_common::types::EntityKind::modality_tag)
-                            .unwrap_or("docs")
-                            .to_string();
-                        PendingChunk {
-                            doc_path: rel_path.to_string(),
-                            chunk_index: c.chunk_index,
-                            text,
-                            embed_policy: c.embed_policy,
-                            modality,
-                        }
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
-
-        // 7. Remove old edges and rebuild from document.
-        self.graph.remove_edges_for_node(rel_path);
-        let edge_configs = self.effective_edge_configs_for_document(&doc, None);
-        self.graph.build_edges_for_document(&doc, &edge_configs, &[]);
-
-        debug!("Staged markdown file: {}", rel_path);
-        Ok((pending, Some(doc)))
+        debug!("Staged file: {}", rel_path);
+        Ok((pending, doc))
     }
 
     /// Flush a batch of pending chunks into the vector index in a single vectorized forward pass.
@@ -319,7 +174,7 @@ impl Engine {
                 file_chunks.iter().map(|c| Some(c.chunk_index)).collect();
             let modality = file_chunks[0].modality.as_str();
 
-            if let Some(ref mut vi) = self.vector_index {
+            if let Some(ref mut vi) = self.vector_index_mut() {
                 let _ = vi.add_batch(file_embeddings, doc_path, &chunk_indices, false, modality);
 
                 if let Some(doc_embedding) = Embedder::average_embeddings(file_embeddings) {
@@ -351,23 +206,16 @@ impl Engine {
         }
 
         self.store.delete_file(rel_path)?;
-        self.bm25.remove_document(rel_path)?;
-
-        if let Some(ref mut vi) = self.vector_index {
-            vi.remove_document(rel_path);
-        }
-
-        self.graph.remove_edges_for_node(rel_path);
-        let _ = self.graph.remove_node(rel_path);
+        self.remove_artifact(rel_path)?;
 
         debug!("Removed file: {}", rel_path);
         Ok(())
     }
 
-    /// Ingest a single parsed file record into SQLite persistence, BM25, graph, and vector index.
+    /// Ingest a single parsed file record into SQLite persistence and broadcast to all retrieval algorithms.
     pub(crate) fn ingest_parsed_record(
         &mut self,
-        record: ParsedFileRecord,
+        record: ParsedArtifact,
         tag_configs: &[groundcontrol_common::config::EdgeTypeConfig],
         all_docs: &mut Vec<Document>,
     ) -> Result<()> {
@@ -384,107 +232,48 @@ impl Engine {
             }
         }
 
+        let file_title = record.title.clone().unwrap_or_else(|| {
+            Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or(path).to_string()
+        });
+
+        // 1. SQLite Store
+        self.store.insert_file(
+            path,
+            &record.hash,
+            modified_at,
+            record.doc_metadata.as_ref().and_then(|d| d.template.as_deref()),
+            Some(&file_title),
+            record.format,
+        )?;
+
+        // 2. Chunks and symbols
+        self.store.delete_chunks_for_file(path)?;
+        let chunk_records: Vec<ChunkRecord> = record
+            .chunks
+            .iter()
+            .map(|c| ChunkRecord {
+                chunk_index: c.chunk_index,
+                start_byte: c.start_byte,
+                end_byte: c.end_byte,
+                start_line: c.start_line,
+                end_line: c.end_line,
+            })
+            .collect();
+        self.store.insert_chunks(path, &chunk_records)?;
+
         if record.is_code {
-            let file_title =
-                Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or(path).to_string();
-
-            // 1. SQLite Store
-            self.store.insert_file(
-                path,
-                &record.hash,
-                modified_at,
-                None,
-                Some(&file_title),
-                record.format,
-            )?;
-
-            // 2. Chunks and symbols
-            self.store.delete_chunks_for_file(path)?;
-            let chunk_records: Vec<ChunkRecord> = record
-                .raw_chunks
-                .iter()
-                .map(|c| ChunkRecord {
-                    chunk_index: c.chunk_index,
-                    start_byte: c.start_byte,
-                    end_byte: c.end_byte,
-                    start_line: c.start_line,
-                    end_line: c.end_line,
-                })
-                .collect();
-            self.store.insert_chunks(path, &chunk_records)?;
             self.store.save_code_symbols(path, &record.symbols)?;
-
-            // 3. BM25
-            self.bm25.remove_document(path)?;
-            self.bm25.add_document(path, Some(&file_title), &[], &record.raw_chunks)?;
-
-            // 3b. Binary Fingerprints (Pillars 2 & 3)
-            if !record.fingerprints.is_empty() {
-                let _ = self.binary_index.index_fingerprints(&record.fingerprints);
-            }
-
-            // 4. Vector index: clear existing vectors for this doc
-            if let Some(ref mut vi) = self.vector_index {
-                vi.remove_document(path);
-            }
-
-            // 5. Code Graph
-            self.graph.remove_edges_for_node(path);
-            for edge in &record.graph_edges {
-                self.graph.add_code_edge(edge);
-            }
-
-            // 6. Unresolved external references (replace prior set for idempotency).
             self.store.clear_external_refs_for_file(path)?;
             if !record.external_refs.is_empty() {
                 self.store.insert_external_refs(path, &record.external_refs)?;
             }
-        } else if let Some(mut doc) = record.doc_metadata {
-            let file_title = doc.title.clone().unwrap_or_else(|| {
-                Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or(path).to_string()
-            });
+        }
 
-            // 1. SQLite Store
-            self.store.insert_file(
-                path,
-                &record.hash,
-                modified_at,
-                doc.template.as_deref(),
-                doc.title.as_deref().or(Some(&file_title)),
-                record.format,
-            )?;
+        // 3. Broadcast to all retrieval algorithms
+        self.broadcast_artifact(&record)?;
 
-            // 2. Chunks
-            self.store.delete_chunks_for_file(path)?;
-            let chunk_records: Vec<ChunkRecord> = record
-                .raw_chunks
-                .iter()
-                .map(|c| ChunkRecord {
-                    chunk_index: c.chunk_index,
-                    start_byte: c.start_byte,
-                    end_byte: c.end_byte,
-                    start_line: c.start_line,
-                    end_line: c.end_line,
-                })
-                .collect();
-            self.store.insert_chunks(path, &chunk_records)?;
-
-            // 3. BM25
-            self.bm25.remove_document(path)?;
-            self.bm25.add_document(path, doc.title.as_deref(), &doc.tags, &record.raw_chunks)?;
-
-            // 3b. Binary Fingerprints (Pillars 2 & 3)
-            if !record.fingerprints.is_empty() {
-                let _ = self.binary_index.index_fingerprints(&record.fingerprints);
-            }
-
-            // 4. Vector index: clear existing vectors for this doc
-            if let Some(ref mut vi) = self.vector_index {
-                vi.remove_document(path);
-            }
-
-            // 5. Graph
-            self.graph.remove_edges_for_node(path);
+        // 4. Document edge rules & Tag edge accumulation
+        if let Some(mut doc) = record.doc_metadata {
             let edge_configs = self.effective_edge_configs_for_document(&doc, None);
             self.graph.build_edges_for_document(&doc, &edge_configs, &[]);
             for edge in &record.graph_edges {
@@ -595,12 +384,11 @@ impl Engine {
         if !files_to_index.is_empty() {
             let num_cpus = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8);
             let (work_tx, work_rx) = crossbeam_channel::unbounded::<(String, PathBuf)>();
-            let (ast_tx, ast_rx) = crossbeam_channel::bounded::<ParsedFileRecord>(2048);
+            let (ast_tx, ast_rx) = crossbeam_channel::bounded::<ParsedArtifact>(2048);
 
             let chunk_tx_opt = embedding_pipeline.as_ref().and_then(|p| p.chunk_sender());
             let chunking_config = self.config.chunking.clone();
             let index_mode = self.config.index_mode;
-            let sif_engine = self.binary_index.sif();
 
             for file_entry in files_to_index {
                 let _ = work_tx.send(file_entry);
@@ -618,7 +406,6 @@ impl Engine {
                     let chunk_tx_clone = chunk_tx_opt.clone();
                     let chunking_ref = &chunking_config;
                     let classifier_clone = self.classifier.clone();
-                    let sif_clone = sif_engine.clone();
 
                     std::thread::Builder::new()
                         .name(format!("indexer-worker-{}", i))
@@ -642,7 +429,6 @@ impl Engine {
                                     &classifier_clone,
                                     chunking_ref,
                                     index_mode,
-                                    &sif_clone,
                                 ) {
                                     Ok(r) => r,
                                     Err(e) => {
@@ -652,10 +438,18 @@ impl Engine {
                                 };
 
                                 if let Some(ref tx) = chunk_tx_clone {
-                                    for chunk in &record.chunks {
-                                        if chunk.embed_policy == ChunkEmbedPolicy::Anchor {
-                                            if tx.send(chunk.clone()).is_err() {
-                                                break;
+                                    if !record.is_code {
+                                        for chunk in &record.chunks {
+                                            if chunk.embed_policy == ChunkEmbedPolicy::Anchor {
+                                                let pc = chunk_to_pending(
+                                                    chunk,
+                                                    &record.path,
+                                                    record.title.as_deref().unwrap_or(""),
+                                                    record.is_code,
+                                                );
+                                                if tx.send(pc).is_err() {
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
@@ -682,7 +476,7 @@ impl Engine {
                     }
 
                     if let Some(ref pipeline) = embedding_pipeline {
-                        if let Some(ref mut vi) = self.vector_index {
+                        if let Some(ref mut vi) = self.vector_index_mut() {
                             let _ = pipeline.try_recv_completed(vi);
                         }
                     }
@@ -693,7 +487,7 @@ impl Engine {
                         || last_commit_time.elapsed() >= commit_time_threshold
                     {
                         if let Some(ref pipeline) = embedding_pipeline {
-                            if let Some(ref mut vi) = self.vector_index {
+                            if let Some(ref mut vi) = self.vector_index_mut() {
                                 let _ = pipeline.try_recv_completed(vi);
                             }
                         }
@@ -711,7 +505,7 @@ impl Engine {
             });
 
             if let Some(mut pipeline) = embedding_pipeline {
-                if let Some(ref mut vi) = self.vector_index {
+                if let Some(ref mut vi) = self.vector_index_mut() {
                     pipeline.finish(vi)?;
                 }
             }
@@ -757,7 +551,6 @@ impl Engine {
             } else {
                 self.embedder_arc().map(AsyncEmbeddingPipeline::new)
             };
-        let sif_engine = self.binary_index.sif();
 
         let tag_configs: Vec<_> = self
             .config
@@ -813,7 +606,6 @@ impl Engine {
                         &classifier,
                         &self.config.chunking,
                         self.config.index_mode,
-                        &sif_engine,
                     ) {
                         Ok(r) => r,
                         Err(e) => {
@@ -824,9 +616,17 @@ impl Engine {
 
                     if let Some(ref pipeline) = embedding_pipeline {
                         if let Some(tx) = pipeline.chunk_sender() {
-                            for chunk in &record.chunks {
-                                if chunk.embed_policy == ChunkEmbedPolicy::Anchor {
-                                    let _ = tx.send(chunk.clone());
+                            if !record.is_code {
+                                for chunk in &record.chunks {
+                                    if chunk.embed_policy == ChunkEmbedPolicy::Anchor {
+                                        let pc = chunk_to_pending(
+                                            chunk,
+                                            &record.path,
+                                            record.title.as_deref().unwrap_or(""),
+                                            record.is_code,
+                                        );
+                                        let _ = tx.send(pc);
+                                    }
                                 }
                             }
                         }
@@ -838,7 +638,7 @@ impl Engine {
                     }
 
                     if let Some(ref pipeline) = embedding_pipeline {
-                        if let Some(ref mut vi) = self.vector_index {
+                        if let Some(ref mut vi) = self.vector_index_mut() {
                             let _ = pipeline.try_recv_completed(vi);
                         }
                     }
@@ -853,7 +653,7 @@ impl Engine {
         }
 
         if let Some(mut pipeline) = embedding_pipeline {
-            if let Some(ref mut vi) = self.vector_index {
+            if let Some(ref mut vi) = self.vector_index_mut() {
                 pipeline.finish(vi)?;
             }
         }
@@ -901,12 +701,8 @@ impl Engine {
             let existing = self.store.list_files()?;
             for file in &existing {
                 self.store.delete_file(&file.path)?;
-                self.bm25.remove_document(&file.path)?;
             }
-            self.graph = KnowledgeGraph::new();
-            if let Some(ref mut vi) = self.vector_index {
-                *vi = VectorIndex::new_default(vi.dimensions());
-            }
+            self.clear_algorithms()?;
             self.store.reset_indexing_state(&corpus_id)?;
         } else {
             let existing = self.store.list_files()?;
@@ -959,11 +755,10 @@ impl Engine {
             } else {
                 self.embedder_arc().map(AsyncEmbeddingPipeline::new)
             };
-        let sif_engine = self.binary_index.sif();
 
         let num_cpus = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8);
         let (work_tx, work_rx) = crossbeam_channel::unbounded::<(String, PathBuf)>();
-        let (ast_tx, ast_rx) = crossbeam_channel::bounded::<ParsedFileRecord>(2048);
+        let (ast_tx, ast_rx) = crossbeam_channel::bounded::<ParsedArtifact>(2048);
 
         let chunk_tx_opt = embedding_pipeline.as_ref().and_then(|p| p.chunk_sender());
         let chunking_config = self.config.chunking.clone();
@@ -986,7 +781,6 @@ impl Engine {
                 let stored_map_ref = &stored_map;
                 let chunking_ref = &chunking_config;
                 let classifier_clone = self.classifier.clone();
-                let sif_clone = sif_engine.clone();
 
                 std::thread::Builder::new()
                     .name(format!("indexer-worker-{}", i))
@@ -1018,7 +812,6 @@ impl Engine {
                                 &classifier_clone,
                                 chunking_ref,
                                 index_mode,
-                                &sif_clone,
                             ) {
                                 Ok(r) => r,
                                 Err(e) => {
@@ -1028,10 +821,18 @@ impl Engine {
                             };
 
                             if let Some(ref tx) = chunk_tx_clone {
-                                for chunk in &record.chunks {
-                                    if chunk.embed_policy == ChunkEmbedPolicy::Anchor {
-                                        if tx.send(chunk.clone()).is_err() {
-                                            break;
+                                if !record.is_code {
+                                    for chunk in &record.chunks {
+                                        if chunk.embed_policy == ChunkEmbedPolicy::Anchor {
+                                            let pc = chunk_to_pending(
+                                                chunk,
+                                                &record.path,
+                                                record.title.as_deref().unwrap_or(""),
+                                                record.is_code,
+                                            );
+                                            if tx.send(pc).is_err() {
+                                                break;
+                                            }
                                         }
                                     }
                                 }
@@ -1058,7 +859,7 @@ impl Engine {
                 }
 
                 if let Some(ref pipeline) = embedding_pipeline {
-                    if let Some(ref mut vi) = self.vector_index {
+                    if let Some(ref mut vi) = self.vector_index_mut() {
                         let _ = pipeline.try_recv_completed(vi);
                     }
                 }
@@ -1071,7 +872,7 @@ impl Engine {
                     || last_commit_time.elapsed() >= commit_time_threshold
                 {
                     if let Some(ref pipeline) = embedding_pipeline {
-                        if let Some(ref mut vi) = self.vector_index {
+                        if let Some(ref mut vi) = self.vector_index_mut() {
                             let _ = pipeline.try_recv_completed(vi);
                         }
                     }
@@ -1098,7 +899,7 @@ impl Engine {
         });
 
         if let Some(mut pipeline) = embedding_pipeline {
-            if let Some(ref mut vi) = self.vector_index {
+            if let Some(ref mut vi) = self.vector_index_mut() {
                 pipeline.finish(vi)?;
             }
         }
@@ -1134,24 +935,22 @@ impl Engine {
         Ok(())
     }
 
-    /// Commit all pending changes (Tantivy commit, SQLite edges sync, graph save, vector index save).
+    /// Commit all pending changes across all registered retrieval algorithms and SQLite.
     pub fn commit(&mut self) -> Result<()> {
         let _ = self.store.commit_batch();
-        self.bm25.commit()?;
-        let edge_records = self.graph.get_all_edge_records();
+        let edge_records = self.graph.graph().get_all_edge_records();
         self.store.clear_all_edges()?;
         self.store.insert_edges(&edge_records)?;
         self.graph.save(&self.index_dir.join("graph.bin"))?;
-        if let Some(ref vi) = self.vector_index {
+        if let Some(ref vi) = self.vector_index() {
             if vi.is_dirty() && !vi.is_empty() {
-                vi.save_binary(&self.index_dir.join("vectors.bin")).unwrap_or_else(|e| {
-                    warn!("Failed to save vector index: {}", e);
-                });
+                let _ = vi.save_binary(&self.index_dir.join("vectors.bin"));
             }
         }
-        if !self.binary_index.is_empty() {
-            let _ = self.binary_index.save_to_path(&self.index_dir.join("fingerprints.bin"));
+        if !self.binary.is_empty() {
+            let _ = self.binary.save_to_path(&self.index_dir.join("fingerprints.bin"));
         }
+        self.commit_algorithms()?;
         Ok(())
     }
 
@@ -1186,7 +985,7 @@ impl Engine {
 
     /// Re-embed all chunks with the current model, replacing old vectors.
     pub fn reembed(&mut self) -> Result<usize> {
-        if self.is_fast_mode() || self.vector_index.is_none() {
+        if self.is_fast_mode() || self.dense.is_none() {
             return Err(Error::Index(
                 "re-embedding is unavailable in fast mode. Re-index with index_mode = 'full'"
                     .to_string(),
@@ -1200,8 +999,9 @@ impl Engine {
         let embedder = self.embedder_arc().unwrap();
 
         let files = self.store.list_files()?;
-        let dims = self.vector_index.as_ref().unwrap().dimensions();
-        self.vector_index = Some(VectorIndex::new_default(dims));
+        if let Some(ref mut dense) = self.dense {
+            dense.clear()?;
+        }
 
         let mut total_chunks = 0usize;
         let mut chunk_buffer: Vec<PendingChunk> = Vec::new();
@@ -1296,7 +1096,7 @@ impl Engine {
         }
 
         let model_version = embedder.model_name().version_string().to_string();
-        if let Some(ref mut vi) = self.vector_index {
+        if let Some(ref mut vi) = self.vector_index_mut() {
             vi.set_model_version(&model_version);
             vi.clear_stale();
         }
@@ -1321,22 +1121,21 @@ pub(crate) fn parse_file_record(
     hash: String,
     classifier: &crate::index::classifier::FileClassifier,
     chunking_config: &ChunkingConfig,
-    index_mode: IndexMode,
-    sif: &crate::search::sif::SifEngine,
-) -> Result<ParsedFileRecord> {
+    _index_mode: IndexMode,
+) -> Result<ParsedArtifact> {
     let classification = classifier.classify(full_path, Some(bytes));
 
     match classification {
         crate::index::classifier::FileClassification::Code(_) => {
-            let content = String::from_utf8_lossy(bytes);
+            let content = String::from_utf8_lossy(bytes).into_owned();
             let path = Path::new(rel_path);
+            let file_title = path.file_name().and_then(|n| n.to_str()).map(|s| s.to_string());
             let parse_res = crate::parser::code::chunker::CodeChunker::parse_and_chunk(
                 path,
                 &content,
                 chunking_config,
             );
 
-            let pending = Vec::new();
             let mut raw_chunks = Vec::new();
             let mut symbols = Vec::new();
             let mut grammar_semantics = Vec::new();
@@ -1361,166 +1160,54 @@ pub(crate) fn parse_file_record(
                 grammar_semantics = res.grammar_semantics;
             }
 
-            use groundcontrol_common::types::{FingerprintRecord, Modality};
-            let mut fingerprints = Vec::with_capacity(1 + symbols.len() + raw_chunks.len());
-            let hp_projector = crate::search::PartitionedHyperplaneProjector::default();
-            let file_fp = hp_projector.project_query(&content);
-            fingerprints.push(FingerprintRecord {
-                id: rel_path.to_string(),
-                fingerprint: file_fp,
-                modality: Modality::Code,
-            });
-            for (i, sym) in symbols.iter().enumerate() {
-                let fp = if let Some(sem) = grammar_semantics.get(i) {
-                    hp_projector.project_semantics(sem)
-                } else {
-                    let fp_text = format!(
-                        "{} {} {}",
-                        sym.name,
-                        sym.signature,
-                        sym.docstring.as_deref().unwrap_or("")
-                    );
-                    sif.project_to_fingerprint(&fp_text)
-                };
-                fingerprints.push(FingerprintRecord {
-                    id: format!("{}#{}", rel_path, sym.scope_path),
-                    fingerprint: fp,
-                    modality: Modality::Code,
-                });
-            }
-            for chunk in &raw_chunks {
-                let fp = sif.project_to_fingerprint(&chunk.text);
-                fingerprints.push(FingerprintRecord {
-                    id: format!("{rel_path}:chunk:{}", chunk.chunk_index),
-                    fingerprint: fp,
-                    modality: Modality::Code,
-                });
-            }
-
-            Ok(ParsedFileRecord {
+            Ok(ParsedArtifact {
                 path: rel_path.to_string(),
                 hash,
-                chunks: pending,
-                raw_chunks,
-                symbols,
-                doc_metadata: None,
-                graph_edges,
-                external_refs,
-                fingerprints,
                 is_code: true,
                 format: FileFormat::Source,
+                title: file_title,
+                doc_metadata: None,
+                symbols,
+                grammar_semantics,
+                chunks: raw_chunks,
+                graph_edges,
+                external_refs,
+                raw_content: Some(content),
                 projection_text: None,
             })
         }
         crate::index::classifier::FileClassification::MarkdownDoc => {
-            let content = String::from_utf8_lossy(bytes);
+            let content = String::from_utf8_lossy(bytes).into_owned();
             let path = Path::new(rel_path);
-            let doc = parser::parse_document(path, &content)?;
-            let chunks = chunker::chunk_document(rel_path, &doc.content, chunking_config);
+            let doc = crate::parser::parse_document(path, &content)?;
+            let chunks =
+                crate::parser::chunker::chunk_document(rel_path, &doc.content, chunking_config);
 
-            let doc_title = doc.title.as_deref().unwrap_or("").trim();
-            let pending: Vec<PendingChunk> = if index_mode == IndexMode::Full {
-                chunks
-                    .iter()
-                    .map(|c| {
-                        let section = c.heading_chain.as_deref().unwrap_or("").trim();
-                        let text = if !doc_title.is_empty() && !section.is_empty() {
-                            format!("{} > {}: {}", doc_title, section, c.text)
-                        } else if !doc_title.is_empty() {
-                            format!("{}: {}", doc_title, c.text)
-                        } else if !section.is_empty() {
-                            format!("{}: {}", section, c.text)
-                        } else {
-                            c.text.clone()
-                        };
-                        let modality = c
-                            .entity_kind
-                            .as_ref()
-                            .map(groundcontrol_common::types::EntityKind::modality_tag)
-                            .unwrap_or("docs")
-                            .to_string();
-                        PendingChunk {
-                            doc_path: rel_path.to_string(),
-                            chunk_index: c.chunk_index,
-                            text,
-                            embed_policy: c.embed_policy,
-                            modality,
-                        }
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
-
-            use groundcontrol_common::types::{FingerprintRecord, Modality};
-            let mut fingerprints = Vec::with_capacity(chunks.len());
-            for chunk in &chunks {
-                let fp = sif.project_to_fingerprint(&chunk.text);
-                fingerprints.push(FingerprintRecord {
-                    id: if chunk.chunk_index == 0 {
-                        rel_path.to_string()
-                    } else {
-                        format!("{rel_path}:chunk:{}", chunk.chunk_index)
-                    },
-                    fingerprint: fp,
-                    modality: Modality::Docs,
-                });
-            }
-
-            Ok(ParsedFileRecord {
+            let title = doc.title.clone();
+            Ok(ParsedArtifact {
                 path: rel_path.to_string(),
                 hash,
-                chunks: pending,
-                raw_chunks: chunks,
-                symbols: Vec::new(),
-                doc_metadata: Some(doc),
-                graph_edges: Vec::new(),
-                external_refs: Vec::new(),
-                fingerprints,
                 is_code: false,
                 format: FileFormat::Source,
+                title,
+                doc_metadata: Some(doc),
+                symbols: Vec::new(),
+                grammar_semantics: Vec::new(),
+                chunks,
+                graph_edges: Vec::new(),
+                external_refs: Vec::new(),
+                raw_content: Some(content),
                 projection_text: None,
             })
         }
         crate::index::classifier::FileClassification::Document(fmt) => {
             let registry = crate::parser::document::DocumentExtractorRegistry::new();
             let extracted = registry.extract(full_path, fmt, bytes)?;
-            let chunks =
-                chunker::chunk_document(rel_path, &extracted.normalized_text, chunking_config);
-
-            let doc_title = extracted.title.as_deref().unwrap_or("").trim();
-            let pending: Vec<PendingChunk> = if index_mode == IndexMode::Full {
-                chunks
-                    .iter()
-                    .map(|c| {
-                        let section = c.heading_chain.as_deref().unwrap_or("").trim();
-                        let text = if !doc_title.is_empty() && !section.is_empty() {
-                            format!("{} > {}: {}", doc_title, section, c.text)
-                        } else if !doc_title.is_empty() {
-                            format!("{}: {}", doc_title, c.text)
-                        } else if !section.is_empty() {
-                            format!("{}: {}", section, c.text)
-                        } else {
-                            c.text.clone()
-                        };
-                        let modality = c
-                            .entity_kind
-                            .as_ref()
-                            .map(groundcontrol_common::types::EntityKind::modality_tag)
-                            .unwrap_or("docs")
-                            .to_string();
-                        PendingChunk {
-                            doc_path: rel_path.to_string(),
-                            chunk_index: c.chunk_index,
-                            text,
-                            embed_policy: c.embed_policy,
-                            modality,
-                        }
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
+            let chunks = crate::parser::chunker::chunk_document(
+                rel_path,
+                &extracted.normalized_text,
+                chunking_config,
+            );
 
             let doc = Document {
                 path: rel_path.to_string(),
@@ -1549,33 +1236,20 @@ pub(crate) fn parse_file_record(
                 });
             }
 
-            use groundcontrol_common::types::{FingerprintRecord, Modality};
-            let mut fingerprints = Vec::with_capacity(chunks.len());
-            for chunk in &chunks {
-                let fp = sif.project_to_fingerprint(&chunk.text);
-                fingerprints.push(FingerprintRecord {
-                    id: if chunk.chunk_index == 0 {
-                        rel_path.to_string()
-                    } else {
-                        format!("{rel_path}:chunk:{}", chunk.chunk_index)
-                    },
-                    fingerprint: fp,
-                    modality: Modality::Docs,
-                });
-            }
-
-            Ok(ParsedFileRecord {
+            let title = extracted.title;
+            Ok(ParsedArtifact {
                 path: rel_path.to_string(),
                 hash,
-                chunks: pending,
-                raw_chunks: chunks,
-                symbols: Vec::new(),
-                doc_metadata: Some(doc),
-                graph_edges,
-                external_refs: Vec::new(),
-                fingerprints,
                 is_code: false,
                 format: fmt,
+                title,
+                doc_metadata: Some(doc),
+                symbols: Vec::new(),
+                grammar_semantics: Vec::new(),
+                chunks,
+                graph_edges,
+                external_refs: Vec::new(),
+                raw_content: Some(extracted.normalized_text.clone()),
                 projection_text: Some(extracted.normalized_text),
             })
         }

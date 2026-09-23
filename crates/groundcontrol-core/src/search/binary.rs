@@ -8,7 +8,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use groundcontrol_common::ports::AlgorithmicSearchIndex;
-use groundcontrol_common::types::{BinaryFingerprint, BinaryProjectionKind, FingerprintRecord, Modality};
+use groundcontrol_common::types::{
+    BinaryFingerprint, BinaryProjectionKind, FingerprintRecord, Modality,
+};
 use groundcontrol_common::{Error, Result};
 use serde::{Deserialize, Serialize};
 
@@ -118,10 +120,16 @@ impl BinarySearchIndex {
     }
 
     /// Project a text query using a specific projection kind.
-    pub fn project_query_with_kind(&self, query: &str, kind: BinaryProjectionKind) -> Result<BinaryFingerprint> {
+    pub fn project_query_with_kind(
+        &self,
+        query: &str,
+        kind: BinaryProjectionKind,
+    ) -> Result<BinaryFingerprint> {
         match kind {
             BinaryProjectionKind::FlatSif => Ok(self.sif.project_to_fingerprint(query)),
-            BinaryProjectionKind::PartitionedHyperplane => Ok(self.hyperplanes.project_query(query)),
+            BinaryProjectionKind::PartitionedHyperplane => {
+                Ok(self.hyperplanes.project_query(query))
+            }
         }
     }
 
@@ -133,6 +141,22 @@ impl BinarySearchIndex {
     /// Check whether the index contains no records.
     pub fn is_empty(&self) -> bool {
         self.records.is_empty()
+    }
+
+    /// Clear all fingerprint records.
+    pub fn clear(&mut self) {
+        self.records.clear();
+    }
+
+    /// Remove all fingerprints associated with a document path.
+    pub fn remove_document(&mut self, doc_path: &str) {
+        let chunk_prefix = format!("{doc_path}:chunk:");
+        let symbol_prefix = format!("{doc_path}#");
+        self.records.retain(|r| {
+            r.id != doc_path
+                && !r.id.starts_with(&chunk_prefix)
+                && !r.id.starts_with(&symbol_prefix)
+        });
     }
 
     /// Add or update binary fingerprint records.
@@ -200,11 +224,8 @@ impl AlgorithmicSearchIndex for BinarySearchIndex {
         // with plain text. When Ch2/Ch3 are both zero we apply channel masking so that
         // document bits in those channels don't contribute noise to the ranking distance.
         let is_text_query = query_bits.0[2] == 0 && query_bits.0[3] == 0;
-        let channel_mask = if is_text_query {
-            [true, true, false, false]
-        } else {
-            [true, true, true, true]
-        };
+        let channel_mask =
+            if is_text_query { [true, true, false, false] } else { [true, true, true, true] };
 
         // Candidates matching the modality filter
         let mut matches: Vec<(&FingerprintRecord, u32)> = self

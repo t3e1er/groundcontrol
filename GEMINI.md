@@ -180,8 +180,8 @@ All documentation must conform to the 3-pillar directory layout:
 Academic benchmarking and IR evaluation are decoupled from `groundcontrol` internals and live in the sister repository [`groundtruth`](file:///c:/dev/semantic/groundtruth). All benchmarking suites, runners, and data files have been fully migrated into `groundtruth`; `groundcontrol` contains zero internal benchmarking test harnesses (`gc-bench` and `benchmarks/` have been removed).
 
 ### Two-Tier Protocol Model
-1. **Tier 1 — In-Process Algorithmic Ablation (`groundcontrol-algo`)**:
-   - `groundtruth` imports `groundcontrol-algo` as a direct Cargo path dependency.
+1. **Tier 1 — In-Process Algorithmic Ablation (`groundcontrol-core::algorithm::eval`)**:
+   - `groundtruth` imports `groundcontrol-core` as a direct Cargo path dependency.
    - Zero IPC, zero serialization, direct Rust function calls.
    - Evaluates isolated algorithms (`binary`, `bm25`, `ppr`, `fast`, `semantic`, `hybrid`) and runtime projection variants (`FlatSif` vs `PartitionedHyperplane`) via `AlgoBackend`.
    - Executed strictly in serial (`gt ablate`) for unperturbed latency percentiles (p50, p90, p99).

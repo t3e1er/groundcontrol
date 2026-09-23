@@ -1362,23 +1362,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "groundcontrol-algo"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "clap",
- "groundcontrol-common",
- "groundcontrol-core",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.20",
- "toml",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "groundcontrol-cli"
 version = "0.2.0"
 dependencies = [

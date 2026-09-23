@@ -86,6 +86,7 @@
 //!   [`crate::types::Modality`]; the fusion helpers already speak only domain
 //!   types.
 
+pub mod algorithm;
 pub mod catalog;
 pub mod embedding;
 pub mod extractor;
@@ -94,6 +95,7 @@ pub mod search;
 pub mod text_index;
 pub mod vector_store;
 
+pub use algorithm::*;
 pub use catalog::*;
 pub use embedding::*;
 pub use extractor::*;

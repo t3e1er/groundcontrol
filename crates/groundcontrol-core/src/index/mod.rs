@@ -272,6 +272,13 @@ impl BM25Index {
         Ok(())
     }
 
+    /// Delete all documents from the BM25 index.
+    pub fn clear(&mut self) -> Result<()> {
+        let writer = self.ensure_writer()?;
+        writer.delete_all_documents().map_err(|e| Error::Index(e.to_string()))?;
+        Ok(())
+    }
+
     /// Commit pending changes to disk.
     pub fn commit(&mut self) -> Result<()> {
         if let Some(ref mut writer) = self.writer {

@@ -1,16 +1,16 @@
-//! Algorithmic index builder, loader, and query runner.
+//! Algorithmic index builder, loader, and query runner for evaluation.
 
 use std::path::Path;
 use std::time::Instant;
 
 use groundcontrol_common::config::CorpusConfig;
 use groundcontrol_common::types::Modality;
-use groundcontrol_core::engine::Engine;
+use groundcontrol_common::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::config::AlgoConfig;
-use crate::query::AlgoHit;
-use crate::{Error, Result};
+use super::config::AlgoConfig;
+use super::hit::AlgoHit;
+use crate::engine::Engine;
 
 /// Performance and capacity statistics from an index operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,9 +25,9 @@ pub struct IndexStats {
     pub time_ms: f64,
 }
 
-/// An indexed corpus ready for per-algorithm querying.
+/// An indexed corpus ready for per-algorithm querying and evaluation.
 ///
-/// Holds a groundcontrol `Engine` internally and executes queries via direct Rust function calls.
+/// Holds a groundcontrol `Engine` internally and executes queries via direct in-process Rust function calls.
 pub struct AlgorithmicIndex {
     engine: Engine,
     config: AlgoConfig,
@@ -47,7 +47,7 @@ impl AlgorithmicIndex {
         config: AlgoConfig,
     ) -> Result<(Self, IndexStats)> {
         if !corpus_path.exists() {
-            return Err(Error::CorpusPath(format!(
+            return Err(Error::NotFound(format!(
                 "corpus path does not exist: {}",
                 corpus_path.display()
             )));
@@ -56,16 +56,10 @@ impl AlgorithmicIndex {
         let config_file = corpus_path.join("groundcontrol.toml");
         let corpus_config = if config_file.exists() {
             let config_str = std::fs::read_to_string(&config_file)?;
-            toml::from_str(&config_str).map_err(|e| {
-                groundcontrol_common::Error::Config(format!(
-                    "Failed to parse groundcontrol.toml: {e}"
-                ))
-            })?
+            toml::from_str(&config_str)
+                .map_err(|e| Error::Config(format!("Failed to parse groundcontrol.toml: {e}")))?
         } else {
-            CorpusConfig {
-                path: corpus_path.to_string_lossy().to_string(),
-                ..Default::default()
-            }
+            CorpusConfig { path: corpus_path.to_string_lossy().to_string(), ..Default::default() }
         };
 
         let start_time = Instant::now();
@@ -100,7 +94,7 @@ impl AlgorithmicIndex {
         config: AlgoConfig,
     ) -> Result<Self> {
         if !corpus_path.exists() {
-            return Err(Error::CorpusPath(format!(
+            return Err(Error::NotFound(format!(
                 "corpus path does not exist: {}",
                 corpus_path.display()
             )));
@@ -109,16 +103,10 @@ impl AlgorithmicIndex {
         let config_file = corpus_path.join("groundcontrol.toml");
         let corpus_config = if config_file.exists() {
             let config_str = std::fs::read_to_string(&config_file)?;
-            toml::from_str(&config_str).map_err(|e| {
-                groundcontrol_common::Error::Config(format!(
-                    "Failed to parse groundcontrol.toml: {e}"
-                ))
-            })?
+            toml::from_str(&config_str)
+                .map_err(|e| Error::Config(format!("Failed to parse groundcontrol.toml: {e}")))?
         } else {
-            CorpusConfig {
-                path: corpus_path.to_string_lossy().to_string(),
-                ..Default::default()
-            }
+            CorpusConfig { path: corpus_path.to_string_lossy().to_string(), ..Default::default() }
         };
 
         let mut engine = Engine::open(corpus_config, index_dir)?;
@@ -140,32 +128,37 @@ impl AlgorithmicIndex {
 
     /// Execute isolated binary Hamming query.
     pub fn query_binary(&self, query: &str, k: usize, modality: Modality) -> Result<Vec<AlgoHit>> {
-        crate::query::binary::execute_binary_query(&self.engine, &self.config, query, k, modality)
+        super::query::execute_binary_query(&self.engine, &self.config, query, k, modality)
     }
 
     /// Execute isolated BM25 lexical query.
     pub fn query_bm25(&self, query: &str, k: usize, modality: Modality) -> Result<Vec<AlgoHit>> {
-        crate::query::bm25::execute_bm25_query(&self.engine, query, k, modality)
+        super::query::execute_bm25_query(&self.engine, query, k, modality)
     }
 
     /// Execute isolated PPR diffusion query with BM25 seed.
     pub fn query_ppr(&self, query: &str, k: usize, modality: Modality) -> Result<Vec<AlgoHit>> {
-        crate::query::ppr::execute_ppr_query(&self.engine, &self.config, query, k, modality)
+        super::query::execute_ppr_query(&self.engine, &self.config, query, k, modality)
     }
 
     /// Execute fast algorithmic hybrid query (BM25 + Binary + PPR).
     pub fn query_fast(&self, query: &str, k: usize, modality: Modality) -> Result<Vec<AlgoHit>> {
-        crate::query::fast::execute_fast_query(&self.engine, query, k, modality)
+        super::query::execute_fast_query(&self.engine, query, k, modality)
     }
 
     /// Execute pure dense ONNX neural embeddings query.
-    pub fn query_semantic(&self, query: &str, k: usize, modality: Modality) -> Result<Vec<AlgoHit>> {
-        crate::query::semantic::execute_semantic_query(&self.engine, query, k, modality)
+    pub fn query_semantic(
+        &self,
+        query: &str,
+        k: usize,
+        modality: Modality,
+    ) -> Result<Vec<AlgoHit>> {
+        super::query::execute_semantic_query(&self.engine, query, k, modality)
     }
 
     /// Execute full 3-signal hybrid query.
     pub fn query_hybrid(&self, query: &str, k: usize, modality: Modality) -> Result<Vec<AlgoHit>> {
-        crate::query::hybrid::execute_hybrid_query(&self.engine, query, k, modality)
+        super::query::execute_hybrid_query(&self.engine, query, k, modality)
     }
 
     /// Reference to internal engine.

@@ -1,18 +1,15 @@
-//! `gc-algo` — CLI binary wrapper around `groundcontrol-algo`.
+//! `gc-algo` — CLI binary wrapper for direct algorithmic retrieval.
 //!
 //! Provides direct command-line execution and JSON output for isolated retrieval algorithms.
 
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use groundcontrol_algo::{AlgoConfig, AlgorithmicIndex, BinaryProjectionKind};
 use groundcontrol_common::types::Modality;
+use groundcontrol_core::algorithm::{AlgoConfig, AlgorithmicIndex, BinaryProjectionKind};
 
 #[derive(Parser, Debug)]
-#[command(
-    name = "gc-algo",
-    about = "Direct algorithmic retrieval CLI for groundcontrol"
-)]
+#[command(name = "gc-algo", about = "Direct algorithmic retrieval CLI for groundcontrol")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -111,33 +108,19 @@ fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Index { corpus, projection } => {
-            let config = AlgoConfig {
-                binary_projection: projection.into(),
-                ..Default::default()
-            };
+            let config = AlgoConfig { binary_projection: projection.into(), ..Default::default() };
             println!("Building algorithmic index for {}...", corpus.display());
-            let (_index, stats) = AlgorithmicIndex::build(&corpus, config)
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            let (_index, stats) =
+                AlgorithmicIndex::build(&corpus, config).map_err(|e| anyhow::anyhow!("{e}"))?;
             println!(
                 "Indexed {} documents ({} nodes, {} edges) in {:.2}ms",
                 stats.documents, stats.graph_nodes, stats.graph_edges, stats.time_ms
             );
         }
-        Commands::Query {
-            corpus,
-            method,
-            query,
-            k,
-            modality,
-            projection,
-            json,
-        } => {
-            let config = AlgoConfig {
-                binary_projection: projection.into(),
-                ..Default::default()
-            };
-            let index = AlgorithmicIndex::load(&corpus, config)
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
+        Commands::Query { corpus, method, query, k, modality, projection, json } => {
+            let config = AlgoConfig { binary_projection: projection.into(), ..Default::default() };
+            let index =
+                AlgorithmicIndex::load(&corpus, config).map_err(|e| anyhow::anyhow!("{e}"))?;
             let mod_val = modality.into();
 
             let hits = match method {
