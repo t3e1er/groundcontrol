@@ -1,5 +1,0 @@
-benchmark,repository,mode,k,mean_recall,mean_precision,mean_mrr,mean_ndcg,mean_score_separation,latency_p50_ms,latency_p90_ms,latency_p95_ms,latency_p99_ms,latency_mean_ms,qps
-repobench,ali-vilab/dreamtalk,bm25,10,1.0000,0.1000,0.2500,0.4307,1.8339,8.488,8.488,8.488,8.488,8.488,117.8
-repobench,ali-vilab/dreamtalk,binary,10,1.0000,0.1000,0.3333,0.5000,1.1905,0.815,0.815,0.815,0.815,0.815,1227.0
-repobench,ali-vilab/dreamtalk,ppr,10,1.0000,0.1000,0.5000,0.6309,42.8416,6.693,6.693,6.693,6.693,6.693,149.4
-repobench,ali-vilab/dreamtalk,fast,10,1.0000,0.1000,0.5000,0.6309,1.8053,11.031,11.031,11.031,11.031,11.031,90.7

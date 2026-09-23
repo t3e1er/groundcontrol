@@ -88,14 +88,18 @@ impl Engine {
                         fingerprint: file_fp,
                         modality: Modality::Code,
                     });
-                    for sym in &res.symbols {
-                        let fp_text = format!(
-                            "{} {} {}",
-                            sym.name,
-                            sym.signature,
-                            sym.docstring.as_deref().unwrap_or("")
-                        );
-                        let fp = self.binary_index.project_query(&fp_text).unwrap_or_default();
+                    for (i, sym) in res.symbols.iter().enumerate() {
+                        let fp = if let Some(sem) = res.grammar_semantics.get(i) {
+                            self.binary_index.project_semantics(sem)
+                        } else {
+                            let fp_text = format!(
+                                "{} {} {}",
+                                sym.name,
+                                sym.signature,
+                                sym.docstring.as_deref().unwrap_or("")
+                            );
+                            self.binary_index.project_query(&fp_text).unwrap_or_default()
+                        };
                         fps.push(FingerprintRecord {
                             id: format!("{}#{}", rel_path, sym.scope_path),
                             fingerprint: fp,
@@ -1335,6 +1339,7 @@ pub(crate) fn parse_file_record(
             let pending = Vec::new();
             let mut raw_chunks = Vec::new();
             let mut symbols = Vec::new();
+            let mut grammar_semantics = Vec::new();
             let mut graph_edges = Vec::new();
             let mut external_refs = Vec::new();
 
@@ -1353,24 +1358,30 @@ pub(crate) fn parse_file_record(
 
                 raw_chunks = res.chunks;
                 symbols = res.symbols;
+                grammar_semantics = res.grammar_semantics;
             }
 
             use groundcontrol_common::types::{FingerprintRecord, Modality};
             let mut fingerprints = Vec::with_capacity(1 + symbols.len() + raw_chunks.len());
-            let file_fp = sif.project_to_fingerprint(&content);
+            let hp_projector = crate::search::PartitionedHyperplaneProjector::default();
+            let file_fp = hp_projector.project_query(&content);
             fingerprints.push(FingerprintRecord {
                 id: rel_path.to_string(),
                 fingerprint: file_fp,
                 modality: Modality::Code,
             });
-            for sym in &symbols {
-                let fp_text = format!(
-                    "{} {} {}",
-                    sym.name,
-                    sym.signature,
-                    sym.docstring.as_deref().unwrap_or("")
-                );
-                let fp = sif.project_to_fingerprint(&fp_text);
+            for (i, sym) in symbols.iter().enumerate() {
+                let fp = if let Some(sem) = grammar_semantics.get(i) {
+                    hp_projector.project_semantics(sem)
+                } else {
+                    let fp_text = format!(
+                        "{} {} {}",
+                        sym.name,
+                        sym.signature,
+                        sym.docstring.as_deref().unwrap_or("")
+                    );
+                    sif.project_to_fingerprint(&fp_text)
+                };
                 fingerprints.push(FingerprintRecord {
                     id: format!("{}#{}", rel_path, sym.scope_path),
                     fingerprint: fp,

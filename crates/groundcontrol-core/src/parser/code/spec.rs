@@ -98,6 +98,88 @@ impl LanguageSpec {
                 | CodeSymbolType::Enum
         )
     }
+
+    /// Tree-sitter field name representing parameters or formal arguments list.
+    pub fn parameters_field(&self) -> &'static str {
+        match self.language {
+            SupportedLanguage::Python
+            | SupportedLanguage::Rust
+            | SupportedLanguage::Go
+            | SupportedLanguage::TypeScript
+            | SupportedLanguage::JavaScript
+            | SupportedLanguage::Java
+            | SupportedLanguage::CSharp
+            | SupportedLanguage::Cpp
+            | SupportedLanguage::C => "parameters",
+            SupportedLanguage::Ruby => "parameters",
+            SupportedLanguage::Php => "parameters",
+            _ => "parameters",
+        }
+    }
+
+    /// Tree-sitter field name representing the declared return or result type.
+    pub fn return_type_field(&self) -> &'static str {
+        match self.language {
+            SupportedLanguage::Go => "result",
+            SupportedLanguage::Java
+            | SupportedLanguage::CSharp
+            | SupportedLanguage::C
+            | SupportedLanguage::Cpp => "type",
+            SupportedLanguage::Rust
+            | SupportedLanguage::TypeScript
+            | SupportedLanguage::JavaScript
+            | SupportedLanguage::Python => "return_type",
+            _ => "return_type",
+        }
+    }
+
+    /// Tree-sitter field name representing the implementation block or body.
+    pub fn body_field(&self) -> &'static str {
+        match self.language {
+            SupportedLanguage::Python
+            | SupportedLanguage::Rust
+            | SupportedLanguage::Go
+            | SupportedLanguage::TypeScript
+            | SupportedLanguage::JavaScript
+            | SupportedLanguage::Java
+            | SupportedLanguage::CSharp
+            | SupportedLanguage::Cpp
+            | SupportedLanguage::C => "body",
+            _ => "body",
+        }
+    }
+
+    /// Tree-sitter field name representing the callee / function target in a call expression.
+    pub fn call_function_field(&self) -> &'static str {
+        match self.language {
+            SupportedLanguage::Python
+            | SupportedLanguage::Rust
+            | SupportedLanguage::Go
+            | SupportedLanguage::TypeScript
+            | SupportedLanguage::JavaScript
+            | SupportedLanguage::Java
+            | SupportedLanguage::CSharp
+            | SupportedLanguage::Cpp
+            | SupportedLanguage::C => "function",
+            _ => "function",
+        }
+    }
+
+    /// Tree-sitter field name representing arguments in a call expression.
+    pub fn call_arguments_field(&self) -> &'static str {
+        match self.language {
+            SupportedLanguage::Python
+            | SupportedLanguage::Rust
+            | SupportedLanguage::Go
+            | SupportedLanguage::TypeScript
+            | SupportedLanguage::JavaScript
+            | SupportedLanguage::Java
+            | SupportedLanguage::CSharp
+            | SupportedLanguage::Cpp
+            | SupportedLanguage::C => "arguments",
+            _ => "arguments",
+        }
+    }
 }
 
 /// Retrieve the declarative specification for a given supported language.

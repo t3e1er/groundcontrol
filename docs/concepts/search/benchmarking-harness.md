@@ -1,9 +1,9 @@
 ---
 title: "Retrieval & Indexing Data Science Benchmark Harness"
-description: "Architecture, metrics, resource profiling, and usage guide for the dedicated `groundcontrol-bench` workspace crate and CLI (`gc-bench`)."
+description: "Architecture, metrics, resource profiling, and two-tier evaluation model across `groundcontrol-algo` and `groundtruth`."
 category: "concepts"
 status: "implemented"
-tags: ["benchmarks", "data-science", "retrieval", "metrics", "ndcg", "mrr", "profiling", "latency", "memory"]
+tags: ["benchmarks", "data-science", "retrieval", "metrics", "ndcg", "mrr", "profiling", "latency", "groundtruth"]
 related:
   - "[[docs/index]]"
   - "[[docs/roadmap/coderoadmap]]"
@@ -13,17 +13,26 @@ related:
 
 # Retrieval & Indexing Data Science Benchmark Harness
 
-`groundcontrol-bench` is a dedicated workspace crate and command-line harness (`gc-bench`) engineered for empirical Information Retrieval (IR) evaluation, algorithmic ablation, and indexing resource profiling across Markdown notes and polyglot codebases.
+Benchmarking and Information Retrieval (IR) evaluation in the `groundcontrol` ecosystem follow a **Two-Tier Architecture**:
+
+1. **`groundcontrol-algo` (Crate & `gc-algo` CLI)**:
+   - Standalone per-algorithm retrieval library and CLI located in [`crates/groundcontrol-algo`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-algo).
+   - Exposes every retrieval algorithm (`binary`, `bm25`, `ppr`, `fast`, `semantic`, `hybrid`) as an independently callable library function without MCP or subprocess overhead.
+   - Provides runtime variant ablation knobs (`FlatSif` vs `PartitionedHyperplane`).
+
+2. **`groundtruth` (`gt` Evaluation Harness)**:
+   - Decoupled academic evaluation suite located in [`groundtruth`](file:///c:/dev/semantic/groundtruth).
+   - Evaluates algorithm variants in serial (`gt ablate`) via direct Cargo path dependency on `groundcontrol-algo` (`AlgoBackend`).
+   - Evaluates system-level multi-agent workflows (`gt run`) via stdio JSON-RPC against the production MCP server (`McpBackend`).
 
 ---
 
 ## 1. Architectural Principles & Isolation
 
-1. **Zero Production Bloat**: Benchmarking datasets, ground-truth judgments (QRELS), statistical evaluators, and reporting exporters are isolated inside `crates/groundcontrol-bench`. Production binaries ([`groundcontrol-cli`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-cli) and [`groundcontrol-mcp`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp)) remain lightweight and fast.
-2. **Direct Engine & Port Access**: Rather than invoking the MCP JSON-RPC transport, `gc-bench` interacts directly with core engine ports ([`MetadataCatalog`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`TextIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`AlgorithmicSearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`GraphStore`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`SearchService`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs)) for zero-overhead micro-benchmarking and precise latency timing.
-3. **Dual Surface (CLI + Reusable Library)**:
-   - **Library**: [`groundcontrol_bench::*`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/lib.rs) provides reusable profiling and IR calculation tools for automated CI integration tests.
-   - **CLI Binary**: `gc-bench` provides subcommands (`index`, `eval`, `all`) for interactive experimentation and report generation.
+1. **Zero Production Bloat**: All benchmark datasets, query catalogs (CodeSearchNet, RepoBench, SWE-bench, OpenTelemetry demo), ground-truth qrels, and statistical significance tests live in `groundtruth`. Production `groundcontrol` binaries remain completely free of evaluation artifacts.
+2. **Direct In-Process Access for Micro-Ablation**: Rather than paying MCP JSON-RPC transport overhead (~80ms) when benchmarking algorithmic differences, `groundtruth`'s `AlgoBackend` makes direct Rust function calls into `groundcontrol-algo` (~0µs overhead), ensuring jitter-free latency distributions.
+3. **Decoupled System Testing**: Multi-agent retrieval, tool dispatch, and Turn 1-3 progressive disclosure contracts are evaluated through the universal MCP interface.
+
 
 ---
 

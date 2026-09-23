@@ -1,5 +1,0 @@
-benchmark,repository,mode,k,mean_recall,mean_precision,mean_mrr,mean_ndcg,mean_score_separation,latency_p50_ms,latency_p90_ms,latency_p95_ms,latency_p99_ms,latency_mean_ms,qps
-swe_bench,astropy/astropy,bm25,10,1.0000,0.1000,1.0000,1.0000,2.1306,341.526,411.727,418.681,424.244,312.421,3.2
-swe_bench,astropy/astropy,binary,10,0.3333,0.0333,0.0889,0.1478,1.0459,9.551,10.543,10.811,11.025,9.302,107.5
-swe_bench,astropy/astropy,ppr,10,1.0000,0.1000,0.8750,0.9077,27.0071,335.887,414.289,420.435,425.352,307.299,3.3
-swe_bench,astropy/astropy,fast,10,1.0000,0.1000,0.6875,0.7654,1.6256,475.994,536.527,541.149,544.847,442.286,2.3

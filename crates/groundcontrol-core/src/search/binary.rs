@@ -8,10 +8,11 @@ use std::path::Path;
 use std::sync::Arc;
 
 use groundcontrol_common::ports::AlgorithmicSearchIndex;
-use groundcontrol_common::types::{BinaryFingerprint, FingerprintRecord, Modality};
+use groundcontrol_common::types::{BinaryFingerprint, BinaryProjectionKind, FingerprintRecord, Modality};
 use groundcontrol_common::{Error, Result};
 use serde::{Deserialize, Serialize};
 
+use super::hyperplanes::PartitionedHyperplaneProjector;
 use super::sif::SifEngine;
 
 /// Schema version for binary fingerprints persistence file (`fingerprints.bin`).
@@ -28,6 +29,8 @@ struct FingerprintsData {
 pub struct BinarySearchIndex {
     records: Vec<FingerprintRecord>,
     sif: Arc<SifEngine>,
+    hyperplanes: Arc<PartitionedHyperplaneProjector>,
+    projection_kind: BinaryProjectionKind,
 }
 
 impl Default for BinarySearchIndex {
@@ -39,7 +42,12 @@ impl Default for BinarySearchIndex {
 impl BinarySearchIndex {
     /// Create an empty binary search index.
     pub fn new() -> Self {
-        Self { records: Vec::new(), sif: Arc::new(SifEngine::default()) }
+        Self {
+            records: Vec::new(),
+            sif: Arc::new(SifEngine::default()),
+            hyperplanes: Arc::new(PartitionedHyperplaneProjector::default()),
+            projection_kind: BinaryProjectionKind::default(),
+        }
     }
 
     /// Load the binary index from a disk file.
@@ -55,7 +63,12 @@ impl BinarySearchIndex {
             )));
         }
 
-        Ok(Self { records: data.records, sif: Arc::new(SifEngine::default()) })
+        Ok(Self {
+            records: data.records,
+            sif: Arc::new(SifEngine::default()),
+            hyperplanes: Arc::new(PartitionedHyperplaneProjector::default()),
+            projection_kind: BinaryProjectionKind::default(),
+        })
     }
 
     /// Persist the binary index to disk via postcard.
@@ -88,6 +101,30 @@ impl BinarySearchIndex {
         Arc::make_mut(&mut self.sif)
     }
 
+    /// Get the current binary projection kind.
+    pub fn projection_kind(&self) -> BinaryProjectionKind {
+        self.projection_kind
+    }
+
+    /// Set the binary projection kind (e.g. for ablation between FlatSif and PartitionedHyperplane).
+    pub fn set_projection_kind(&mut self, kind: BinaryProjectionKind) {
+        self.projection_kind = kind;
+    }
+
+    /// Builder method to set the binary projection kind.
+    pub fn with_projection_kind(mut self, kind: BinaryProjectionKind) -> Self {
+        self.projection_kind = kind;
+        self
+    }
+
+    /// Project a text query using a specific projection kind.
+    pub fn project_query_with_kind(&self, query: &str, kind: BinaryProjectionKind) -> Result<BinaryFingerprint> {
+        match kind {
+            BinaryProjectionKind::FlatSif => Ok(self.sif.project_to_fingerprint(query)),
+            BinaryProjectionKind::PartitionedHyperplane => Ok(self.hyperplanes.project_query(query)),
+        }
+    }
+
     /// Get all indexed fingerprint records.
     pub fn records(&self) -> &[FingerprintRecord] {
         &self.records
@@ -111,6 +148,19 @@ impl BinarySearchIndex {
         modality: Modality,
     ) -> Result<Vec<(String, u32)>> {
         <Self as AlgorithmicSearchIndex>::search_hamming(self, query_bits, limit, modality)
+    }
+
+    /// Access the underlying partitioned hyperplane projector.
+    pub fn hyperplanes(&self) -> Arc<PartitionedHyperplaneProjector> {
+        Arc::clone(&self.hyperplanes)
+    }
+
+    /// Project extracted AST grammar semantics into a 256-bit partitioned binary fingerprint.
+    pub fn project_semantics(
+        &self,
+        sem: &crate::parser::code::grammar::ExtractedGrammarSemantics,
+    ) -> BinaryFingerprint {
+        self.hyperplanes.project_semantics(sem)
     }
 
     /// Project a text query into a 256-bit binary fingerprint.
@@ -145,6 +195,17 @@ impl AlgorithmicSearchIndex for BinarySearchIndex {
             return Ok(Vec::new());
         }
 
+        // Detect text-query fingerprints: project_query() zeros Ch2 and Ch3 (dataflow and
+        // grammar channels) because those feature vocabularies are structurally incompatible
+        // with plain text. When Ch2/Ch3 are both zero we apply channel masking so that
+        // document bits in those channels don't contribute noise to the ranking distance.
+        let is_text_query = query_bits.0[2] == 0 && query_bits.0[3] == 0;
+        let channel_mask = if is_text_query {
+            [true, true, false, false]
+        } else {
+            [true, true, true, true]
+        };
+
         // Candidates matching the modality filter
         let mut matches: Vec<(&FingerprintRecord, u32)> = self
             .records
@@ -154,7 +215,7 @@ impl AlgorithmicSearchIndex for BinarySearchIndex {
                 Modality::Docs => r.modality == Modality::Docs,
                 Modality::Code => r.modality == Modality::Code,
             })
-            .map(|r| (r, r.fingerprint.hamming_distance(query_bits)))
+            .map(|r| (r, r.fingerprint.masked_hamming_distance(query_bits, channel_mask)))
             .collect();
 
         if matches.is_empty() {
@@ -171,7 +232,7 @@ impl AlgorithmicSearchIndex for BinarySearchIndex {
     }
 
     fn project_query(&self, query: &str) -> Result<BinaryFingerprint> {
-        Ok(self.sif.project_to_fingerprint(query))
+        self.project_query_with_kind(query, self.projection_kind)
     }
 
     fn clear(&mut self) {

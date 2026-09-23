@@ -113,12 +113,13 @@ Authoritative tool registry: `crates/groundcontrol-mcp/src/tools/mod.rs`. Handle
 
 ## 4. Workspace Structure & Module Layout
 
-```
 groundcontrol/
 ├── crates/
 │   ├── groundcontrol-common/  # Domain types, ports traits, config, errors
 │   ├── groundcontrol-core/    # Engine, Tantivy, embeddings (DirectML/ort), Petgraph, AST chunkers
 │   ├── groundcontrol-mcp/     # Stdio & HTTP transport, MCP protocol, tool registry (17 tools)
+│   ├── groundcontrol-algo/    # Standalone retrieval library & CLI (AlgoBackend substrate for groundtruth)
+│   ├── groundcontrol-graphview/ # Real-time 3D knowledge graph visualizer and protocol
 │   └── groundcontrol-cli/     # Composition root binary, multi-corpus CLI
 ├── docs/                 # Authoritative architecture, concepts, and roadmap docs
 └── .index/               # Derived indices: meta.db, tantivy/, vectors.json, graph.bin
@@ -176,11 +177,21 @@ All documentation must conform to the 3-pillar directory layout:
 
 ## 8. Sister Repository: `groundtruth` & Polyglot Benchmark Corpora
 
-Academic benchmarking and IR evaluation are decoupled from `groundcontrol` internals and live in the sister repository [`groundtruth`](file:///c:/dev/semantic/groundtruth).
+Academic benchmarking and IR evaluation are decoupled from `groundcontrol` internals and live in the sister repository [`groundtruth`](file:///c:/dev/semantic/groundtruth). All benchmarking suites, runners, and data files have been fully migrated into `groundtruth`; `groundcontrol` contains zero internal benchmarking test harnesses (`gc-bench` and `benchmarks/` have been removed).
+
+### Two-Tier Protocol Model
+1. **Tier 1 — In-Process Algorithmic Ablation (`groundcontrol-algo`)**:
+   - `groundtruth` imports `groundcontrol-algo` as a direct Cargo path dependency.
+   - Zero IPC, zero serialization, direct Rust function calls.
+   - Evaluates isolated algorithms (`binary`, `bm25`, `ppr`, `fast`, `semantic`, `hybrid`) and runtime projection variants (`FlatSif` vs `PartitionedHyperplane`) via `AlgoBackend`.
+   - Executed strictly in serial (`gt ablate`) for unperturbed latency percentiles (p50, p90, p99).
+2. **Tier 2 — System-Level Multi-Agent Evaluation (MCP over stdio JSON-RPC)**:
+   - `groundtruth` executes `gt run` against the compiled `groundcontrol` MCP server binary as a black box.
+   - Measures real-world agent tool execution, transport overhead (~80ms), and Turn 1-3 progressive disclosure contracts.
 
 ### Principles of Decoupled Evaluation
-- **Decoupled Universal Interface**: `groundtruth` interacts with `groundcontrol` solely as a black box via the Model Context Protocol (MCP over stdio JSON-RPC). Never reintroduce tight compile-time coupling or direct engine struct dependencies back into benchmark harnesses.
-- **Polyglot Benchmark Grounding**: Evaluation targets real-world, enterprise-grade multi-language architectures rather than isolated single-function snippets. The primary reference corpus is the **OpenTelemetry Astronomy Shop** (`corpora/otel-demo.toml`, covering 11+ languages across Rust, Go, TypeScript, Python, C#, Java, C++, Ruby, Kotlin, PHP, Elixir) and multi-repo architectures communicating via gRPC/Protobuf.
+- **Polyglot Benchmark Grounding**: Evaluation targets real-world, enterprise-grade multi-language architectures rather than isolated single-function snippets. The primary reference corpus is the **OpenTelemetry Astronomy Shop** (`corpora/otel-demo.toml`, covering 11+ languages across Rust, Go, TypeScript, Python, C#, Java, C++, Ruby, Kotlin, PHP, Elixir) and multi-repo architectures communicating via gRPC/Protobuf, alongside canonical CodeSearchNet, RepoBench, and SWE-bench corpora.
 - **Authoritative Metrics Substrate**: Standard IR metrics (Recall@K, Precision@K, MRR@K, nDCG@K with graded relevance), query latency distribution percentiles (p50, p90, p95, p99), and statistical significance (paired Student's t-test and Wilcoxon signed-rank test) are governed by `groundtruth-judge`.
+
 
 

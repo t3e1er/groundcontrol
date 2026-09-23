@@ -6,7 +6,7 @@ members = [
     "crates/groundcontrol-cli",
     "crates/groundcontrol-common",
     "crates/groundcontrol-graphview",
-    "crates/groundcontrol-bench",
+    "crates/groundcontrol-algo",
 ]
 
 [workspace.package]

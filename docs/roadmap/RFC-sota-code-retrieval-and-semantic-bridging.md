@@ -21,8 +21,10 @@ related:
 **Date**: September 2026  
 **Target Version**: `0.2.0`+  
 **Implementation**:
-- Port & Types: [`BinaryFingerprint`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs), [`FingerprintRecord`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types.rs), [`AlgorithmicSearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs)
-- Syntactic Patterns: [`extract_semantic_tokens`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/patterns.rs)
+- Port & Types: [`BinaryFingerprint`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types/search.rs), [`FingerprintRecord`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/types/search.rs), [`AlgorithmicSearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs)
+- AST Grammar Extraction: [`AstGrammarExtractor`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/grammar.rs) & [`ExtractedGrammarSemantics`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/grammar.rs)
+- Partitioned Hyperplane Projection: [`PartitionedHyperplaneProjector`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/hyperplanes.rs)
+- Syntactic Patterns & Identifier Normalization: [`split_identifier`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/patterns.rs)
 - SIF Projection & PCA: [`SifEngine`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/sif.rs)
 - Binary Index & SIMD Hamming: [`BinarySearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/binary.rs)
 - HippoRAG Diffusion: [`personalized_pagerank`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/graph/diffusion.rs)
@@ -175,39 +177,57 @@ After accumulating candidate vectors, the corpus first principal component $\mat
 $$\mathbf{v}'_s = \mathbf{v}_s - \mathbf{u} (\mathbf{u}^T \mathbf{v}_s)$$
 Subtracting this first component removes dominant programming syntax noise (tokens like `return`, `self`, `get`, `value` that skew all code embeddings in the same direction).
 
-### 5.3 Pillar 3: 256-Bit MRL Binary Fingerprints & SIMD POPCOUNT
-Because the static token embeddings originate from an MRL-trained model (`jina-embeddings-v2`), the leading 256 dimensions contain over 94% of the discriminative variance.
+### 5.3 Pillar 3: 4-Channel Partitioned Binary Fingerprints & SIMD POPCOUNT
+Rather than collapsing all syntax into a flat unweighted bag-of-words vector (which suffers from syntactic noise pollution and role conflation), `groundcontrol` structures the 256 bits into **four orthogonal 64-bit channels** (`BinaryFingerprint([u64; 4])`).
 
-#### 1-Bit Sign Quantization
-The normalized 256-dimensional vector $\mathbf{v}'_s$ is packed into four 64-bit unsigned integers (`[u64; 4]`, 32 bytes):
+Each channel captures an independent semantic modality extracted directly from Tree-sitter AST grammar rules via [`AstGrammarExtractor`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/grammar.rs) without handwritten substring heuristics:
+
+| Channel | Bits | Modality | Source Signals | Projector Key |
+|---|---|---|---|---|
+| **0: Interface** | 0..63 | Interface & Signature | Declared symbol name, normalized sub-tokens, parameters, return types | `gc_hyperplane_channel_interface0` |
+| **1: API Calls** | 64..127 | Outbound Invocations | Callee identifier names, sub-tokens, depth-attenuated call hierarchy | `gc_hyperplane_channel_api_calls1` |
+| **2: Data Flow** | 128..191 | Intra-symbol Def-Use | Parameter-to-call, parameter-to-return, condition evaluations | `gc_hyperplane_channel_dataflow_2` |
+| **3: Grammar** | 192..255 | Structural AST Rules | Tree-sitter parent-child grammar bigrams (`parent->child`), control flow shape | `gc_hyperplane_channel_grammar_03` |
+
+#### Partitioned Hyperplane Projection
+Each channel projects its weighted feature tokens into 64 continuous dimensions, then quantizes them into a 64-bit word using orthonormal hyperplanes generated deterministically via keyed Blake3 pseudo-random streams ([`PartitionedHyperplaneProjector`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/hyperplanes.rs)):
+
+$$\mathbf{w}_c = \sum_{i=1}^{M_c} \alpha_i \cdot \mathbf{v}_c(t_i)$$
+$$\text{bit}_{c, j} = \begin{cases} 1 & \text{if } \langle \mathbf{w}_c, \mathbf{h}_{c, j} \rangle \ge 0 \\ 0 & \text{otherwise} \end{cases} \quad \text{for } j \in [0, 63]$$
+
+This ensures that:
+1. Renaming local variables or changing control structures in Channel 3 does not corrupt Channel 0 (Interface) or Channel 1 (API Invocations).
+2. Transposed roles (e.g., `client.send(packet)` vs `packet.send(client)`) yield substantial Hamming separation ($\ge 12$ bits).
+3. Exact Hamming distance across all 256 bits or per-channel distance can be evaluated with zero allocations.
 
 ```rust
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BinaryFingerprint(pub [u64; 4]);
 
 impl BinaryFingerprint {
-    /// Quantize a 256-dimensional float vector into 256 bits.
-    #[inline]
-    pub fn from_f32_slice(v: &[f32; 256]) -> Self {
-        let mut bits = [0u64; 4];
-        for i in 0..256 {
-            if v[i] > 0.0 {
-                bits[i / 64] |= 1u64 << (i % 64);
-            }
-        }
-        BinaryFingerprint(bits)
-    }
+    pub const CHANNEL_INTERFACE: usize = 0;
+    pub const CHANNEL_API: usize = 1;
+    pub const CHANNEL_DATAFLOW: usize = 2;
+    pub const CHANNEL_GRAMMAR: usize = 3;
 
-    /// Exact Hamming distance using native CPU POPCOUNT.
-    /// LLVM automatically emits POPCNT / AVX-512 instructions with zero unsafe code.
+    /// Exact Hamming distance across all 256 bits using native CPU POPCOUNT.
     #[inline]
     pub fn hamming_distance(&self, other: &Self) -> u32 {
-        let d0 = (self.0[0] ^ other.0[0]).count_ones();
-        let d1 = (self.0[1] ^ other.0[1]).count_ones();
-        let d2 = (self.0[2] ^ other.0[2]).count_ones();
-        let d3 = (self.0[3] ^ other.0[3]).count_ones();
-        d0 + d1 + d2 + d3
+        (self.0[0] ^ other.0[0]).count_ones()
+            + (self.0[1] ^ other.0[1]).count_ones()
+            + (self.0[2] ^ other.0[2]).count_ones()
+            + (self.0[3] ^ other.0[3]).count_ones()
     }
+
+    /// Hamming distance isolated to a specific 64-bit channel.
+    #[inline]
+    pub fn channel_distance(&self, other: &Self, channel: usize) -> u32 {
+        (self.0[channel] ^ other.0[channel]).count_ones()
+    }
+
+    /// Weighted similarity across channels with configurable channel priors.
+    #[inline]
+    pub fn weighted_similarity(&self, other: &Self, weights: &[f32; 4]) -> f32 { ... }
 }
 ```
 

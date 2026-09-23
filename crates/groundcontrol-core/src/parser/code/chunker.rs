@@ -10,6 +10,7 @@ use groundcontrol_common::config::ChunkingConfig;
 use groundcontrol_common::types::{Chunk, ChunkEmbedPolicy, CodeSymbol, CodeSymbolType};
 use tree_sitter::{Node, Parser};
 
+use super::grammar::{AstGrammarExtractor, ExtractedGrammarSemantics, GenericAstGrammarExtractor};
 use super::languages::{detect_language, SupportedLanguage};
 
 /// Result of parsing a code file: chunks for embedding/BM25 and extracted code symbols.
@@ -19,6 +20,8 @@ pub struct CodeParseResult {
     pub chunks: Vec<Chunk>,
     /// Extracted code symbol definitions.
     pub symbols: Vec<CodeSymbol>,
+    /// Extracted AST grammar semantics for each symbol.
+    pub grammar_semantics: Vec<ExtractedGrammarSemantics>,
 }
 
 /// AST-aware code chunker.
@@ -62,7 +65,11 @@ impl CodeChunker {
             AstExtractor::new(file_path.to_string_lossy().to_string(), content, lang, max_chars);
         extractor.traverse(tree.root_node());
 
-        Some(CodeParseResult { chunks: extractor.chunks, symbols: extractor.symbols })
+        Some(CodeParseResult {
+            chunks: extractor.chunks,
+            symbols: extractor.symbols,
+            grammar_semantics: extractor.grammar_semantics,
+        })
     }
 }
 
@@ -74,6 +81,7 @@ struct AstExtractor<'a> {
     scope_stack: Vec<String>,
     chunks: Vec<Chunk>,
     symbols: Vec<CodeSymbol>,
+    grammar_semantics: Vec<ExtractedGrammarSemantics>,
     chunk_index: usize,
     depth: usize,
 }
@@ -93,6 +101,7 @@ impl<'a> AstExtractor<'a> {
             scope_stack: Vec::new(),
             chunks: Vec::new(),
             symbols: Vec::new(),
+            grammar_semantics: Vec::new(),
             chunk_index: 0,
             depth: 0,
         }
@@ -123,6 +132,12 @@ impl<'a> AstExtractor<'a> {
         let symbol_info = self.classify_node(node);
 
         if let Some((sym_type, name, signature)) = symbol_info {
+            // Extract standard AST grammar semantics for this symbol
+            let spec = crate::parser::code::spec::get_language_spec(lang);
+            let grammar_extractor = GenericAstGrammarExtractor::new(spec);
+            let sem = grammar_extractor.extract_grammar_semantics(node, self.content);
+            self.grammar_semantics.push(sem);
+
             let start_byte = node.start_byte();
             let end_byte = node.end_byte();
             let start_line = node.start_position().row + 1;

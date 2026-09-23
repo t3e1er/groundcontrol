@@ -1,5 +1,0 @@
-benchmark,repository,mode,k,mean_recall,mean_precision,mean_mrr,mean_ndcg,mean_score_separation,latency_p50_ms,latency_p90_ms,latency_p95_ms,latency_p99_ms,latency_mean_ms,qps
-codesearchnet,grokify/gotilla,bm25,10,0.7500,0.1000,0.2500,0.3314,1.9917,40.411,47.746,48.663,49.397,40.411,24.7
-codesearchnet,grokify/gotilla,binary,10,0.2500,0.0500,0.0625,0.0967,1.0938,0.952,0.983,0.987,0.990,0.952,1051.0
-codesearchnet,grokify/gotilla,ppr,10,0.7500,0.1000,0.5500,0.5886,11.7178,39.534,47.876,48.919,49.753,39.534,25.3
-codesearchnet,grokify/gotilla,fast,10,0.7500,0.1000,0.3500,0.3869,1.7134,46.444,54.610,55.631,56.447,46.444,21.5

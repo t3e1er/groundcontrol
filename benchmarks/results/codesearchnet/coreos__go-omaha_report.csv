@@ -1,5 +1,0 @@
-benchmark,repository,mode,k,mean_recall,mean_precision,mean_mrr,mean_ndcg,mean_score_separation,latency_p50_ms,latency_p90_ms,latency_p95_ms,latency_p99_ms,latency_mean_ms,qps
-codesearchnet,coreos/go-omaha,bm25,10,1.0000,0.1000,1.0000,1.0000,1.7492,6.882,7.000,7.015,7.026,6.899,144.9
-codesearchnet,coreos/go-omaha,binary,10,1.0000,0.1000,0.2000,0.3869,1.2500,0.422,0.423,0.423,0.423,0.417,2398.5
-codesearchnet,coreos/go-omaha,ppr,10,1.0000,0.1000,1.0000,1.0000,45.7500,5.155,5.668,5.732,5.784,5.009,199.6
-codesearchnet,coreos/go-omaha,fast,10,1.0000,0.1000,1.0000,1.0000,3.2770,11.352,13.484,13.751,13.964,11.429,87.5
