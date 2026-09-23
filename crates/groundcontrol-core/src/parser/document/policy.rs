@@ -1,74 +1,13 @@
-//! Markdown structure extraction using pulldown-cmark.
+//! Document chunk embedding policy.
 //!
-//! Extracts headings, sections, and structure for heading-aware chunking.
-
-use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
-
-/// A heading found in the markdown document.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Heading {
-    /// Heading level (1-6).
-    pub level: u8,
-    /// Text content of the heading.
-    pub text: String,
-    /// Byte offset where this heading starts in the source.
-    pub byte_offset: usize,
-}
-
-/// Extract all headings from markdown content.
-pub fn extract_headings(content: &str) -> Vec<Heading> {
-    let parser = Parser::new(content);
-    let mut headings = Vec::new();
-    let mut in_heading = false;
-    let mut current_level: u8 = 0;
-    let mut current_text = String::new();
-    let mut heading_offset: usize = 0;
-
-    for (event, range) in parser.into_offset_iter() {
-        match event {
-            Event::Start(Tag::Heading { level, .. }) => {
-                in_heading = true;
-                current_level = heading_level_to_u8(level);
-                current_text.clear();
-                heading_offset = range.start;
-            }
-            Event::End(TagEnd::Heading(_)) => {
-                in_heading = false;
-                headings.push(Heading {
-                    level: current_level,
-                    text: current_text.clone(),
-                    byte_offset: heading_offset,
-                });
-            }
-            Event::Text(text) if in_heading => {
-                current_text.push_str(&text);
-            }
-            Event::Code(code) if in_heading => {
-                current_text.push('`');
-                current_text.push_str(&code);
-                current_text.push('`');
-            }
-            _ => {}
-        }
-    }
-
-    headings
-}
-
-fn heading_level_to_u8(level: HeadingLevel) -> u8 {
-    match level {
-        HeadingLevel::H1 => 1,
-        HeadingLevel::H2 => 2,
-        HeadingLevel::H3 => 3,
-        HeadingLevel::H4 => 4,
-        HeadingLevel::H5 => 5,
-        HeadingLevel::H6 => 6,
-    }
-}
+//! Classifies whether a document chunk should receive a dense neural vector embedding (Anchor)
+//! or be indexed solely via BM25 lexical search and graph edges (GraphOnly).
+//!
+//! Applies uniformly across all document formats (Markdown, HTML, Word, PDF).
 
 use groundcontrol_common::types::ChunkEmbedPolicy;
 
-/// Classify whether a markdown chunk should receive a dense vector embedding (Anchor)
+/// Classify whether a document chunk should receive a dense vector embedding (Anchor)
 /// or be indexed solely via BM25 lexical search and graph edges (GraphOnly).
 ///
 /// Under Option 2 V2 Anchor Policy:
@@ -80,9 +19,9 @@ use groundcontrol_common::types::ChunkEmbedPolicy;
 ///   - Repetitive changelogs and release notes (e.g. `RELEASES.md`, `CHANGELOG.md` chunks > 0).
 ///   - Deep subsection paragraphs (H3, H4, H5, H6).
 ///   - Continuation sub-chunks under an H2 (subsequent paragraphs of a split section).
-///   - Table-heavy blocks (predominantly markdown tables).
+///   - Table-heavy blocks (predominantly markdown/html/docx tables).
 ///   - Raw bullet lists (predominantly `- `, `* `, `+ `, or numbered list items).
-pub fn classify_markdown_chunk(
+pub fn classify_document_chunk(
     doc_path: &str,
     chunk_index: usize,
     heading_level: usize,
@@ -167,8 +106,8 @@ pub fn classify_markdown_chunk(
 }
 
 /// Helper to detect if a chunk consists predominantly (> 60% of non-empty lines)
-/// of markdown table rows (`|`) or list items (`- `, `* `, `+ `, `1. `).
-fn is_predominantly_list_or_table(text: &str) -> bool {
+/// of table rows (`|`) or list items (`- `, `* `, `+ `, `1. `).
+pub fn is_predominantly_list_or_table(text: &str) -> bool {
     let mut non_empty_lines = 0;
     let mut list_or_table_lines = 0;
 
@@ -184,7 +123,7 @@ fn is_predominantly_list_or_table(text: &str) -> bool {
             || trimmed.starts_with("* ")
             || trimmed.starts_with("+ ")
             || (trimmed.len() > 2
-                && trimmed.chars().next().map_or(false, |c| c.is_ascii_digit())
+                && trimmed.chars().next().is_some_and(|c| c.is_ascii_digit())
                 && trimmed.contains(". "))
         {
             list_or_table_lines += 1;
@@ -203,23 +142,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn extracts_headings() {
-        let content = "# Title\n\nParagraph.\n\n## Section A\n\nContent.\n\n### Sub B\n";
-        let headings = extract_headings(content);
-        assert_eq!(headings.len(), 3);
-        assert_eq!(headings[0].level, 1);
-        assert_eq!(headings[0].text, "Title");
-        assert_eq!(headings[1].level, 2);
-        assert_eq!(headings[1].text, "Section A");
-        assert_eq!(headings[2].level, 3);
-        assert_eq!(headings[2].text, "Sub B");
-    }
-
-    #[test]
-    fn test_classify_markdown_chunk_changelogs() {
+    fn test_classify_document_chunk_changelogs() {
         // RELEASES.md chunk 0 is Anchor
         assert_eq!(
-            classify_markdown_chunk(
+            classify_document_chunk(
                 "RELEASES.md",
                 0,
                 1,
@@ -234,7 +160,7 @@ mod tests {
         // RELEASES.md chunks > 0 are GraphOnly
         for i in 1..10 {
             assert_eq!(
-                classify_markdown_chunk(
+                classify_document_chunk(
                     "RELEASES.md",
                     i,
                     2,
@@ -249,9 +175,9 @@ mod tests {
     }
 
     #[test]
-    fn test_classify_markdown_chunk_adrs() {
+    fn test_classify_document_chunk_adrs() {
         assert_eq!(
-            classify_markdown_chunk(
+            classify_document_chunk(
                 "docs/adr/0001-record-format.md",
                 1,
                 2,
@@ -265,10 +191,10 @@ mod tests {
     }
 
     #[test]
-    fn test_classify_markdown_chunk_h2_and_deep_subsections() {
+    fn test_classify_document_chunk_h2_and_deep_subsections() {
         // H1 Title is Anchor
         assert_eq!(
-            classify_markdown_chunk(
+            classify_document_chunk(
                 "guide.md",
                 0,
                 1,
@@ -282,7 +208,7 @@ mod tests {
 
         // Top-level H2 prose section is Anchor
         assert_eq!(
-            classify_markdown_chunk(
+            classify_document_chunk(
                 "guide.md",
                 1,
                 2,
@@ -296,7 +222,7 @@ mod tests {
 
         // Continuation chunk in H2 is GraphOnly
         assert_eq!(
-            classify_markdown_chunk(
+            classify_document_chunk(
                 "guide.md",
                 2,
                 2,
@@ -310,7 +236,7 @@ mod tests {
 
         // Deep subsection H3 is GraphOnly
         assert_eq!(
-            classify_markdown_chunk(
+            classify_document_chunk(
                 "guide.md",
                 3,
                 3,
@@ -324,7 +250,7 @@ mod tests {
 
         // Table-heavy block in H2 is GraphOnly
         assert_eq!(
-            classify_markdown_chunk(
+            classify_document_chunk(
                 "guide.md",
                 4,
                 2,
@@ -338,7 +264,7 @@ mod tests {
 
         // List-heavy block in H2 is GraphOnly
         assert_eq!(
-            classify_markdown_chunk(
+            classify_document_chunk(
                 "guide.md",
                 5,
                 2,

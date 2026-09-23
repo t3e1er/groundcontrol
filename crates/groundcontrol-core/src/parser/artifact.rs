@@ -103,9 +103,12 @@ impl ArtifactParser {
     ) -> Result<ParsedArtifact> {
         let content = String::from_utf8_lossy(bytes).into_owned();
         let path = Path::new(rel_path);
-        let doc = crate::parser::parse_document(path, &content)?;
-        let chunks =
-            crate::parser::chunker::chunk_document(rel_path, &doc.content, chunking_config);
+        let doc = crate::parser::document::markdown::parse_document(path, &content)?;
+        let chunks = crate::parser::document::chunker::chunk_document(
+            rel_path,
+            &doc.content,
+            chunking_config,
+        );
 
         let title = doc.title.clone();
         Ok(ParsedArtifact {
@@ -135,7 +138,7 @@ impl ArtifactParser {
     ) -> Result<ParsedArtifact> {
         let registry = DocumentExtractorRegistry::new();
         let extracted = registry.extract(full_path, fmt, bytes)?;
-        let chunks = crate::parser::chunker::chunk_document(
+        let chunks = crate::parser::document::chunker::chunk_document(
             rel_path,
             &extracted.normalized_text,
             chunking_config,
@@ -146,7 +149,7 @@ impl ArtifactParser {
             frontmatter: None,
             title: extracted.title.clone(),
             tags: Vec::new(),
-            wikilinks: Vec::new(),
+            links: extracted.outbound_links.clone(),
             template: None,
             content: extracted.normalized_text.clone(),
             content_hash: hash.clone(),

@@ -18,7 +18,7 @@ pub fn chunk_document(doc_path: &str, body: &str, config: &ChunkingConfig) -> Ve
         ChunkingStrategy::Paragraph => {
             let mut chunks = chunk_by_paragraph(doc_path, body, config);
             for (idx, c) in chunks.iter_mut().enumerate() {
-                c.embed_policy = super::markdown::classify_markdown_chunk(
+                c.embed_policy = super::policy::classify_document_chunk(
                     doc_path,
                     idx,
                     if idx == 0 { 1 } else { 3 },
@@ -33,7 +33,7 @@ pub fn chunk_document(doc_path: &str, body: &str, config: &ChunkingConfig) -> Ve
         ChunkingStrategy::Semantic => {
             let mut chunks = chunk_by_semantic(doc_path, body, config);
             for (idx, c) in chunks.iter_mut().enumerate() {
-                c.embed_policy = super::markdown::classify_markdown_chunk(
+                c.embed_policy = super::policy::classify_document_chunk(
                     doc_path,
                     idx,
                     if idx == 0 { 1 } else { 3 },
@@ -48,7 +48,7 @@ pub fn chunk_document(doc_path: &str, body: &str, config: &ChunkingConfig) -> Ve
         ChunkingStrategy::Fixed => {
             let mut chunks = chunk_by_fixed(doc_path, body, config);
             for (idx, c) in chunks.iter_mut().enumerate() {
-                c.embed_policy = super::markdown::classify_markdown_chunk(
+                c.embed_policy = super::policy::classify_document_chunk(
                     doc_path,
                     idx,
                     if idx == 0 { 1 } else { 3 },
@@ -61,7 +61,7 @@ pub fn chunk_document(doc_path: &str, body: &str, config: &ChunkingConfig) -> Ve
             chunks
         }
         ChunkingStrategy::CodeAst => {
-            if let Some(res) = super::code::CodeChunker::parse_and_chunk(
+            if let Some(res) = crate::parser::code::CodeChunker::parse_and_chunk(
                 std::path::Path::new(doc_path),
                 body,
                 config,
@@ -234,7 +234,7 @@ fn chunk_by_heading(doc_path: &str, body: &str, config: &ChunkingConfig) -> Vec<
 
             let trimmed = merged_text.trim();
             if trimmed.len() >= min_chars {
-                let policy = super::markdown::classify_markdown_chunk(
+                let policy = super::policy::classify_document_chunk(
                     doc_path,
                     chunks.len(),
                     section.level,
@@ -261,7 +261,7 @@ fn chunk_by_heading(doc_path: &str, body: &str, config: &ChunkingConfig) -> Vec<
             for (sub_i, sub_text) in sub_chunks.into_iter().enumerate() {
                 let trimmed = sub_text.text.trim();
                 if trimmed.len() >= min_chars {
-                    let policy = super::markdown::classify_markdown_chunk(
+                    let policy = super::policy::classify_document_chunk(
                         doc_path,
                         chunks.len(),
                         section.level,
@@ -289,7 +289,7 @@ fn chunk_by_heading(doc_path: &str, body: &str, config: &ChunkingConfig) -> Vec<
                         last.text.push_str(trimmed);
                         last.end_byte = section.end_byte;
                     } else {
-                        let policy = super::markdown::classify_markdown_chunk(
+                        let policy = super::policy::classify_document_chunk(
                             doc_path,
                             chunks.len(),
                             section.level,
@@ -311,7 +311,7 @@ fn chunk_by_heading(doc_path: &str, body: &str, config: &ChunkingConfig) -> Vec<
                         );
                     }
                 } else {
-                    let policy = super::markdown::classify_markdown_chunk(
+                    let policy = super::policy::classify_document_chunk(
                         doc_path,
                         chunks.len(),
                         section.level,

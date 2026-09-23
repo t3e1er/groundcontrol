@@ -1,11 +1,12 @@
-﻿//! Wikilink extraction from markdown content.
+//! Cross-reference link extraction from markdown content.
 //!
-//! Supports both `[[target]]` and `[[target|alias]]` syntax.
+//! Extracts `[[target]]`, `[[target|alias]]`, and standard `[label](target)` links
+//! into canonical [`DocLink`] records.
 
-use groundcontrol_common::types::WikiLink;
+use groundcontrol_common::types::DocLink;
 
-/// Extract all wikilinks from markdown content.
-pub fn extract_all(content: &str) -> Vec<WikiLink> {
+/// Extract all document links from markdown content.
+pub fn extract_all(content: &str) -> Vec<DocLink> {
     let mut links = Vec::new();
     let mut chars = content.char_indices().peekable();
 
@@ -26,7 +27,7 @@ pub fn extract_all(content: &str) -> Vec<WikiLink> {
 }
 
 /// Parse a wikilink starting after the opening `[[`.
-fn parse_wikilink_at(content: &str) -> Option<WikiLink> {
+fn parse_wikilink_at(content: &str) -> Option<DocLink> {
     let end = content.find("]]")?;
     let inner = &content[..end];
 
@@ -38,10 +39,10 @@ fn parse_wikilink_at(content: &str) -> Option<WikiLink> {
     // Check for alias: [[target|alias]]
     if let Some(pipe_pos) = inner.find('|') {
         let target = inner[..pipe_pos].trim().to_string();
-        let alias = inner[pipe_pos + 1..].trim().to_string();
-        Some(WikiLink { target, alias: if alias.is_empty() { None } else { Some(alias) } })
+        let label = inner[pipe_pos + 1..].trim().to_string();
+        Some(DocLink { target, label: if label.is_empty() { None } else { Some(label) } })
     } else {
-        Some(WikiLink { target: inner.trim().to_string(), alias: None })
+        Some(DocLink { target: inner.trim().to_string(), label: None })
     }
 }
 
@@ -54,7 +55,7 @@ mod tests {
         let links = extract_all("See [[my-note]] for details.");
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].target, "my-note");
-        assert_eq!(links[0].alias, None);
+        assert_eq!(links[0].label, None);
     }
 
     #[test]
@@ -62,7 +63,7 @@ mod tests {
         let links = extract_all("Check [[path/to/note|the note]] here.");
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].target, "path/to/note");
-        assert_eq!(links[0].alias, Some("the note".to_string()));
+        assert_eq!(links[0].label, Some("the note".to_string()));
     }
 
     #[test]

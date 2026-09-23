@@ -14,7 +14,7 @@ pub fn extract(content: &str) -> Option<Value> {
 
     let after_opening = &content[3..];
     let end_pos = after_opening.find("\n---")?;
-    let yaml_str = &after_opening[..end_pos].trim();
+    let yaml_str = after_opening[..end_pos].trim();
 
     // Parse YAML into a JSON Value for uniform handling
     serde_yaml::from_str(yaml_str).ok()

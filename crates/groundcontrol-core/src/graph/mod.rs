@@ -417,7 +417,7 @@ impl KnowledgeGraph {
 
     fn build_wikilink_edges(&mut self, doc: &Document, config: &EdgeTypeConfig) {
         let class = config.class.unwrap_or_else(|| EdgeClass::infer_from_source(&config.source));
-        for wikilink in &doc.wikilinks {
+        for wikilink in &doc.links {
             self.add_edge(
                 &doc.path,
                 &wikilink.target,

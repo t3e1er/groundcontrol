@@ -289,7 +289,7 @@ impl Engine {
 
             if !tag_configs.is_empty() && !doc.tags.is_empty() {
                 doc.content.clear();
-                doc.wikilinks.clear();
+                doc.links.clear();
                 all_docs.push(doc);
             }
         }
