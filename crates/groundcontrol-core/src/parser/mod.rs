@@ -1,11 +1,14 @@
 //! Markdown parsing: frontmatter extraction, wikilink detection, chunking.
 
+pub mod artifact;
 pub mod chunker;
 pub mod code;
 pub mod document;
 pub mod frontmatter;
 pub mod markdown;
 pub mod wikilink;
+
+pub use artifact::ArtifactParser;
 
 use groundcontrol_common::types::Document;
 use groundcontrol_common::Result;

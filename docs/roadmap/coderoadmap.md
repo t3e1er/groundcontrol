@@ -334,7 +334,7 @@ Branch `feature/treesitter-expansion-and-lsp` expands code intelligence to **47 
 
 #### Key Capabilities Delivered
 1. **Declarative `LanguageSpec` Architecture**:
-   Unified declarative table in `crates/groundcontrol-core/src/parser/code/spec.rs` mapping AST node kinds to `CodeSymbolType`, call expressions, and scope breadcrumbs across all 47 languages.
+   Unified declarative specifications modularized across language families in [`crates/groundcontrol-core/src/parser/code/spec/`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/parser/code/spec/mod.rs) mapping AST node kinds to `CodeSymbolType`, call expressions, and scope breadcrumbs across all 47 languages.
 2. **In-Engine Pure-Rust "Hybrid LSP"**:
    Zero-daemon static analysis engine with `TypeEnvironment` variable tracking and receiver method call disambiguation (`x.method()` $\to$ `Type::method`), upgrading graph call edges from `Speculative` to `ResolutionConfidence::High` in sub-millisecond time.
 3. **Offline SCIP Protobuf Index Ingestion**:

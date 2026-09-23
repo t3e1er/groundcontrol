@@ -137,7 +137,7 @@ flowchart TD
    - When running pure algorithmic evaluation (`bm25,binary,ppr,fast`), `IndexMode::Fast` is automatically selected.
    - Bypasses ONNX embedder allocation, DirectML tensor inference, and HNSW graph reconstruction from `vectors.bin` (reducing large repository evaluation times from 9+ minutes down to 1.28 seconds on `astropy`).
 5. **Stage A Parallelization & SQLite Batching**:
-   - Static SIF binary fingerprint projections ([`SifEngine`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/sif.rs)) execute in parallel across worker threads in Stage A ([`parse_file_record`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/engine.rs)).
+   - Static SIF binary fingerprint projections ([`SifEngine`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/sif.rs)) execute in parallel across worker threads in Stage A ([`ArtifactParser`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/parser/artifact.rs)).
    - Ingestion writes are batched in memory and wrapped in explicit SQLite transactions ([`Store::begin_batch`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/persistence/mod.rs) / [`Store::commit_batch`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/persistence/mod.rs)), eliminating per-file disk sync bottlenecks.
 6. **Standard Manifest & Committed Fixtures**:
    - The declarative benchmark manifest ([`benchmarks/manifest.toml`](file:///c:/dev/ctx/groundcontrol/benchmarks/manifest.toml)) maps each benchmark suite to target repositories and curated, version-controlled reference fixtures under `benchmarks/data/` (`swe_bench.json`, `codesearchnet.json`, `repobench.json`).
