@@ -1,5 +1,6 @@
 //! Core domain types shared across crates.
 
+pub mod artifact;
 pub mod chunk;
 pub mod code;
 pub mod document;
@@ -8,6 +9,7 @@ pub mod graph;
 pub mod indexing;
 pub mod search;
 
+pub use artifact::*;
 pub use chunk::*;
 pub use code::*;
 pub use document::*;

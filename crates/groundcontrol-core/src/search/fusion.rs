@@ -33,20 +33,28 @@ pub fn enrich_results_with_lineage(results: &mut [SearchResult], graph: &impl Gr
     }
 }
 
-/// Reciprocal Rank Fusion: merges multiple ranked lists into one.
+/// Reciprocal Rank Fusion: merges multiple ranked lists into one using default k = 60.0.
 ///
-/// RRF score = sum over all lists of: 1 / (k + rank_in_list)
-/// where k = 60 (standard constant from the RRF paper).
+/// RRF score = sum over all lists of: 1 / (60 + rank_in_list).
 pub fn rrf_fuse(result_lists: &[&[SearchResult]], limit: usize) -> Vec<SearchResult> {
-    const K: f64 = 60.0;
+    rrf_fuse_with_k(result_lists, limit, 60.0)
+}
 
+/// Reciprocal Rank Fusion: merges multiple ranked lists into one with a configurable `k` constant.
+///
+/// RRF score = sum over all lists of: 1 / (k + rank_in_list).
+pub fn rrf_fuse_with_k(
+    result_lists: &[&[SearchResult]],
+    limit: usize,
+    k: f64,
+) -> Vec<SearchResult> {
     // Accumulate RRF scores per document path.
     let mut rrf_scores: HashMap<String, (f64, Option<String>, Option<usize>, ScoreBreakdown)> =
         HashMap::new();
 
     for list in result_lists {
         for (rank, result) in list.iter().enumerate() {
-            let rrf_contribution = 1.0 / (K + rank as f64 + 1.0);
+            let rrf_contribution = 1.0 / (k + rank as f64 + 1.0);
 
             let entry = rrf_scores.entry(result.path.clone()).or_insert_with(|| {
                 (

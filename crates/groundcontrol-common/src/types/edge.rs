@@ -84,6 +84,30 @@ pub struct Edge {
     pub target_kind: Option<String>,
 }
 
+impl Edge {
+    /// Create a standard intra-corpus edge.
+    pub fn new(
+        source: impl Into<String>,
+        target: impl Into<String>,
+        edge_type: impl Into<String>,
+        weight: f32,
+        provenance: EdgeProvenance,
+    ) -> Self {
+        Self {
+            source: source.into(),
+            target: target.into(),
+            edge_type: edge_type.into(),
+            weight,
+            provenance,
+            target_corpus: None,
+            confidence: None,
+            target_path: None,
+            target_symbol: None,
+            target_kind: None,
+        }
+    }
+}
+
 /// How an edge came into existence.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]

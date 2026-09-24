@@ -1,5 +1,0 @@
-benchmark,repository,mode,k,mean_recall,mean_precision,mean_mrr,mean_ndcg,mean_score_separation,latency_p50_ms,latency_p90_ms,latency_p95_ms,latency_p99_ms,latency_mean_ms,qps
-repobench,Meituan-AutoML/MobileVLM,bm25,10,1.0000,0.1000,1.0000,1.0000,1.9024,10.746,10.746,10.746,10.746,10.746,93.1
-repobench,Meituan-AutoML/MobileVLM,binary,10,1.0000,0.1000,0.2500,0.4307,1.1905,1.661,1.661,1.661,1.661,1.661,602.0
-repobench,Meituan-AutoML/MobileVLM,ppr,10,1.0000,0.1000,1.0000,1.0000,20.0489,10.626,10.626,10.626,10.626,10.626,94.1
-repobench,Meituan-AutoML/MobileVLM,fast,10,1.0000,0.1000,1.0000,1.0000,1.8139,16.857,16.857,16.857,16.857,16.857,59.3

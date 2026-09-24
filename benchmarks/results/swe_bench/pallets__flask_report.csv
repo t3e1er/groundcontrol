@@ -1,5 +1,0 @@
-benchmark,repository,mode,k,mean_recall,mean_precision,mean_mrr,mean_ndcg,mean_score_separation,latency_p50_ms,latency_p90_ms,latency_p95_ms,latency_p99_ms,latency_mean_ms,qps
-swe_bench,pallets/flask,bm25,10,0.3333,0.0333,0.3333,0.3333,1.4592,28.118,30.321,30.597,30.817,24.979,40.0
-swe_bench,pallets/flask,binary,10,0.6667,0.0667,0.1944,0.3102,1.0909,5.853,5.916,5.924,5.931,4.300,232.6
-swe_bench,pallets/flask,ppr,10,0.6667,0.0667,0.4167,0.4769,14.0906,27.310,30.243,30.610,30.903,24.579,40.7
-swe_bench,pallets/flask,fast,10,0.6667,0.0667,0.4167,0.4769,1.7224,38.220,41.802,42.250,42.608,35.385,28.3

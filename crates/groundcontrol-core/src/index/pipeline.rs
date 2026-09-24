@@ -33,43 +33,12 @@ use crossbeam_channel::{bounded, unbounded, Receiver, RecvTimeoutError, Sender};
 
 use crate::{embedding::Embedder, engine::PendingChunk, vector_index::VectorIndex};
 
-use groundcontrol_common::{
-    types::{Chunk, CodeSymbol, Document, Edge, ExternalRef, FileFormat, FingerprintRecord},
-    Error, Result,
-};
+use groundcontrol_common::{types::Edge, Error, Result};
 
 /// Structural graph edge produced during AST code extraction or markdown linking.
 pub type ASTEdge = Edge;
 
-/// A parsed file record produced by the Stage A parallel parsing pool.
-#[derive(Debug, Clone)]
-pub struct ParsedFileRecord {
-    /// Relative path within the corpus.
-    pub path: String,
-    /// Blake3 content hash.
-    pub hash: String,
-    /// Extracted pending chunks staged for vector embedding.
-    pub chunks: Vec<PendingChunk>,
-    /// Syntactic chunks used for BM25 indexing and SQLite chunk persistence.
-    pub raw_chunks: Vec<Chunk>,
-    /// Extracted code symbols (empty for markdown notes).
-    pub symbols: Vec<CodeSymbol>,
-    /// Parsed markdown document metadata (if markdown).
-    pub doc_metadata: Option<Document>,
-    /// Extracted structural code or markdown edges.
-    pub graph_edges: Vec<ASTEdge>,
-    /// Unresolved call/import targets captured for later cross-corpus resolution
-    /// (empty for markdown notes).
-    pub external_refs: Vec<ExternalRef>,
-    /// Pre-projected 256-bit binary fingerprints for symbols and chunks.
-    pub fingerprints: Vec<FingerprintRecord>,
-    /// Whether the file is a source code file.
-    pub is_code: bool,
-    /// Format of the file (native source or projected document).
-    pub format: FileFormat,
-    /// Optional synthesized projection text to write to `.index/projections/<path>.txt`.
-    pub projection_text: Option<String>,
-}
+pub use groundcontrol_common::types::ParsedArtifact;
 
 /// A pre-tokenized and padded batch of chunks staged in contiguous host memory arrays.
 pub struct StagedBatch {

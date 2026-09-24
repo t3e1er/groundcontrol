@@ -205,3 +205,56 @@ pub struct ExternalRef {
     /// [`ResolutionConfidence::Speculative`] at capture time).
     pub confidence: ResolutionConfidence,
 }
+
+/// Extracted structural semantic signals from AST grammar.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ExtractedGrammarSemantics {
+    /// Channel 0: Interface and declaration tokens (symbol name, parameter names, types).
+    pub interface_tokens: Vec<WeightedToken>,
+    /// Channel 1: Outbound API calls and invocations.
+    pub api_tokens: Vec<WeightedToken>,
+    /// Channel 2: Def-Use data flow paths (parameter flow to arguments, returns, and conditions).
+    pub dataflow_paths: Vec<DataFlowPath>,
+    /// Channel 3: Structural AST grammar transition bigrams and complexity profile.
+    pub grammar_transitions: Vec<GrammarTransition>,
+}
+
+/// A weighted semantic token with structural tree-depth attenuation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WeightedToken {
+    /// The token text.
+    pub text: String,
+    /// Structural depth weight: `1.0 / sqrt(1.0 + depth)`.
+    pub weight: f32,
+}
+
+/// A data-flow def-use path linking a declared parameter to an internal sink.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct DataFlowPath {
+    /// Parameter identifier name.
+    pub source_param: String,
+    /// Destination sink kind.
+    pub sink: DataFlowSink,
+}
+
+/// Destination sink in intra-symbol def-use chains.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum DataFlowSink {
+    /// Parameter passed as an argument into an outbound callee.
+    Call(String),
+    /// Parameter returned from the function.
+    Return,
+    /// Parameter evaluated within a conditional branch or loop condition.
+    Condition,
+}
+
+/// A structural parent-child grammar rule transition.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct GrammarTransition {
+    /// Tree-sitter node kind of the parent.
+    pub parent_kind: String,
+    /// Tree-sitter node kind of the child.
+    pub child_kind: String,
+    /// Relative tree depth.
+    pub depth: u16,
+}

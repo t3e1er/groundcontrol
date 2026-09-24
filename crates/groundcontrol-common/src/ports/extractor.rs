@@ -3,16 +3,11 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use crate::types::DocLink;
 use crate::Result;
 
-/// An outbound cross-reference link extracted from a rich document.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DocumentLink {
-    /// Target path or URI referenced by the link.
-    pub target: String,
-    /// Optional anchor or label text associated with the link.
-    pub label: Option<String>,
-}
+/// An outbound cross-reference link extracted from a rich document (canonical `DocLink`).
+pub type DocumentLink = DocLink;
 
 /// Structured document extracted from a rich document container (.docx, .pdf, .html).
 #[derive(Debug, Clone)]

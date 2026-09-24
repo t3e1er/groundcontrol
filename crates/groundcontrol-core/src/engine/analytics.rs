@@ -250,7 +250,7 @@ impl Engine {
         queries: &[&str],
         top_k: usize,
     ) -> Result<Option<Vec<crate::analytics::SemanticGap>>> {
-        let vector_index = match self.vector_index.as_ref() {
+        let vector_index = match self.vector_index() {
             Some(vi) => vi,
             None => {
                 return Err(Error::Index(

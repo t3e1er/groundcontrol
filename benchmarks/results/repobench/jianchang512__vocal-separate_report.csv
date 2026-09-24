@@ -1,5 +1,0 @@
-benchmark,repository,mode,k,mean_recall,mean_precision,mean_mrr,mean_ndcg,mean_score_separation,latency_p50_ms,latency_p90_ms,latency_p95_ms,latency_p99_ms,latency_mean_ms,qps
-repobench,jianchang512/vocal-separate,bm25,10,1.0000,0.1000,1.0000,1.0000,3.1144,6.798,6.798,6.798,6.798,6.798,147.1
-repobench,jianchang512/vocal-separate,binary,10,1.0000,0.1000,0.3333,0.5000,1.3750,1.951,1.951,1.951,1.951,1.951,512.6
-repobench,jianchang512/vocal-separate,ppr,10,1.0000,0.1000,1.0000,1.0000,43.9504,7.931,7.931,7.931,7.931,7.931,126.1
-repobench,jianchang512/vocal-separate,fast,10,1.0000,0.1000,1.0000,1.0000,3.2951,9.754,9.754,9.754,9.754,9.754,102.5

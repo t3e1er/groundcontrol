@@ -1,12 +1,18 @@
-//! Rich document extraction subsystem for Word, PDF, and HTML.
+//! Document extraction subsystem: chunking, embed policy, and format extractors (Markdown, HTML, Word, PDF).
 
+pub mod chunker;
 pub mod docx;
 pub mod html;
+pub mod markdown;
 pub mod pdf;
+pub mod policy;
 
+pub use chunker::chunk_document;
 pub use docx::DocxExtractor;
 pub use html::HtmlDocExtractor;
+pub use markdown::parse_document;
 pub use pdf::PdfExtractor;
+pub use policy::classify_document_chunk;
 
 use std::path::Path;
 
@@ -40,13 +46,18 @@ impl DocumentExtractorRegistry {
             FileFormat::Docx => self.docx.extract(path, bytes),
             FileFormat::Pdf => self.pdf.extract(path, bytes),
             FileFormat::Source => {
-                // For native source/markdown, wrap into an ExtractedDocument
-                let text = String::from_utf8_lossy(bytes).into_owned();
+                // For native source/markdown, delegate to markdown parser
+                let text = String::from_utf8_lossy(bytes);
+                let doc = markdown::parse_document(path, &text)?;
+                let mut metadata = std::collections::HashMap::new();
+                if let Some(ref title) = doc.title {
+                    metadata.insert("title".to_string(), title.clone());
+                }
                 Ok(ExtractedDocument {
-                    title: None,
-                    metadata: std::collections::HashMap::new(),
-                    normalized_text: text,
-                    outbound_links: Vec::new(),
+                    title: doc.title,
+                    metadata,
+                    normalized_text: doc.content,
+                    outbound_links: doc.links,
                 })
             }
         }

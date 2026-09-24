@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// A unique identifier for a document (note) within a corpus.
 pub type DocId = String;
 
-/// A parsed markdown document with extracted metadata.
+/// A parsed document with extracted metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {
     /// Relative path within the corpus.
@@ -16,24 +16,48 @@ pub struct Document {
     pub title: Option<String>,
     /// Extracted tags (from frontmatter and inline #tags).
     pub tags: Vec<String>,
-    /// Wikilinks found in the content.
-    pub wikilinks: Vec<WikiLink>,
+    /// Outbound cross-references to other documents.
+    #[serde(alias = "wikilinks")]
+    pub links: Vec<DocLink>,
     /// The template this note declares (from frontmatter `template:` field).
     pub template: Option<String>,
-    /// Raw markdown content (without frontmatter block).
+    /// Raw markdown or normalized content (without frontmatter block).
     pub content: String,
     /// Content hash for change detection.
     pub content_hash: String,
 }
 
-/// A wikilink reference found in a document.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WikiLink {
-    /// The target path or name (what's inside the `[[...]]`).
-    pub target: String,
-    /// Optional display alias (from `[[target|alias]]`).
-    pub alias: Option<String>,
+impl Document {
+    /// Outbound cross-references found in the document (backwards-compatible alias).
+    pub fn wikilinks(&self) -> &[DocLink] {
+        &self.links
+    }
 }
+
+/// A cross-reference link found within a document (wikilink, markdown link, HTML anchor, or Office hyperlink).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DocLink {
+    /// The target path, anchor, or URI.
+    pub target: String,
+    /// Optional display label, alias, or anchor text.
+    #[serde(default, alias = "alias")]
+    pub label: Option<String>,
+}
+
+impl DocLink {
+    /// Create a new document cross-reference link.
+    pub fn new(target: impl Into<String>, label: Option<String>) -> Self {
+        Self { target: target.into(), label }
+    }
+
+    /// Access the display label or alias.
+    pub fn alias(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+}
+
+/// Backwards-compatible alias for existing signatures.
+pub type WikiLink = DocLink;
 
 /// Format/nature of a tracked file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

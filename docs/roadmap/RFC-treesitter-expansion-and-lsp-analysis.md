@@ -237,7 +237,7 @@ Instead of running heavy daemons dynamically:
 timeline
     title Strategic Implementation Roadmap
     section Tier 1 : Pure Rust Crates & In-Engine LSP (Delivered)
-        Declarative LanguageSpec : spec.rs unified declarative symbol mapping
+        Declarative LanguageSpec : spec/ modular declarative symbol mapping
         47 Language Support : 47 languages across official tree-sitter crates
         Pure-Rust Hybrid LSP : TypeEnvironment & receiver method resolution
         SCIP Ingestion : Direct protobuf ingestion via Engine::ingest_scip
@@ -251,7 +251,7 @@ timeline
 
 ### 7.1 Tier 1: Declarative Specs, 47 Languages, Hybrid LSP & SCIP (Delivered)
 1. **Declarative `LanguageSpec` Architecture**:
-   Unified declarative table in [`crates/groundcontrol-core/src/parser/code/spec.rs`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/parser/code/spec.rs) covering 47 programming and config languages.
+   Unified declarative specifications modularized across language families in [`crates/groundcontrol-core/src/parser/code/spec/`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/parser/code/spec/mod.rs) covering 47 programming and config languages.
 2. **Grammar Expansion**:
    Expanded from 15 to **47 supported languages** across systems, web, scripting, functional, cloud/infra, and schema domains.
 3. **In-Engine Pure-Rust Hybrid LSP**:

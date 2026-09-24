@@ -1362,25 +1362,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "groundcontrol-bench"
-version = "0.2.0"
-dependencies = [
- "clap",
- "groundcontrol-common",
- "groundcontrol-core",
- "rayon",
- "serde",
- "serde_json",
- "sysinfo",
- "tempfile",
- "thiserror 2.0.20",
- "tokio",
- "toml",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "groundcontrol-cli"
 version = "0.2.0"
 dependencies = [

@@ -1,9 +1,9 @@
 ---
 title: "Retrieval & Indexing Data Science Benchmark Harness"
-description: "Architecture, metrics, resource profiling, and usage guide for the dedicated `groundcontrol-bench` workspace crate and CLI (`gc-bench`)."
+description: "Architecture, metrics, resource profiling, and two-tier evaluation model across `groundcontrol-core` and `groundtruth`."
 category: "concepts"
 status: "implemented"
-tags: ["benchmarks", "data-science", "retrieval", "metrics", "ndcg", "mrr", "profiling", "latency", "memory"]
+tags: ["benchmarks", "data-science", "retrieval", "metrics", "ndcg", "mrr", "profiling", "latency", "groundtruth"]
 related:
   - "[[docs/index]]"
   - "[[docs/roadmap/coderoadmap]]"
@@ -13,17 +13,26 @@ related:
 
 # Retrieval & Indexing Data Science Benchmark Harness
 
-`groundcontrol-bench` is a dedicated workspace crate and command-line harness (`gc-bench`) engineered for empirical Information Retrieval (IR) evaluation, algorithmic ablation, and indexing resource profiling across Markdown notes and polyglot codebases.
+Benchmarking and Information Retrieval (IR) evaluation in the `groundcontrol` ecosystem follow a **Two-Tier Architecture**:
+
+1. **`groundcontrol-core::algorithm::eval` & `gc-algo` CLI**:
+   - In-process algorithmic evaluation substrate located in [`crates/groundcontrol-core/src/algorithm/eval/`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/algorithm/eval/) and standalone CLI in [`crates/groundcontrol-cli/src/bin/gc_algo.rs`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-cli/src/bin/gc_algo.rs).
+   - Exposes every retrieval algorithm (`binary`, `bm25`, `ppr`, `fast`, `semantic`, `hybrid`) as an independently callable library function without MCP or subprocess overhead.
+   - Provides runtime variant ablation knobs (`FlatSif` vs `PartitionedHyperplane`).
+
+2. **`groundtruth` (`gt` Evaluation Harness)**:
+   - Decoupled academic evaluation suite located in [`groundtruth`](file:///c:/dev/semantic/groundtruth).
+   - Evaluates algorithm variants in serial (`gt ablate`) via direct Cargo path dependency on `groundcontrol-core` (`AlgoBackend`).
+   - Evaluates system-level multi-agent workflows (`gt run`) via stdio JSON-RPC against the production MCP server (`McpBackend`).
 
 ---
 
 ## 1. Architectural Principles & Isolation
 
-1. **Zero Production Bloat**: Benchmarking datasets, ground-truth judgments (QRELS), statistical evaluators, and reporting exporters are isolated inside `crates/groundcontrol-bench`. Production binaries ([`groundcontrol-cli`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-cli) and [`groundcontrol-mcp`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-mcp)) remain lightweight and fast.
-2. **Direct Engine & Port Access**: Rather than invoking the MCP JSON-RPC transport, `gc-bench` interacts directly with core engine ports ([`MetadataCatalog`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`TextIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`AlgorithmicSearchIndex`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`GraphStore`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs), [`SearchService`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/ports.rs)) for zero-overhead micro-benchmarking and precise latency timing.
-3. **Dual Surface (CLI + Reusable Library)**:
-   - **Library**: [`groundcontrol_bench::*`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-bench/src/lib.rs) provides reusable profiling and IR calculation tools for automated CI integration tests.
-   - **CLI Binary**: `gc-bench` provides subcommands (`index`, `eval`, `all`) for interactive experimentation and report generation.
+1. **Zero Production Bloat**: All benchmark datasets, query catalogs (CodeSearchNet, RepoBench, SWE-bench, OpenTelemetry demo), ground-truth qrels, and statistical significance tests live in `groundtruth`. Production `groundcontrol` binaries remain completely free of evaluation artifacts.
+2. **Direct In-Process Access for Micro-Ablation**: Rather than paying MCP JSON-RPC transport overhead (~80ms) when benchmarking algorithmic differences, `groundtruth`'s `AlgoBackend` makes direct Rust function calls into `groundcontrol-core` (~0µs overhead), ensuring jitter-free latency distributions.
+3. **Decoupled System Testing**: Multi-agent retrieval, tool dispatch, and Turn 1-3 progressive disclosure contracts are evaluated through the universal MCP interface.
+
 
 ---
 
@@ -128,7 +137,7 @@ flowchart TD
    - When running pure algorithmic evaluation (`bm25,binary,ppr,fast`), `IndexMode::Fast` is automatically selected.
    - Bypasses ONNX embedder allocation, DirectML tensor inference, and HNSW graph reconstruction from `vectors.bin` (reducing large repository evaluation times from 9+ minutes down to 1.28 seconds on `astropy`).
 5. **Stage A Parallelization & SQLite Batching**:
-   - Static SIF binary fingerprint projections ([`SifEngine`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/sif.rs)) execute in parallel across worker threads in Stage A ([`parse_file_record`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/engine.rs)).
+   - Static SIF binary fingerprint projections ([`SifEngine`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/search/sif.rs)) execute in parallel across worker threads in Stage A ([`ArtifactParser`](file:///c:/dev/semantic/groundcontrol/crates/groundcontrol-core/src/parser/artifact.rs)).
    - Ingestion writes are batched in memory and wrapped in explicit SQLite transactions ([`Store::begin_batch`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/persistence/mod.rs) / [`Store::commit_batch`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-core/src/persistence/mod.rs)), eliminating per-file disk sync bottlenecks.
 6. **Standard Manifest & Committed Fixtures**:
    - The declarative benchmark manifest ([`benchmarks/manifest.toml`](file:///c:/dev/ctx/groundcontrol/benchmarks/manifest.toml)) maps each benchmark suite to target repositories and curated, version-controlled reference fixtures under `benchmarks/data/` (`swe_bench.json`, `codesearchnet.json`, `repobench.json`).

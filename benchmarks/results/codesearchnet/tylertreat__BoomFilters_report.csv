@@ -1,5 +1,0 @@
-benchmark,repository,mode,k,mean_recall,mean_precision,mean_mrr,mean_ndcg,mean_score_separation,latency_p50_ms,latency_p90_ms,latency_p95_ms,latency_p99_ms,latency_mean_ms,qps
-codesearchnet,tylertreat/BoomFilters,bm25,10,1.0000,0.1000,1.0000,1.0000,1.5585,5.597,5.597,5.597,5.597,5.597,178.7
-codesearchnet,tylertreat/BoomFilters,binary,10,1.0000,0.1000,1.0000,1.0000,1.2000,0.561,0.561,0.561,0.561,0.561,1781.3
-codesearchnet,tylertreat/BoomFilters,ppr,10,1.0000,0.1000,1.0000,1.0000,21.6242,5.306,5.306,5.306,5.306,5.306,188.5
-codesearchnet,tylertreat/BoomFilters,fast,10,1.0000,0.1000,1.0000,1.0000,1.7210,7.972,7.972,7.972,7.972,7.972,125.4

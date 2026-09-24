@@ -38,3 +38,4 @@ All architectural design decisions in `groundcontrol` are formally recorded as *
 | **[[docs/architecture/adr/adr-018-file-skeleton-map-chunking]]** | File Skeleton Map Chunking for Skeleton Mode | Embedding Volume & Throughput |
 | **[[docs/architecture/adr/adr-019-file-level-rrf-fusion]]** | File-Level RRF Fusion Key for Code Search | Search Correctness & Signal Fusion |
 | **[[docs/architecture/adr/adr-020-lean-multiline-text-emission]]** | Lean Multiline Text Emission Protocol Across Progressive Disclosure Turns | Token Efficiency & MCP Wire Protocol |
+| **[[docs/architecture/adr/adr-021-modular-retrieval-algorithm-substrate]]** | Modular Retrieval Algorithm Substrate | Systems Architecture & Algorithmic Ablation |

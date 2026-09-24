@@ -28,6 +28,15 @@ impl BinaryFingerprint {
         BinaryFingerprint(bits)
     }
 
+    /// Channel 0: Interface and Declaration (symbol name, parameters, return types, docstrings).
+    pub const CHANNEL_INTERFACE: usize = 0;
+    /// Channel 1: API and Invocations (outbound callee targets, call dependencies).
+    pub const CHANNEL_API: usize = 1;
+    /// Channel 2: Def-Use Data Flow (parameter flow to arguments, returns, and conditions).
+    pub const CHANNEL_DATAFLOW: usize = 2;
+    /// Channel 3: Structural Control Grammar (AST grammar transitions, nesting depth profile).
+    pub const CHANNEL_GRAMMAR: usize = 3;
+
     /// Exact Hamming distance using native CPU POPCOUNT.
     ///
     /// Evaluates bitwise XOR across four 64-bit words. LLVM automatically emits
@@ -39,6 +48,55 @@ impl BinaryFingerprint {
         let d2 = (self.0[2] ^ other.0[2]).count_ones();
         let d3 = (self.0[3] ^ other.0[3]).count_ones();
         d0 + d1 + d2 + d3
+    }
+
+    /// Hamming distance within a specific 64-bit channel [0..3].
+    #[inline]
+    pub fn channel_distance(&self, other: &Self, channel: usize) -> u32 {
+        if channel < 4 {
+            (self.0[channel] ^ other.0[channel]).count_ones()
+        } else {
+            0
+        }
+    }
+
+    /// Normalized similarity score in `[0.0, 1.0]` for a specific 64-bit channel [0..3].
+    #[inline]
+    pub fn channel_similarity(&self, other: &Self, channel: usize) -> f32 {
+        if channel < 4 {
+            1.0 - (self.channel_distance(other, channel) as f32 / 64.0)
+        } else {
+            0.0
+        }
+    }
+
+    /// Channel-masked Hamming distance across selected channels.
+    #[inline]
+    pub fn masked_hamming_distance(&self, other: &Self, channels: [bool; 4]) -> u32 {
+        let mut dist = 0;
+        for c in 0..4 {
+            if channels[c] {
+                dist += (self.0[c] ^ other.0[c]).count_ones();
+            }
+        }
+        dist
+    }
+
+    /// Weighted similarity score across channels with custom per-channel weights.
+    #[inline]
+    pub fn weighted_similarity(&self, other: &Self, weights: &[f32; 4]) -> f32 {
+        let mut sim = 0.0;
+        let mut total_weight = 0.0;
+        for c in 0..4 {
+            let ch_sim = self.channel_similarity(other, c);
+            sim += weights[c] * ch_sim;
+            total_weight += weights[c];
+        }
+        if total_weight > 0.0 {
+            sim / total_weight
+        } else {
+            0.0
+        }
     }
 
     /// Normalized similarity score in `[0.0, 1.0]`.
@@ -409,4 +467,24 @@ pub struct SearchResponse {
     /// Source code partition (if requested/available).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code: Option<SearchPartition>,
+}
+
+/// Binary fingerprint projection variant.
+///
+/// Enables before/after ablation in a single compiled binary without code branching.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum BinaryProjectionKind {
+    /// Flat SIF sign quantization (pre-patch baseline).
+    ///
+    /// TF-IDF weighted sum of static 768-dim embeddings, sign-quantized to 256 bits.
+    /// No channel partitioning; all 256 bits compete in the same projection space.
+    FlatSif,
+    /// 4-channel partitioned Blake3 hyperplane projection (current default).
+    ///
+    /// Partitions 256 bits into 4 independent 64-bit channels:
+    /// Ch0=Interface, Ch1=API Calls, Ch2=Data Flow, Ch3=Grammar Bigrams.
+    /// Query fingerprints zero Ch2+Ch3 and use masked Hamming distance.
+    #[default]
+    PartitionedHyperplane,
 }

@@ -20,9 +20,9 @@ fn make_doc(path: &str, title: &str, tags: Vec<&str>, wikilinks: Vec<&str>) -> D
         frontmatter: None,
         title: Some(title.to_string()),
         tags: tags.into_iter().map(|t| t.to_string()).collect(),
-        wikilinks: wikilinks
+        links: wikilinks
             .into_iter()
-            .map(|t| WikiLink { target: t.to_string(), alias: None })
+            .map(|t| WikiLink { target: t.to_string(), label: None })
             .collect(),
         template: None,
         content: String::new(),
