@@ -23,6 +23,7 @@ pub struct Engine {
     pub(crate) store: Store,
     pub(crate) bm25: Bm25Algorithm,
     pub(crate) binary: BinaryAlgorithm,
+    pub(crate) binaryv2: crate::algorithm::binaryv2::BinaryV2Algorithm,
     pub(crate) graph: GraphAlgorithm,
     pub(crate) dense: Option<DenseAlgorithm>,
     pub(crate) embedder: RwLock<Option<Arc<Embedder>>>,
@@ -50,6 +51,8 @@ impl Engine {
 
         let bm25_algo = Bm25Algorithm::new(bm25);
         let binary_algo = BinaryAlgorithm::new(binary_index);
+        let mut binaryv2_algo = crate::algorithm::binaryv2::BinaryV2Algorithm::new();
+        let _ = binaryv2_algo.open(&index_dir);
         let graph_algo = GraphAlgorithm::new(graph);
         let dense_algo = vector_index.map(|vi| DenseAlgorithm::new(vi, None));
 
@@ -58,6 +61,7 @@ impl Engine {
             store,
             bm25: bm25_algo,
             binary: binary_algo,
+            binaryv2: binaryv2_algo,
             graph: graph_algo,
             dense: dense_algo,
             embedder: RwLock::new(None), // Lazily initialized
@@ -123,6 +127,7 @@ impl Engine {
         match name {
             "bm25" => Some(&self.bm25),
             "binary" => Some(&self.binary),
+            "binaryv2" => Some(&self.binaryv2),
             "ppr" | "graph" => Some(&self.graph),
             "dense" | "semantic" => self.dense.as_ref().map(|d| d as &dyn RetrievalAlgorithm),
             _ => None,
@@ -153,6 +158,7 @@ impl Engine {
     pub fn broadcast_artifact(&mut self, artifact: &ParsedArtifact) -> Result<()> {
         self.bm25.index_document(artifact)?;
         self.binary.index_document(artifact)?;
+        self.binaryv2.index_document(artifact)?;
         self.graph.index_document(artifact)?;
         if let Some(ref mut dense) = self.dense {
             dense.index_document(artifact)?;
@@ -164,6 +170,7 @@ impl Engine {
     pub fn remove_artifact(&mut self, path: &str) -> Result<()> {
         self.bm25.remove_document(path)?;
         self.binary.remove_document(path)?;
+        self.binaryv2.remove_document(path)?;
         self.graph.remove_document(path)?;
         if let Some(ref mut dense) = self.dense {
             dense.remove_document(path)?;
@@ -175,6 +182,7 @@ impl Engine {
     pub fn clear_algorithms(&mut self) -> Result<()> {
         self.bm25.clear()?;
         self.binary.clear()?;
+        self.binaryv2.clear()?;
         self.graph.clear()?;
         if let Some(ref mut dense) = self.dense {
             dense.clear()?;
@@ -186,6 +194,7 @@ impl Engine {
     pub fn commit_algorithms(&mut self) -> Result<()> {
         self.bm25.commit()?;
         self.binary.commit()?;
+        self.binaryv2.commit()?;
         self.graph.commit()?;
         if let Some(ref mut dense) = self.dense {
             dense.commit()?;
@@ -206,6 +215,26 @@ impl Engine {
     /// Get a mutable reference to the binary search index.
     pub fn binary_index_mut(&mut self) -> &mut crate::search::binary::BinarySearchIndex {
         self.binary.index_mut()
+    }
+
+    /// Access binaryv2 algorithm component.
+    pub fn binaryv2_algorithm(&self) -> &crate::algorithm::binaryv2::BinaryV2Algorithm {
+        &self.binaryv2
+    }
+
+    /// Access mutable binaryv2 algorithm component.
+    pub fn binaryv2_algorithm_mut(&mut self) -> &mut crate::algorithm::binaryv2::BinaryV2Algorithm {
+        &mut self.binaryv2
+    }
+
+    /// Get a reference to the binaryv2 search index.
+    pub fn binaryv2_index(&self) -> &crate::algorithm::binaryv2::BinaryV2SearchIndex {
+        self.binaryv2.index()
+    }
+
+    /// Get a mutable reference to the binaryv2 search index.
+    pub fn binaryv2_index_mut(&mut self) -> &mut crate::algorithm::binaryv2::BinaryV2SearchIndex {
+        self.binaryv2.index_mut()
     }
 
     /// Get a reference to the BM25 index.

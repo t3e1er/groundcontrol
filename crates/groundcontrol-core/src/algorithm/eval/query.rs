@@ -33,6 +33,30 @@ pub fn execute_binary_query(
     Ok(deduplicate_hits(raw, k, modality, search_text))
 }
 
+/// Execute isolated binaryv2 multi-channel semantic Hamming search.
+pub fn execute_binary_v2_query(
+    engine: &Engine,
+    config: &AlgoConfig,
+    query: &str,
+    k: usize,
+    modality: Modality,
+) -> Result<Vec<AlgoHit>> {
+    let sanitized = sanitize_lucene_query(query);
+    let search_text = if sanitized.is_empty() { query } else { &sanitized };
+
+    let binaryv2 = engine.binaryv2_index();
+    let q_fp = binaryv2.project_query(search_text);
+    let pool_size = (k * config.binary_pool_multiplier).max(500);
+    let hits = binaryv2.search_hamming(&q_fp, pool_size, modality)?;
+
+    let raw = hits.into_iter().map(|(id, dist)| {
+        let sim = 1.0 - (dist as f32 / 256.0);
+        (id, sim as f64, None)
+    });
+
+    Ok(crate::algorithm::binaryv2::deduplicate_binary_v2_hits(raw, k, modality, search_text))
+}
+
 /// Execute isolated BM25 lexical search.
 pub fn execute_bm25_query(
     engine: &Engine,

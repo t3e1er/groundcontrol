@@ -178,6 +178,14 @@ pub fn default_exclude_patterns() -> Vec<String> {
         "*.bz2".to_string(),
         "*.xz".to_string(),
         "*.7z".to_string(),
+        // Package manager lockfiles
+        "package-lock.json".to_string(),
+        "pnpm-lock.yaml".to_string(),
+        "yarn.lock".to_string(),
+        "Cargo.lock".to_string(),
+        "composer.lock".to_string(),
+        "Gemfile.lock".to_string(),
+        "poetry.lock".to_string(),
     ]
 }
 
