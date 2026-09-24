@@ -11,7 +11,9 @@
 
 use std::collections::HashMap;
 
-use groundcontrol_common::types::BinaryFingerprint;
+use groundcontrol_common::types::{BinaryFingerprint, ExtractedGrammarSemantics};
+
+use super::BinaryProjector;
 
 /// Default SIF smoothing parameter `a` (1e-4).
 pub const SIF_SMOOTHING_PARAM: f32 = 1e-4;
@@ -130,43 +132,25 @@ impl SifEngine {
         for &(token, cluster_id) in &seed_tokens {
             let vec = generate_cluster_vector(token, cluster_id);
             self.token_weights.insert(token.to_string(), vec);
-            self.token_frequencies.insert(token.to_string(), 1.0);
-            self.total_token_count += 1.0;
+            self.token_frequencies.insert(token.to_string(), 10.0);
+            self.total_token_count += 10.0;
         }
     }
 
-    /// Observe token occurrences from indexed texts to update empirical probabilities $p(w)$.
-    pub fn observe_tokens<'a, I>(&mut self, tokens: I)
-    where
-        I: IntoIterator<Item = &'a str>,
-    {
-        for token in tokens {
-            let lower = token.to_lowercase();
-            if lower.is_empty() {
-                continue;
-            }
-            *self.token_frequencies.entry(lower).or_insert(0.0) += 1.0;
-            self.total_token_count += 1.0;
-        }
-    }
-
-    /// Compute the smooth inverse frequency weight for a token: $a / (a + p(w))$.
-    #[inline]
-    pub fn token_sif_weight(&self, token: &str) -> f32 {
+    /// Retrieve the SIF weighting coefficient for a given token string: `a / (a + p(w))`.
+    fn token_sif_weight(&self, token: &str) -> f32 {
         let count = self.token_frequencies.get(token).copied().unwrap_or(1.0);
-        let total = self.total_token_count.max(100_000.0);
-        let prob = count / total;
+        let prob = count / self.total_token_count.max(1.0);
         self.smoothing_a / (self.smoothing_a + prob)
     }
 
-    /// Look up or deterministically synthesize the 256-dimensional vector for a token.
-    pub fn token_vector(&self, token: &str) -> [f32; SIF_DIMENSIONS] {
-        let lower = token.to_lowercase();
-        if let Some(vec) = self.token_weights.get(&lower) {
-            return *vec;
+    /// Retrieve or deterministically synthesize a 256-dimensional unit vector for any token.
+    fn token_vector(&self, token: &str) -> [f32; SIF_DIMENSIONS] {
+        if let Some(vec) = self.token_weights.get(token) {
+            *vec
+        } else {
+            deterministic_hash_vector(token)
         }
-        // Deterministic feature projection via Blake3 hashing
-        deterministic_hash_vector(&lower)
     }
 
     /// Project a text string into a 256-dimensional SIF vector.
@@ -269,6 +253,29 @@ impl SifEngine {
         }
 
         self.first_principal_component = Some(u);
+    }
+}
+
+impl BinaryProjector for SifEngine {
+    fn project_query(&self, text: &str) -> BinaryFingerprint {
+        self.project_to_fingerprint(text)
+    }
+
+    fn project_semantics(&self, sem: &ExtractedGrammarSemantics) -> BinaryFingerprint {
+        let mut text = String::new();
+        for t in &sem.interface_tokens {
+            text.push_str(&t.text);
+            text.push(' ');
+        }
+        for t in &sem.api_tokens {
+            text.push_str(&t.text);
+            text.push(' ');
+        }
+        for p in &sem.dataflow_paths {
+            text.push_str(&p.source_param);
+            text.push(' ');
+        }
+        self.project_to_fingerprint(&text)
     }
 }
 

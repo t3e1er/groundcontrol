@@ -132,14 +132,6 @@ default = []
 tempfile = { workspace = true }
 assert_fs = { workspace = true }
 
-[[bin]]
-name = "test_decompose"
-path = "src/bin/test_decompose.rs"
-
-[[bin]]
-name = "run_benchmark"
-path = "src/bin/run_benchmark.rs"
-
 [target.'cfg(target_os = "windows")'.dependencies]
 ort = { version = "2.0.0-rc.13", features = ["directml", "copy-dylibs", "download-binaries"] }
 

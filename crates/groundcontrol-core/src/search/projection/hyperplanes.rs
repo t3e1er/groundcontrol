@@ -15,6 +15,8 @@ use groundcontrol_common::types::BinaryFingerprint;
 use crate::parser::code::grammar::{DataFlowSink, ExtractedGrammarSemantics};
 use crate::parser::code::patterns::split_identifier;
 
+use super::BinaryProjector;
+
 /// Dimension of intermediate float vectors for each 64-bit channel.
 pub const CHANNEL_DIMENSIONS: usize = 64;
 
@@ -198,6 +200,16 @@ impl PartitionedHyperplaneProjector {
         }
 
         word
+    }
+}
+
+impl BinaryProjector for PartitionedHyperplaneProjector {
+    fn project_query(&self, text: &str) -> BinaryFingerprint {
+        self.project_query(text)
+    }
+
+    fn project_semantics(&self, sem: &ExtractedGrammarSemantics) -> BinaryFingerprint {
+        self.project_semantics(sem)
     }
 }
 

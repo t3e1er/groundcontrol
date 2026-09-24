@@ -14,8 +14,7 @@ use groundcontrol_common::types::{
 use groundcontrol_common::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-use super::hyperplanes::PartitionedHyperplaneProjector;
-use super::sif::SifEngine;
+use super::projection::{create_projector, BinaryProjector};
 
 /// Schema version for binary fingerprints persistence file (`fingerprints.bin`).
 pub const FINGERPRINTS_SCHEMA_VERSION: u32 = 1;
@@ -27,12 +26,20 @@ struct FingerprintsData {
 }
 
 /// Concrete high-throughput in-memory binary search index satisfying `AlgorithmicSearchIndex`.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BinarySearchIndex {
     records: Vec<FingerprintRecord>,
-    sif: Arc<SifEngine>,
-    hyperplanes: Arc<PartitionedHyperplaneProjector>,
+    projector: Arc<dyn BinaryProjector>,
     projection_kind: BinaryProjectionKind,
+}
+
+impl std::fmt::Debug for BinarySearchIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BinarySearchIndex")
+            .field("records_count", &self.records.len())
+            .field("projection_kind", &self.projection_kind)
+            .finish()
+    }
 }
 
 impl Default for BinarySearchIndex {
@@ -44,17 +51,13 @@ impl Default for BinarySearchIndex {
 impl BinarySearchIndex {
     /// Create an empty binary search index.
     pub fn new() -> Self {
-        Self {
-            records: Vec::new(),
-            sif: Arc::new(SifEngine::default()),
-            hyperplanes: Arc::new(PartitionedHyperplaneProjector::default()),
-            projection_kind: BinaryProjectionKind::default(),
-        }
+        let projection_kind = BinaryProjectionKind::default();
+        Self { records: Vec::new(), projector: create_projector(projection_kind), projection_kind }
     }
 
     /// Load the binary index from a disk file.
     pub fn load_from_path(path: &Path) -> Result<Self> {
-        let bytes = fs::read(path).map_err(|e| Error::Io(e))?;
+        let bytes = fs::read(path).map_err(Error::Io)?;
         let data: FingerprintsData = postcard::from_bytes(&bytes)
             .map_err(|e| Error::Index(format!("failed to deserialize fingerprints.bin: {e}")))?;
 
@@ -65,11 +68,11 @@ impl BinarySearchIndex {
             )));
         }
 
+        let projection_kind = BinaryProjectionKind::default();
         Ok(Self {
             records: data.records,
-            sif: Arc::new(SifEngine::default()),
-            hyperplanes: Arc::new(PartitionedHyperplaneProjector::default()),
-            projection_kind: BinaryProjectionKind::default(),
+            projector: create_projector(projection_kind),
+            projection_kind,
         })
     }
 
@@ -88,19 +91,9 @@ impl BinarySearchIndex {
         Ok(())
     }
 
-    /// Access the underlying shared SIF engine handle.
-    pub fn sif(&self) -> Arc<SifEngine> {
-        Arc::clone(&self.sif)
-    }
-
-    /// Access the underlying SIF engine reference for observation or direct projection.
-    pub fn sif_engine(&self) -> &SifEngine {
-        &self.sif
-    }
-
-    /// Access the underlying SIF engine for observation or fine-tuning.
-    pub fn sif_mut(&mut self) -> &mut SifEngine {
-        Arc::make_mut(&mut self.sif)
+    /// Access the active binary projector handle.
+    pub fn projector(&self) -> &Arc<dyn BinaryProjector> {
+        &self.projector
     }
 
     /// Get the current binary projection kind.
@@ -110,12 +103,15 @@ impl BinarySearchIndex {
 
     /// Set the binary projection kind (e.g. for ablation between FlatSif and PartitionedHyperplane).
     pub fn set_projection_kind(&mut self, kind: BinaryProjectionKind) {
-        self.projection_kind = kind;
+        if self.projection_kind != kind {
+            self.projection_kind = kind;
+            self.projector = create_projector(kind);
+        }
     }
 
     /// Builder method to set the binary projection kind.
     pub fn with_projection_kind(mut self, kind: BinaryProjectionKind) -> Self {
-        self.projection_kind = kind;
+        self.set_projection_kind(kind);
         self
     }
 
@@ -125,11 +121,10 @@ impl BinarySearchIndex {
         query: &str,
         kind: BinaryProjectionKind,
     ) -> Result<BinaryFingerprint> {
-        match kind {
-            BinaryProjectionKind::FlatSif => Ok(self.sif.project_to_fingerprint(query)),
-            BinaryProjectionKind::PartitionedHyperplane => {
-                Ok(self.hyperplanes.project_query(query))
-            }
+        if kind == self.projection_kind {
+            Ok(self.projector.project_query(query))
+        } else {
+            Ok(create_projector(kind).project_query(query))
         }
     }
 
@@ -174,17 +169,12 @@ impl BinarySearchIndex {
         <Self as AlgorithmicSearchIndex>::search_hamming(self, query_bits, limit, modality)
     }
 
-    /// Access the underlying partitioned hyperplane projector.
-    pub fn hyperplanes(&self) -> Arc<PartitionedHyperplaneProjector> {
-        Arc::clone(&self.hyperplanes)
-    }
-
     /// Project extracted AST grammar semantics into a 256-bit partitioned binary fingerprint.
     pub fn project_semantics(
         &self,
         sem: &crate::parser::code::grammar::ExtractedGrammarSemantics,
     ) -> BinaryFingerprint {
-        self.hyperplanes.project_semantics(sem)
+        self.projector.project_semantics(sem)
     }
 
     /// Project a text query into a 256-bit binary fingerprint.

@@ -7,10 +7,9 @@ pub mod fast;
 pub mod fusion;
 pub mod graph;
 pub mod hybrid;
-pub mod hyperplanes;
 pub mod multihop;
+pub mod projection;
 pub mod semantic;
-pub mod sif;
 
 #[cfg(test)]
 mod tests;
@@ -24,7 +23,6 @@ pub use fusion::{
 };
 pub use graph::{search_graph, search_related};
 pub use hybrid::{search_hybrid, search_hybrid_full};
-pub use hyperplanes::PartitionedHyperplaneProjector;
 pub use multihop::{decompose_query, search_multihop};
+pub use projection::{BinaryProjector, PartitionedHyperplaneProjector, SifEngine};
 pub use semantic::{search_semantic, search_semantic_dual, search_semantic_with_embedding};
-pub use sif::SifEngine;

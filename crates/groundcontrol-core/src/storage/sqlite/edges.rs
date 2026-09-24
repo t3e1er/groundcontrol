@@ -188,4 +188,96 @@ impl Store {
             .map_err(|e| Error::Database(e.to_string()))?;
         Ok(())
     }
+
+    /// Query distinct source nodes from the edges table up to `limit`.
+    pub fn distinct_edge_sources(&self, limit: usize) -> Result<Vec<String>> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare("SELECT DISTINCT source FROM edges LIMIT ?1")
+            .map_err(|e| Error::Database(e.to_string()))?;
+        let rows = stmt
+            .query_map(params![limit as i64], |row| row.get::<_, String>(0))
+            .map_err(|e| Error::Database(e.to_string()))?;
+        let mut endpoints = Vec::new();
+        for r in rows {
+            endpoints.push(r.map_err(|e| Error::Database(e.to_string()))?);
+        }
+        Ok(endpoints)
+    }
+
+    /// Expand outgoing, incoming, or bidirectional edges matching optional type and class filters.
+    pub fn expand_step_edges(
+        &self,
+        node: &str,
+        edge_types: &[String],
+        edge_class_filter: Option<&str>,
+        direction_is_outgoing: bool,
+        direction_is_incoming: bool,
+    ) -> Result<Vec<(String, String)>> {
+        let type_filter = if edge_types.is_empty() {
+            String::new()
+        } else {
+            format!(",{},", edge_types.join(","))
+        };
+        let class_filter = edge_class_filter.unwrap_or("").to_string();
+        let conn = self.conn();
+        let mut results = Vec::new();
+
+        if direction_is_outgoing {
+            let sql = "SELECT DISTINCT target, edge_type
+                FROM edges
+                WHERE source = ?1
+                  AND (?2 = '' OR instr(?2, ',' || edge_type || ',') > 0)
+                  AND (?3 = '' OR edge_class = ?3)
+                ORDER BY weight DESC, id ASC";
+            let mut stmt = conn.prepare(sql).map_err(|e| Error::Database(e.to_string()))?;
+            let rows = stmt
+                .query_map(params![node, type_filter, class_filter], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(|e| Error::Database(e.to_string()))?;
+            for r in rows {
+                results.push(r.map_err(|e| Error::Database(e.to_string()))?);
+            }
+        } else if direction_is_incoming {
+            let sql = "SELECT DISTINCT source, edge_type
+                FROM edges
+                WHERE target = ?1
+                  AND (?2 = '' OR instr(?2, ',' || edge_type || ',') > 0)
+                  AND (?3 = '' OR edge_class = ?3)
+                ORDER BY weight DESC, id ASC";
+            let mut stmt = conn.prepare(sql).map_err(|e| Error::Database(e.to_string()))?;
+            let rows = stmt
+                .query_map(params![node, type_filter, class_filter], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(|e| Error::Database(e.to_string()))?;
+            for r in rows {
+                results.push(r.map_err(|e| Error::Database(e.to_string()))?);
+            }
+        } else {
+            let sql = "SELECT DISTINCT target, edge_type
+                FROM edges
+                WHERE source = ?1
+                  AND (?2 = '' OR instr(?2, ',' || edge_type || ',') > 0)
+                  AND (?3 = '' OR edge_class = ?3)
+                UNION
+                SELECT DISTINCT source, edge_type
+                FROM edges
+                WHERE target = ?1
+                  AND (?2 = '' OR instr(?2, ',' || edge_type || ',') > 0)
+                  AND (?3 = '' OR edge_class = ?3)";
+            let mut stmt = conn.prepare(sql).map_err(|e| Error::Database(e.to_string()))?;
+            let rows = stmt
+                .query_map(params![node, type_filter, class_filter], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(|e| Error::Database(e.to_string()))?;
+            for r in rows {
+                results.push(r.map_err(|e| Error::Database(e.to_string()))?);
+            }
+        }
+
+        Ok(results)
+    }
 }
