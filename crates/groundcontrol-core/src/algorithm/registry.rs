@@ -112,7 +112,8 @@ impl AlgorithmRegistry {
             .get("bm25")
             .ok_or_else(|| Error::Index("bm25 algorithm required for fast search".into()))?;
         let binary = self
-            .get("binary")
+            .get("binaryv3")
+            .or_else(|| self.get("binary"))
             .ok_or_else(|| Error::Index("binary algorithm required for fast search".into()))?;
         let ppr = self
             .get("ppr")

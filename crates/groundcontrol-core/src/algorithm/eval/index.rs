@@ -59,7 +59,16 @@ impl AlgorithmicIndex {
             toml::from_str(&config_str)
                 .map_err(|e| Error::Config(format!("Failed to parse groundcontrol.toml: {e}")))?
         } else {
-            CorpusConfig { path: corpus_path.to_string_lossy().to_string(), ..Default::default() }
+            let mut exclude = groundcontrol_common::config::ExcludeConfig::default();
+            let gitignore_path = corpus_path.join(".gitignore");
+            if gitignore_path.exists() {
+                exclude.import_gitignore(&gitignore_path);
+            }
+            CorpusConfig {
+                path: corpus_path.to_string_lossy().to_string(),
+                exclude,
+                ..Default::default()
+            }
         };
 
         let start_time = Instant::now();
@@ -129,6 +138,26 @@ impl AlgorithmicIndex {
     /// Execute isolated binary Hamming query.
     pub fn query_binary(&self, query: &str, k: usize, modality: Modality) -> Result<Vec<AlgoHit>> {
         super::query::execute_binary_query(&self.engine, &self.config, query, k, modality)
+    }
+
+    /// Execute isolated binaryv2 multi-channel semantic Hamming query.
+    pub fn query_binary_v2(
+        &self,
+        query: &str,
+        k: usize,
+        modality: Modality,
+    ) -> Result<Vec<AlgoHit>> {
+        super::query::execute_binary_v2_query(&self.engine, &self.config, query, k, modality)
+    }
+
+    /// Execute isolated binaryv3 Matryoshka SIF + Bayesian structural prior query.
+    pub fn query_binary_v3(
+        &self,
+        query: &str,
+        k: usize,
+        modality: Modality,
+    ) -> Result<Vec<AlgoHit>> {
+        super::query::execute_binary_v3_query(&self.engine, &self.config, query, k, modality)
     }
 
     /// Execute isolated BM25 lexical query.

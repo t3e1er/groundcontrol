@@ -903,7 +903,7 @@ fn test_rrf_fuse_cross_corpus_merges_ranks_and_tags() {
 
 #[test]
 fn test_search_fast_and_explain() {
-    use crate::search::binary::BinarySearchIndex;
+    use crate::algorithm::binaryv3::{BinaryV3SearchIndex, EntityPriorFlags, FingerprintV3Record};
     use groundcontrol_common::types::BinaryFingerprint;
 
     let mut bm25 = BM25Index::open_in_memory().unwrap();
@@ -915,20 +915,22 @@ fn test_search_fast_and_explain() {
     bm25.add_document("src/auth/helper.rs", None, &[], &chunks[1..2]).unwrap();
     bm25.commit().unwrap();
 
-    let mut binary = BinarySearchIndex::new();
+    let mut binary = BinaryV3SearchIndex::new();
     // Insert binary fingerprints
     let fp_service = BinaryFingerprint([0xF0F0_0000_0000_0000, 0, 0, 0]);
     let fp_helper = BinaryFingerprint([0x0000_0000_0000_0000, 0, 0, 0]);
     let records = vec![
-        groundcontrol_common::types::FingerprintRecord {
+        FingerprintV3Record {
             id: "src/auth/service.rs".to_string(),
             fingerprint: fp_service,
             modality: Modality::Code,
+            flags: EntityPriorFlags::default(),
         },
-        groundcontrol_common::types::FingerprintRecord {
+        FingerprintV3Record {
             id: "src/auth/helper.rs".to_string(),
             fingerprint: fp_helper,
             modality: Modality::Code,
+            flags: EntityPriorFlags::default(),
         },
     ];
     binary.index_fingerprints(&records).unwrap();

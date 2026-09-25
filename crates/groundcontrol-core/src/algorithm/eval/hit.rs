@@ -41,6 +41,18 @@ pub fn is_file_path(p: &str) -> bool {
 /// Check if a path points to documentation or metadata rather than source code.
 pub fn is_non_code_path(path: &str) -> bool {
     let lower = path.to_lowercase();
+    if lower.ends_with("dockerfile")
+        || lower.contains("dockerfile.")
+        || lower.ends_with("makefile")
+        || lower.ends_with("license")
+        || lower.ends_with(".dockerignore")
+        || lower.ends_with(".gitignore")
+        || lower.ends_with(".d.ts")
+        || lower.ends_with(".min.js")
+        || lower.ends_with(".map")
+    {
+        return true;
+    }
     let p = std::path::Path::new(&lower);
     if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
         matches!(

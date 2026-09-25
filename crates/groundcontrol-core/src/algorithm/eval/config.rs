@@ -18,6 +18,10 @@ pub struct AlgoConfig {
     /// Binary candidate pool size (`limit * binary_pool_multiplier` or 500, whichever is larger).
     /// Larger pools improve recall at cost of linear scan time. Default: 50.
     pub binary_pool_multiplier: usize,
+    /// Apply Stage 2 Bayesian structural prior in binaryv3. Default: true.
+    pub binaryv3_prior: bool,
+    /// Enable Word 0 Matryoshka early-exit filter in binaryv3. Default: false.
+    pub binaryv3_early_exit: bool,
 }
 
 impl Default for AlgoConfig {
@@ -28,6 +32,8 @@ impl Default for AlgoConfig {
             ppr_iterations: 10,
             ppr_bm25_multiplier: 5,
             binary_pool_multiplier: 50,
+            binaryv3_prior: true,
+            binaryv3_early_exit: false,
         }
     }
 }
