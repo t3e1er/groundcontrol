@@ -1,6 +1,6 @@
 //! Declarative language specifications for polyglot AST code extraction.
 //!
-//! Maps Tree-sitter AST node kinds to [`CodeSymbolType`] and semantic roles across 46 supported languages.
+//! Maps Tree-sitter AST node kinds to [`CodeSymbolType`](groundcontrol_common::types::CodeSymbolType) and semantic roles across 46 supported languages.
 
 pub mod configs;
 pub mod functional;
