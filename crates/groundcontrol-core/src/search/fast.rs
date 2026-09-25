@@ -10,8 +10,8 @@ use groundcontrol_common::types::{
 };
 use groundcontrol_common::Result;
 
-use super::binary::BinarySearchIndex;
 use super::fusion::{enrich_results_with_lineage, path_matches_modality};
+use crate::algorithm::binaryv3::BinaryV3SearchIndex;
 
 /// Fast algorithmic hybrid search: Tantivy BM25 + Binary Hamming Scan + Query-Time PPR (3-way RRF).
 ///
@@ -19,7 +19,7 @@ use super::fusion::{enrich_results_with_lineage, path_matches_modality};
 /// HippoRAG diffusion over Petgraph with zero ONNX neural inference in <2ms.
 pub fn search_fast(
     bm25: &impl TextIndex,
-    binary_index: &BinarySearchIndex,
+    binary_index: &BinaryV3SearchIndex,
     graph: &crate::graph::KnowledgeGraph,
     query: &str,
     limit: usize,
@@ -42,12 +42,11 @@ pub fn search_fast(
         ));
     }
 
-    // 2. 256-Bit MRL Binary Hamming scan candidates
-    let query_fp = binary_index.project_query(query)?;
-    let binary_hits = binary_index.search_hamming(&query_fp, limit * 3, modality)?;
-    let mut binary_info: HashMap<String, (f32, usize)> = HashMap::new();
-    for (rank, (id, dist)) in binary_hits.iter().enumerate() {
-        let sim = 1.0 - (*dist as f32 / 256.0);
+    // 2. 256-Bit MRL Binary Hamming scan candidates with Bayesian prior
+    let query_fp = binary_index.project_query(query);
+    let binary_hits = binary_index.search_candidates(&query_fp, limit * 3, modality)?;
+    let mut binary_info: HashMap<String, (f64, usize)> = HashMap::new();
+    for (rank, (id, _dist, score)) in binary_hits.into_iter().enumerate() {
         let mut clean_path = id.as_str();
         if let Some(idx) = clean_path.find(":chunk:") {
             clean_path = &clean_path[..idx];
@@ -55,7 +54,7 @@ pub fn search_fast(
         if let Some(idx) = clean_path.find('#') {
             clean_path = &clean_path[..idx];
         }
-        binary_info.entry(clean_path.to_string()).or_insert((sim, rank + 1));
+        binary_info.entry(clean_path.to_string()).or_insert((score, rank + 1));
     }
 
     // 3. Form seeds for Query-Time Personalized PageRank (HippoRAG diffusion)
@@ -67,7 +66,7 @@ pub fn search_fast(
 
     for path in &all_candidate_paths {
         let bm25_score = bm25_info.get(path).map(|(s, ..)| *s).unwrap_or(0.0);
-        let binary_score = binary_info.get(path).map(|(s, _)| *s as f64).unwrap_or(0.0);
+        let binary_score = binary_info.get(path).map(|(s, _)| *s).unwrap_or(0.0);
         let seed_score = bm25_score + binary_score;
         if seed_score > 0.0 {
             seed_scores.push((path.clone(), seed_score));
@@ -111,7 +110,7 @@ pub fn search_fast(
                 .with_chunk_index(chunk_index)
                 .with_score_components(ScoreBreakdown {
                     bm25: bm25_score,
-                    vector: binary_score as f64,
+                    vector: binary_score,
                     graph_boost: ppr_score,
                     graph_hops: if ppr_rank > 0 {
                         Some(if ppr_rank <= limit { 1 } else { 2 })
@@ -152,7 +151,7 @@ pub fn search_fast(
 /// Explain scoring breakdown for fast algorithmic search.
 pub fn search_explain_fast(
     bm25: &impl TextIndex,
-    binary_index: &BinarySearchIndex,
+    binary_index: &BinaryV3SearchIndex,
     graph: &crate::graph::KnowledgeGraph,
     query: &str,
     limit: usize,
@@ -174,11 +173,10 @@ pub fn search_explain_fast(
         ));
     }
 
-    let query_fp = binary_index.project_query(query)?;
-    let binary_hits = binary_index.search_hamming(&query_fp, limit * 3, modality)?;
-    let mut binary_info: HashMap<String, (f32, usize)> = HashMap::new();
-    for (rank, (id, dist)) in binary_hits.iter().enumerate() {
-        let sim = 1.0 - (*dist as f32 / 256.0);
+    let query_fp = binary_index.project_query(query);
+    let binary_hits = binary_index.search_candidates(&query_fp, limit * 3, modality)?;
+    let mut binary_info: HashMap<String, (f64, usize)> = HashMap::new();
+    for (rank, (id, _dist, score)) in binary_hits.into_iter().enumerate() {
         let mut clean_path = id.as_str();
         if let Some(idx) = clean_path.find(":chunk:") {
             clean_path = &clean_path[..idx];
@@ -186,7 +184,7 @@ pub fn search_explain_fast(
         if let Some(idx) = clean_path.find('#') {
             clean_path = &clean_path[..idx];
         }
-        binary_info.entry(clean_path.to_string()).or_insert((sim, rank + 1));
+        binary_info.entry(clean_path.to_string()).or_insert((score, rank + 1));
     }
 
     let mut seed_scores: Vec<(String, f64)> = Vec::new();
@@ -197,7 +195,7 @@ pub fn search_explain_fast(
 
     for path in &all_candidate_paths {
         let bm25_score = bm25_info.get(path).map(|(s, ..)| *s).unwrap_or(0.0);
-        let binary_score = binary_info.get(path).map(|(s, _)| *s as f64).unwrap_or(0.0);
+        let binary_score = binary_info.get(path).map(|(s, _)| *s).unwrap_or(0.0);
         let seed_score = bm25_score + binary_score;
         if seed_score > 0.0 {
             seed_scores.push((path.clone(), seed_score));
@@ -241,7 +239,7 @@ pub fn search_explain_fast(
                     rrf_contribution: bm25_rrf,
                 },
                 vector: SignalExplanation {
-                    raw_score: binary_score as f64,
+                    raw_score: binary_score,
                     rank: binary_rank,
                     rrf_contribution: binary_rrf,
                 },

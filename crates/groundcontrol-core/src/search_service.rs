@@ -35,10 +35,11 @@ use groundcontrol_common::ports::{SearchQuery, SearchService};
 use groundcontrol_common::types::{Modality, SearchExplanation, SearchResult};
 use groundcontrol_common::{Error, Result};
 
+use crate::algorithm::binaryv3::BinaryV3SearchIndex;
 use crate::embedding::Embedder;
 use crate::graph::KnowledgeGraph;
 use crate::index::BM25Index;
-use crate::search::{self, binary::BinarySearchIndex};
+use crate::search;
 use crate::vector_index::VectorIndex;
 
 /// Core adapter implementing the [`SearchService`] port.
@@ -49,7 +50,7 @@ use crate::vector_index::VectorIndex;
 pub struct CoreSearchService<'a> {
     bm25: &'a BM25Index,
     vector_index: Option<&'a VectorIndex>,
-    binary_index: Option<&'a BinarySearchIndex>,
+    binary_index: Option<&'a BinaryV3SearchIndex>,
     graph: &'a KnowledgeGraph,
     embedder: Option<Arc<Embedder>>,
     code_paths: HashSet<String>,
@@ -69,7 +70,7 @@ impl<'a> CoreSearchService<'a> {
     pub fn new(
         bm25: &'a BM25Index,
         vector_index: Option<&'a VectorIndex>,
-        binary_index: Option<&'a BinarySearchIndex>,
+        binary_index: Option<&'a BinaryV3SearchIndex>,
         graph: &'a KnowledgeGraph,
         embedder: Option<Arc<Embedder>>,
         code_paths: HashSet<String>,
@@ -94,7 +95,7 @@ impl SearchService for CoreSearchService<'_> {
                         Modality::Both => None,
                     },
                 };
-                let empty_binary = BinarySearchIndex::new();
+                let empty_binary = BinaryV3SearchIndex::new();
                 let binary = self.binary_index.unwrap_or(&empty_binary);
                 let results = search::search_fast(
                     self.bm25,
@@ -194,7 +195,7 @@ impl SearchService for CoreSearchService<'_> {
                                 code_paths,
                             )?,
                             Modality::Code => {
-                                let empty_binary = BinarySearchIndex::new();
+                                let empty_binary = BinaryV3SearchIndex::new();
                                 let binary = self.binary_index.unwrap_or(&empty_binary);
                                 search::search_fast(
                                     self.bm25,
@@ -221,7 +222,7 @@ impl SearchService for CoreSearchService<'_> {
                                     Modality::Docs,
                                     code_paths,
                                 )?;
-                                let empty_binary = BinarySearchIndex::new();
+                                let empty_binary = BinaryV3SearchIndex::new();
                                 let binary = self.binary_index.unwrap_or(&empty_binary);
                                 let code_results = search::search_fast(
                                     self.bm25,
@@ -241,7 +242,7 @@ impl SearchService for CoreSearchService<'_> {
                     }
                 } else {
                     // Fast Mode: Binary Hamming + BM25 + Graph.
-                    let empty_binary = BinarySearchIndex::new();
+                    let empty_binary = BinaryV3SearchIndex::new();
                     let binary = self.binary_index.unwrap_or(&empty_binary);
                     search::search_fast(
                         self.bm25,
@@ -306,7 +307,7 @@ impl SearchService for CoreSearchService<'_> {
 
         if query.mode.as_deref() == Some("fast") {
             let edge_class_filter = query.edge_class.as_deref().and_then(EdgeClass::from_str_name);
-            let empty_binary = BinarySearchIndex::new();
+            let empty_binary = BinaryV3SearchIndex::new();
             let binary = self.binary_index.unwrap_or(&empty_binary);
             return search::search_explain_fast(
                 self.bm25,

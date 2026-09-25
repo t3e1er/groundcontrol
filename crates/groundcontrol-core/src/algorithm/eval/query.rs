@@ -57,6 +57,34 @@ pub fn execute_binary_v2_query(
     Ok(crate::algorithm::binaryv2::deduplicate_binary_v2_hits(raw, k, modality, search_text))
 }
 
+/// Execute isolated binaryv3 Matryoshka SIF + Bayesian structural prior search.
+pub fn execute_binary_v3_query(
+    engine: &Engine,
+    config: &AlgoConfig,
+    query: &str,
+    k: usize,
+    modality: Modality,
+) -> Result<Vec<AlgoHit>> {
+    let sanitized = sanitize_lucene_query(query);
+    let search_text = if sanitized.is_empty() { query } else { &sanitized };
+
+    let binaryv3 = engine.binaryv3_index();
+    let q_fp = binaryv3.project_query(search_text);
+    let pool_size = (k * config.binary_pool_multiplier).max(300);
+
+    let candidates = binaryv3.search_candidates_with_opts(
+        &q_fp,
+        pool_size,
+        modality,
+        config.binaryv3_prior,
+        config.binaryv3_early_exit,
+    )?;
+
+    let raw = candidates.into_iter().map(|(id, _dist, score)| (id, score, None));
+
+    Ok(deduplicate_hits(raw, k, modality, search_text))
+}
+
 /// Execute isolated BM25 lexical search.
 pub fn execute_bm25_query(
     engine: &Engine,

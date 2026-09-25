@@ -150,6 +150,16 @@ impl AlgorithmicIndex {
         super::query::execute_binary_v2_query(&self.engine, &self.config, query, k, modality)
     }
 
+    /// Execute isolated binaryv3 Matryoshka SIF + Bayesian structural prior query.
+    pub fn query_binary_v3(
+        &self,
+        query: &str,
+        k: usize,
+        modality: Modality,
+    ) -> Result<Vec<AlgoHit>> {
+        super::query::execute_binary_v3_query(&self.engine, &self.config, query, k, modality)
+    }
+
     /// Execute isolated BM25 lexical query.
     pub fn query_bm25(&self, query: &str, k: usize, modality: Modality) -> Result<Vec<AlgoHit>> {
         super::query::execute_bm25_query(&self.engine, query, k, modality)
