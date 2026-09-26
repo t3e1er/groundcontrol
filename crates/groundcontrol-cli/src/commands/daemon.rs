@@ -29,6 +29,22 @@ pub fn kill_pid(pid: u32) -> bool {
     }
 }
 
+/// Normalize a bind address or server URL into a valid client-connectable URL.
+///
+/// On Windows and many operating systems, connecting to `0.0.0.0` or `[::]` fails because
+/// `0.0.0.0` is `INADDR_ANY` (valid only for binding a listening socket, not as a client destination).
+/// This maps `0.0.0.0` -> `127.0.0.1` and `[::]` -> `[::1]`.
+pub fn normalize_probe_url(bind_or_server: &str) -> String {
+    let mut url = if bind_or_server.starts_with("http://") || bind_or_server.starts_with("https://")
+    {
+        bind_or_server.to_string()
+    } else {
+        format!("http://{}", bind_or_server)
+    };
+    url = url.replace("://0.0.0.0:", "://127.0.0.1:").replace("://[::]:", "://[::1]:");
+    url
+}
+
 /// Start the background daemon process in detached mode.
 pub async fn handle_daemon_start(
     sync: bool,
@@ -37,10 +53,11 @@ pub async fn handle_daemon_start(
     watch: bool,
     require_auth: bool,
 ) -> anyhow::Result<()> {
+    let probe_url = normalize_probe_url(bind);
     let server_url = format!("http://{}", bind);
 
     // 1. Check if daemon is already alive
-    if is_server_healthy(&server_url).await {
+    if is_server_healthy(&probe_url).await {
         if let Some(info) = read_daemon_pid() {
             println!(
                 "[!] groundcontrol daemon is already running (PID {}, {})",
@@ -125,7 +142,7 @@ pub async fn handle_daemon_start(
     let deadline = Instant::now() + Duration::from_secs(wait_secs);
     let mut up = false;
     while Instant::now() < deadline {
-        if is_server_healthy(&server_url).await {
+        if is_server_healthy(&probe_url).await {
             up = true;
             break;
         }
@@ -170,7 +187,8 @@ pub async fn handle_daemon_start(
 /// Stop the running background daemon gracefully.
 pub async fn handle_daemon_stop(server_url: &str) -> anyhow::Result<()> {
     let pid_info = read_daemon_pid();
-    let is_alive = is_server_healthy(server_url).await;
+    let probe_url = normalize_probe_url(server_url);
+    let is_alive = is_server_healthy(&probe_url).await;
 
     if !is_alive && pid_info.is_none() {
         println!("[-] groundcontrol daemon is not running.");
@@ -180,7 +198,7 @@ pub async fn handle_daemon_stop(server_url: &str) -> anyhow::Result<()> {
     println!("[*] Stopping groundcontrol daemon...");
 
     // 1. Try graceful shutdown via HTTP POST /shutdown
-    let shutdown_url = format!("{}/shutdown", server_url.trim_end_matches('/'));
+    let shutdown_url = format!("{}/shutdown", probe_url.trim_end_matches('/'));
     let client = reqwest::Client::builder().timeout(Duration::from_secs(2)).build()?;
     let mut stopped_via_http = false;
 
@@ -193,7 +211,7 @@ pub async fn handle_daemon_stop(server_url: &str) -> anyhow::Result<()> {
     // 2. Wait up to 3 seconds for process to exit
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline {
-        if !is_server_healthy(server_url).await {
+        if !is_server_healthy(&probe_url).await {
             break;
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -210,7 +228,7 @@ pub async fn handle_daemon_stop(server_url: &str) -> anyhow::Result<()> {
     }
 
     let _ = remove_daemon_pid();
-    if is_server_healthy(server_url).await {
+    if is_server_healthy(&probe_url).await {
         println!("[!] Warning: Server is still responding on {server_url}. You may need to terminate the process manually.");
     } else {
         println!("[+] groundcontrol daemon stopped successfully.");
@@ -221,7 +239,8 @@ pub async fn handle_daemon_stop(server_url: &str) -> anyhow::Result<()> {
 /// Probe daemon liveness, uptime, PID, and active corpora.
 pub async fn handle_daemon_status(server_url: &str) -> anyhow::Result<()> {
     let pid_info = read_daemon_pid();
-    let health_url = format!("{}/status", server_url.trim_end_matches('/'));
+    let probe_url = normalize_probe_url(server_url);
+    let health_url = format!("{}/status", probe_url.trim_end_matches('/'));
     let client = reqwest::Client::builder().timeout(Duration::from_secs(2)).build()?;
 
     match client.get(&health_url).send().await {
@@ -289,7 +308,8 @@ pub async fn handle_daemon_status(server_url: &str) -> anyhow::Result<()> {
 
 /// Trigger an incremental delta scan inside the running daemon via HTTP POST /sync.
 pub async fn handle_daemon_sync(server_url: &str, corpus: Option<String>) -> anyhow::Result<()> {
-    if !is_server_healthy(server_url).await {
+    let probe_url = normalize_probe_url(server_url);
+    if !is_server_healthy(&probe_url).await {
         anyhow::bail!(
             "groundcontrol daemon is not running on {}.\n\
              Start the daemon with 'groundcontrol daemon start' or run local sync with 'groundcontrol corpus sync'.",
@@ -298,7 +318,7 @@ pub async fn handle_daemon_sync(server_url: &str, corpus: Option<String>) -> any
     }
 
     println!("[*] Requesting daemon synchronization on {}...", server_url);
-    let sync_url = format!("{}/sync", server_url.trim_end_matches('/'));
+    let sync_url = format!("{}/sync", probe_url.trim_end_matches('/'));
     let client = reqwest::Client::builder().timeout(Duration::from_secs(300)).build()?;
 
     let payload = serde_json::json!({
