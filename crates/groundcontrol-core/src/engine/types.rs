@@ -38,6 +38,46 @@ pub struct IndexingStatusResponse {
     pub error_message: Option<String>,
 }
 
+/// Operational stage in the indexing lifecycle for progress reporting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IndexingStage {
+    /// Initial repository scan and candidate discovery.
+    Discovery,
+    /// Parallel AST parsing, BM25 indexing, and SQLite ingestion.
+    ParsingAndIndexing,
+    /// Batch neural vector embedding generation via ONNX.
+    GeneratingEmbeddings,
+    /// Cross-file code reference and wikilink edge resolution.
+    ResolvingGraphEdges,
+    /// Committing database transactions and flushing search indices.
+    Committing,
+    /// Indexing process completed.
+    Completed,
+}
+
+/// Real-time progress metrics emitted during indexing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexingProgress {
+    /// Current operational stage.
+    pub stage: IndexingStage,
+    /// Number of files processed so far.
+    pub processed_files: usize,
+    /// Total number of candidate files to index.
+    pub total_files: usize,
+    /// Relative path of the file currently being processed.
+    pub current_path: Option<String>,
+    /// Number of text chunks embedded so far.
+    pub embedded_chunks: usize,
+    /// Elapsed seconds since indexing started.
+    pub elapsed_seconds: f64,
+    /// Current indexing throughput in files per second.
+    pub files_per_second: f64,
+}
+
+/// Callback function invoked when indexing progress updates are emitted.
+pub type ProgressCallback = std::sync::Arc<dyn Fn(&IndexingProgress) + Send + Sync>;
+
 /// A text chunk staged for vectorized batch embedding.
 #[derive(Debug, Clone)]
 pub struct PendingChunk {

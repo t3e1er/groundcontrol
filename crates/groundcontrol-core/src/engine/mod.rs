@@ -13,4 +13,7 @@ pub(crate) mod types;
 mod tests;
 
 pub use state::Engine;
-pub use types::{DeltaScanResult, IndexingStatusResponse, PendingChunk};
+pub use types::{
+    DeltaScanResult, IndexingProgress, IndexingStage, IndexingStatusResponse, PendingChunk,
+    ProgressCallback,
+};

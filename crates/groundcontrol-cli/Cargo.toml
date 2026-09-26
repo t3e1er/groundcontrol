@@ -26,8 +26,9 @@ groundcontrol-graphview = { path = "../groundcontrol-graphview" }
 # Async
 tokio = { workspace = true }
 
-# CLI
+# CLI & System
 clap = { workspace = true }
+sysinfo = { workspace = true }
 
 # Tracing
 tracing = { workspace = true }

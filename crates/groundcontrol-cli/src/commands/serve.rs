@@ -3,9 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-#[cfg(not(windows))]
-use groundcontrol_common::config::get_logs_cache_dir;
-use groundcontrol_common::config::CorpusConfig;
+use groundcontrol_common::config::{get_logs_cache_dir, CorpusConfig};
 
 /// Check if a ctxvault server /health endpoint is alive.
 pub async fn is_server_healthy(server_url: &str) -> bool {
@@ -50,32 +48,47 @@ pub fn spawn_daemon(
         cmd.arg("--require-auth");
     }
 
+    cmd.stdin(std::process::Stdio::null());
+    cmd.stdout(std::process::Stdio::null());
+    let log_dir = get_logs_cache_dir();
+    let _ = std::fs::create_dir_all(&log_dir);
+    if let Ok(log_file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_dir.join("groundcontrol-daemon.log"))
+    {
+        cmd.stderr(log_file);
+    } else {
+        cmd.stderr(std::process::Stdio::null());
+    }
+
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         const DETACHED_PROCESS: u32 = 0x00000008;
-        cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
-    }
-    #[cfg(not(windows))]
-    {
-        cmd.stdin(std::process::Stdio::null());
-        cmd.stdout(std::process::Stdio::null());
-        let log_dir = get_logs_cache_dir();
-        let _ = std::fs::create_dir_all(&log_dir);
-        if let Ok(log_file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_dir.join("ctxvault-daemon.jsonl"))
-        {
-            cmd.stderr(log_file);
-        } else {
-            cmd.stderr(std::process::Stdio::null());
-        }
+        const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x01000000;
+        cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS | CREATE_BREAKAWAY_FROM_JOB);
     }
 
-    cmd.spawn()?;
-    Ok(())
+    match cmd.spawn() {
+        Ok(_) => Ok(()),
+        Err(_) => {
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                const DETACHED_PROCESS: u32 = 0x00000008;
+                cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+                cmd.spawn()?;
+                Ok(())
+            }
+            #[cfg(not(windows))]
+            {
+                anyhow::bail!("failed to spawn daemon process");
+            }
+        }
+    }
 }
 
 /// Parse a `--corpus` spec of the form `name=path[,templates=rel_path]` or a bare `path`.
