@@ -47,3 +47,10 @@ pub(crate) struct GraphData {
     /// The serialized directed graph.
     pub(crate) graph: DiGraph<GraphNode, GraphEdge>,
 }
+
+/// Borrowed serializable wrapper for zero-clone streaming persistence.
+#[derive(Serialize)]
+pub(crate) struct GraphDataRef<'a> {
+    pub(crate) version: u32,
+    pub(crate) graph: &'a DiGraph<GraphNode, GraphEdge>,
+}

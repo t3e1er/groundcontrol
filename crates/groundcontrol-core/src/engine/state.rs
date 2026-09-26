@@ -31,6 +31,7 @@ pub struct Engine {
     pub(crate) index_dir: PathBuf,
     pub(crate) exclude_matcher: Arc<crate::index::exclude::ExcludeMatcher>,
     pub(crate) classifier: Arc<crate::index::classifier::FileClassifier>,
+    pub(crate) external_refs: Vec<groundcontrol_common::types::ExternalRef>,
 }
 
 impl Engine {
@@ -72,6 +73,7 @@ impl Engine {
             index_dir,
             exclude_matcher,
             classifier,
+            external_refs: Vec::new(),
         }
     }
 
@@ -196,6 +198,7 @@ impl Engine {
         if let Some(ref mut dense) = self.dense {
             dense.clear()?;
         }
+        self.external_refs.clear();
         Ok(())
     }
 
@@ -365,6 +368,11 @@ impl Engine {
     /// Get a reference to the metadata store implementing [`MetadataCatalog`].
     pub fn store(&self) -> &impl MetadataCatalog {
         &self.store
+    }
+
+    /// Get the unresolved external references captured across this corpus.
+    pub fn external_refs(&self) -> &[groundcontrol_common::types::ExternalRef] {
+        &self.external_refs
     }
 
     /// Get a reference to the corpus configuration.

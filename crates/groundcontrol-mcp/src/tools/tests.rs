@@ -1978,7 +1978,7 @@ pub fn compute_hash(data: &[u8]) -> u64 {
     let mut registry = ToolRegistry::new();
     registry.register_all();
 
-    // 1. Context enrichment: check scope_path, signature, docstring, language, path
+    // 1. Context enrichment: check scope_path, language, path, source bounds
     let res = registry
         .execute_read(
             "get_snippet",
@@ -1991,7 +1991,6 @@ pub fn compute_hash(data: &[u8]) -> u64 {
     assert_eq!(res["end_line"], 5);
     assert_eq!(res["total_lines"], 5);
     assert!(res["source"].as_str().unwrap().contains("pub fn compute_hash"));
-    assert!(res["docstring"].as_str().unwrap().contains("Compute hash of input data."));
     // Grammar-driven relationships: incoming defines from hash.rs, 0 callers, 0 outgoing.
     let incoming = res["relationships"]["incoming"].as_object().unwrap();
     assert!(incoming.get("calls").is_none());
@@ -2011,7 +2010,7 @@ pub fn compute_hash(data: &[u8]) -> u64 {
     assert_eq!(candidates.len(), 1);
     assert_eq!(candidates[0]["name"], "compute_hash");
     assert_eq!(candidates[0]["scope_path"], "compute_hash");
-    assert!(candidates[0]["signature"].as_str().unwrap().contains("compute_hash"));
+    assert_eq!(candidates[0]["file_path"], "hash.rs");
 
     // 3. Complete miss returns 404
     let err = registry

@@ -3,8 +3,7 @@
 use std::collections::HashMap;
 
 use crate::types::{
-    ChunkRecord, CodeSymbol, EdgeRecord, EdgeTypeRecord, ExternalRef, FileFormat, FileRecord,
-    GraphAffordances, IndexingState,
+    ChunkRecord, CodeSymbol, EdgeTypeRecord, FileFormat, FileRecord, IndexingState,
 };
 use crate::Result;
 
@@ -76,25 +75,6 @@ pub trait MetadataCatalog {
     fn list_edge_types(&self) -> Result<Vec<EdgeTypeRecord>>;
 
     // ------------------------------------------------------------------
-    // Relational Edges
-    // ------------------------------------------------------------------
-
-    /// Insert a batch of relational edges within a transaction.
-    fn insert_edges(&self, edges: &[EdgeRecord]) -> Result<()>;
-
-    /// Delete all edges where the given path is source or target.
-    fn delete_edges_for_node(&self, path: &str) -> Result<()>;
-
-    /// Retrieve all incident edges (source or target) for a node.
-    fn get_edges_for_node(&self, path: &str) -> Result<Vec<EdgeRecord>>;
-
-    /// Retrieve degree affordance tallies for a node.
-    fn get_degree_counts(&self, node: &str) -> Result<GraphAffordances>;
-
-    /// Remove all edges from the database.
-    fn clear_all_edges(&self) -> Result<()>;
-
-    // ------------------------------------------------------------------
     // Corpus config (key/value store)
     // ------------------------------------------------------------------
 
@@ -153,22 +133,6 @@ pub trait MetadataCatalog {
 
     /// Retrieve all code symbols in the entire catalog.
     fn get_all_code_symbols(&self) -> Result<Vec<CodeSymbol>>;
-
-    // ------------------------------------------------------------------
-    // External references (unresolved call/import targets)
-    // ------------------------------------------------------------------
-
-    /// Delete all external references captured for a file (for idempotent re-index).
-    fn clear_external_refs_for_file(&self, file_path: &str) -> Result<()>;
-
-    /// Insert a batch of external references for a file within a transaction.
-    fn insert_external_refs(&self, file_path: &str, refs: &[ExternalRef]) -> Result<()>;
-
-    /// Retrieve every external reference in the catalog.
-    fn get_external_refs(&self) -> Result<Vec<ExternalRef>>;
-
-    /// Retrieve the external references captured for a single file.
-    fn get_external_refs_for_file(&self, file_path: &str) -> Result<Vec<ExternalRef>>;
 
     /// Flush the database write-ahead log or checkpoint changes to disk.
     fn checkpoint(&self) -> Result<()> {

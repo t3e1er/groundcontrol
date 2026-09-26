@@ -34,3 +34,4 @@ Place this file at the root of your repository as `GEMINI.md` (or `.agents/rules
    - Distill debugging breakthroughs and architectural consensus into permanent notes using `write_note` (linking `derived_from` in frontmatter).
    - Trace lineage and provenance with `graph_match`.
 7. **Greenfield Discipline**: No backwards compatibility shims, no dead code, clippy `-D warnings`.
+8. **Workspace MCP Configuration Exclusivity**: Exclusively use `.agents/mcp_config.json` for workspace MCP server configuration and install changes. Never modify global machine configs (`~/.gemini/antigravity-ide/mcp_config.json` or `~/.gemini/config/mcp_config.json`).

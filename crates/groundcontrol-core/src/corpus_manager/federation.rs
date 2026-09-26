@@ -253,7 +253,7 @@ impl CorpusManager {
         let scip_index = self.build_scip_index();
 
         for (source_corpus, engine) in &self.engines {
-            let refs = engine.store().get_external_refs()?;
+            let refs = engine.external_refs();
             let mut memo: HashMap<String, Option<(String, CodeSymbol, ResolverKind)>> =
                 HashMap::new();
 
@@ -277,7 +277,7 @@ impl CorpusManager {
 
                 decisions.push(CrossRef {
                     source_corpus: source_corpus.clone(),
-                    caller_scope_path: ext.caller_scope_path,
+                    caller_scope_path: ext.caller_scope_path.clone(),
                     kind: ext.kind,
                     target_corpus,
                     symbol,

@@ -26,3 +26,5 @@ Copy this file into `.agents/rules/groundcontrol-rules.md` or as `GEMINI.md` in 
    - Verify compliance immediately with `validate(path="...")`.
 6. **Knowledge Crystallization (Principle 3)**:
    - Transform valuable debugging outcomes and architectural resolutions into durable notes via `write_note` (setting `derived_from`) and trace lineage with `graph_match`.
+7. **Workspace MCP Configuration Exclusivity**:
+   - Exclusively configure workspace MCP servers in `.agents/mcp_config.json`. Never modify global machine configuration files.

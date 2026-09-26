@@ -21,8 +21,7 @@ use rusqlite::Connection;
 
 use groundcontrol_common::ports::MetadataCatalog;
 use groundcontrol_common::types::{
-    ChunkRecord, CodeSymbol, EdgeRecord, EdgeTypeRecord, ExternalRef, FileFormat, FileRecord,
-    GraphAffordances, IndexingState,
+    ChunkRecord, CodeSymbol, EdgeTypeRecord, FileFormat, FileRecord, IndexingState,
 };
 use groundcontrol_common::{Error, Result};
 
@@ -143,26 +142,6 @@ impl MetadataCatalog for Store {
         Store::list_edge_types(self)
     }
 
-    fn insert_edges(&self, edges: &[EdgeRecord]) -> Result<()> {
-        Store::insert_edges(self, edges)
-    }
-
-    fn delete_edges_for_node(&self, path: &str) -> Result<()> {
-        Store::delete_edges_for_node(self, path)
-    }
-
-    fn get_edges_for_node(&self, path: &str) -> Result<Vec<EdgeRecord>> {
-        Store::get_edges_for_node(self, path)
-    }
-
-    fn get_degree_counts(&self, node: &str) -> Result<GraphAffordances> {
-        Store::get_degree_counts(self, node)
-    }
-
-    fn clear_all_edges(&self) -> Result<()> {
-        Store::clear_all_edges(self)
-    }
-
     fn set_config(&self, key: &str, value: &str) -> Result<()> {
         Store::set_config(self, key, value)
     }
@@ -212,22 +191,6 @@ impl MetadataCatalog for Store {
 
     fn get_all_code_symbols(&self) -> Result<Vec<CodeSymbol>> {
         Store::get_all_code_symbols(self)
-    }
-
-    fn clear_external_refs_for_file(&self, file_path: &str) -> Result<()> {
-        Store::clear_external_refs_for_file(self, file_path)
-    }
-
-    fn insert_external_refs(&self, file_path: &str, refs: &[ExternalRef]) -> Result<()> {
-        Store::insert_external_refs(self, file_path, refs)
-    }
-
-    fn get_external_refs(&self) -> Result<Vec<ExternalRef>> {
-        Store::get_external_refs(self)
-    }
-
-    fn get_external_refs_for_file(&self, file_path: &str) -> Result<Vec<ExternalRef>> {
-        Store::get_external_refs_for_file(self, file_path)
     }
 
     fn checkpoint(&self) -> Result<()> {
