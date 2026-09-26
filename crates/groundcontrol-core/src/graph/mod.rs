@@ -280,6 +280,98 @@ impl KnowledgeGraph {
         out
     }
 
+    /// Expand 1-hop step edges according to direction, edge type filters, and optional edge class filter.
+    pub fn expand_step_edges(
+        &self,
+        node: &str,
+        edge_types: &[String],
+        edge_class_filter: Option<&str>,
+        direction_is_outgoing: bool,
+        direction_is_incoming: bool,
+    ) -> Vec<(String, String)> {
+        let Some(&idx) = self.node_map.get(node) else {
+            return Vec::new();
+        };
+
+        let class_filter = edge_class_filter.and_then(EdgeClass::from_str_name);
+
+        let matches_filter = |edge: &GraphEdge| -> bool {
+            if !edge_types.is_empty() && !edge_types.iter().any(|t| t == &edge.edge_type) {
+                return false;
+            }
+            if let Some(cf) = class_filter {
+                if !edge.class.matches(cf) {
+                    return false;
+                }
+            }
+            true
+        };
+
+        let mut results = Vec::new();
+
+        if direction_is_outgoing {
+            for e in self.graph.edges_directed(idx, Direction::Outgoing) {
+                if matches_filter(e.weight()) {
+                    if let Some(target) = self.graph.node_weight(e.target()) {
+                        results.push((
+                            target.path.clone(),
+                            e.weight().edge_type.clone(),
+                            e.weight().weight,
+                        ));
+                    }
+                }
+            }
+        } else if direction_is_incoming {
+            for e in self.graph.edges_directed(idx, Direction::Incoming) {
+                if matches_filter(e.weight()) {
+                    if let Some(source) = self.graph.node_weight(e.source()) {
+                        results.push((
+                            source.path.clone(),
+                            e.weight().edge_type.clone(),
+                            e.weight().weight,
+                        ));
+                    }
+                }
+            }
+        } else {
+            for e in self.graph.edges_directed(idx, Direction::Outgoing) {
+                if matches_filter(e.weight()) {
+                    if let Some(target) = self.graph.node_weight(e.target()) {
+                        results.push((
+                            target.path.clone(),
+                            e.weight().edge_type.clone(),
+                            e.weight().weight,
+                        ));
+                    }
+                }
+            }
+            for e in self.graph.edges_directed(idx, Direction::Incoming) {
+                if matches_filter(e.weight()) {
+                    if let Some(source) = self.graph.node_weight(e.source()) {
+                        results.push((
+                            source.path.clone(),
+                            e.weight().edge_type.clone(),
+                            e.weight().weight,
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Order by weight descending
+        results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut seen = HashSet::new();
+        let mut final_results = Vec::new();
+        for (target, edge_type, _) in results {
+            if seen.insert((target.clone(), edge_type.clone())) {
+                final_results.push((target, edge_type));
+            }
+        }
+
+        final_results
+    }
+
     /// Enumerate all node paths currently in the graph.
     pub fn node_paths(&self) -> Vec<String> {
         self.node_map.keys().cloned().collect()

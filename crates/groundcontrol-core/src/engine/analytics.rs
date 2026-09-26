@@ -23,9 +23,6 @@ impl Engine {
             self.graph.add_code_edge(edge);
         }
 
-        let edge_records = self.graph.get_all_edge_records();
-        self.store.clear_all_edges()?;
-        self.store.insert_edges(&edge_records)?;
         self.graph.save(&self.index_dir.join("graph.bin"))?;
 
         info!(
@@ -47,6 +44,12 @@ impl Engine {
         }
 
         let symbol_index = crate::graph::code::CodeGraphExtractor::build_symbol_index(&all_symbols);
+        let mut symbols_by_file: HashMap<String, Vec<groundcontrol_common::types::CodeSymbol>> =
+            HashMap::new();
+        for sym in &all_symbols {
+            symbols_by_file.entry(sym.file_path.clone()).or_default().push(sym.clone());
+        }
+
         let corpus_path = PathBuf::from(&self.config.path);
         let files = self.store.list_files()?;
         let mut edges_added = 0usize;
@@ -66,12 +69,12 @@ impl Engine {
                 }
             };
 
-            let file_symbols = self.store.get_code_symbols_for_file(&f.path)?;
+            let file_symbols = symbols_by_file.get(&f.path).map(|v| v.as_slice()).unwrap_or(&[]);
             let extraction =
                 crate::graph::code::CodeGraphExtractor::extract_edges_for_file_with_index(
                     rel_p,
                     &content,
-                    &file_symbols,
+                    file_symbols,
                     &symbol_index,
                 );
 
@@ -80,9 +83,8 @@ impl Engine {
                 edges_added += 1;
             }
 
-            self.store.clear_external_refs_for_file(&f.path)?;
             if !extraction.external_refs.is_empty() {
-                self.store.insert_external_refs(&f.path, &extraction.external_refs)?;
+                self.external_refs.extend(extraction.external_refs);
             }
         }
 
@@ -165,7 +167,7 @@ impl Engine {
         max_depth: usize,
     ) -> Result<groundcontrol_common::types::GraphMatchResult> {
         let parsed = crate::graph::query::parse_path_pattern(pattern)?;
-        let qe = crate::graph::query::QueryEngine::new(&self.store);
+        let qe = crate::graph::query::QueryEngine::new(&self.graph, &self.store);
         qe.execute_match(&parsed, edge_class, where_clause, limit, max_depth)
     }
 

@@ -39,4 +39,6 @@ This section tracks the technical roadmap and Request for Comments (RFC) enginee
 | **[[docs/roadmap/RFC-document-extractors-and-projections]]** | Pluggable Document Extractors & Derived Projections | Proposed | Pure-Rust ingestion for Word (.docx), PDF (.pdf), and HTML (.html) via disposable Derived Text Projections and modality disambiguation. |
 | **[[docs/roadmap/RFC-cast-signal-boosting-and-partitioned-hyperplanes]]** | cAST Structural Signal Boosting & Partitioned Hyperplanes | Proposed | Eliminating Bag-of-Words loss via AST role tagging, tree-depth attenuation, def-use flow synthesis, and 3-channel hyperplanes. |
 | **[[docs/roadmap/RFC-binaryv3-hierarchical-matryoshka-and-bayesian-prior]]** | BinaryV3: Hierarchical Matryoshka & Bayesian Structural Prior | Implemented | Sub-millisecond CPU code retrieval unifying 256-bit unpartitioned SIF, true Matryoshka prefix nesting, and zero-cost post-Hamming structural priors. |
+| **[[docs/roadmap/RFC-progressive-disclosure-tiers-2-and-3]]** | Progressive Disclosure Tiers 2 & 3 Optimization | Proposed | Call-site preamble cards, dominator CTE pruning, AST-aligned snapping, read_slices co-hydration, and BPI formalization. |
+
 

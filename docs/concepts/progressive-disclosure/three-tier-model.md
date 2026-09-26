@@ -10,6 +10,7 @@ related:
   - "[[docs/architecture/adr/adr-004-progressive-disclosure-token-contract]]"
   - "[[docs/architecture/adr/adr-020-lean-multiline-text-emission]]"
   - "[[docs/roadmap/RFC-lean-multiline-text-emission]]"
+  - "[[docs/roadmap/RFC-progressive-disclosure-tiers-2-and-3]]"
 ---
 
 # The 3-Tier Progressive Disclosure Model

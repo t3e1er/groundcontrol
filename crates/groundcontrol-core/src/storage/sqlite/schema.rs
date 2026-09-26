@@ -76,8 +76,6 @@ CREATE TABLE IF NOT EXISTS code_symbols (
     scope_path TEXT NOT NULL,
     symbol_type TEXT NOT NULL,
     language TEXT NOT NULL,
-    signature TEXT NOT NULL,
-    docstring TEXT,
     start_line INTEGER NOT NULL,
     end_line INTEGER NOT NULL
 );
@@ -86,37 +84,6 @@ CREATE INDEX IF NOT EXISTS idx_code_symbols_name ON code_symbols(name);
 CREATE INDEX IF NOT EXISTS idx_code_symbols_file ON code_symbols(file_path);
 CREATE INDEX IF NOT EXISTS idx_code_symbols_scope ON code_symbols(scope_path);
 CREATE INDEX IF NOT EXISTS idx_code_symbols_file_covering ON code_symbols(file_path, scope_path, symbol_type, start_line, end_line);
-
-CREATE TABLE IF NOT EXISTS edges (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source TEXT NOT NULL,
-    target TEXT NOT NULL,
-    edge_type TEXT NOT NULL,
-    edge_class TEXT NOT NULL,
-    weight REAL NOT NULL DEFAULT 1.0,
-    confidence REAL NOT NULL DEFAULT 1.0,
-    metadata TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_edges_source_type ON edges(source, edge_type);
-CREATE INDEX IF NOT EXISTS idx_edges_target_type ON edges(target, edge_type);
-CREATE INDEX IF NOT EXISTS idx_edges_composite ON edges(source, edge_type, target);
-CREATE INDEX IF NOT EXISTS idx_edges_class_source ON edges(edge_class, source);
-CREATE INDEX IF NOT EXISTS idx_edges_class_target ON edges(edge_class, target);
-CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source);
-CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target);
-
-CREATE TABLE IF NOT EXISTS external_refs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    file_path TEXT NOT NULL,
-    caller_scope_path TEXT NOT NULL,
-    raw_target TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    confidence TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_external_refs_file ON external_refs(file_path);
-CREATE INDEX IF NOT EXISTS idx_external_refs_target ON external_refs(raw_target);
 "#;
 
 /// Apply pragmatic configurations and initialize schema tables.

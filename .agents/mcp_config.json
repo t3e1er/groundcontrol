@@ -1,7 +1,11 @@
 {
   "mcpServers": {
-    "ctxvault": {
+    "groundcontrol": {
       "serverUrl": "http://127.0.0.1:9090/sse"
+    },
+    "codebase-memory": {
+      "command": "codebase-memory-mcp",
+      "args": []
     }
   }
-}
+}

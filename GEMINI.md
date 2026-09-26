@@ -16,13 +16,15 @@ Written in 100% pure Rust (`unsafe_code = "forbid"`) for memory safety, zero C-r
 3. **Pure Rust sub-millisecond speed**: Multi-hop graph traversal and hybrid ranking operate in real time (lexical p50 ~2.2ms, graph BFS ~1.8ms) with no perceptible agent lag.
 4. **Multi-agent memory substrate**: A shared in-memory + on-disk semantic plane for specialized agent swarms (Scouts, Readers, Writers, Analysts).
 5. **Never git push**: AI agents must NEVER run `git push` under any circumstances. Staging, branching, and committing locally are permitted when requested, but pushing to remote repositories is strictly reserved for the human developer.
+6. **Exclusively use `.agents\mcp_config.json` for MCP install config**: AI agents must NEVER edit, rewrite, or populate global/machine MCP configuration files (e.g., `~/.gemini/antigravity-ide/mcp_config.json`, `~/.gemini/config/mcp_config.json`, or external IDE global settings). All MCP server configurations, daemon endpoints, arguments, or environment variables in this workspace must strictly and exclusively reside in `.agents\mcp_config.json`.
 
 ### Retrieval, Configuration & Multi-Corpus Architecture
 - **Central vs Local Configuration Separation**:
   - *Central Machine Config* (`${GROUNDCONTROL_CACHE_DIR}/config.toml`): Daemon host/port, client authentication registry, GraphView telemetry relay, and persistent corpus registry. Lazily generated on first run with cryptographic keys via [`ensure_global_config`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-common/src/config.rs).
   - *Local Repository Config* (`<repo_root>/groundcontrol.toml`): Authoritative per-repo rules (`[docs.patterns]`, `[exclude.patterns]`, `[templates]`, `[chunking]`, `[graph]`). Initialized via `groundcontrol init` with automatic `.gitignore` importing.
   - *Zero-Config Repository Indexing*: Unconfigured repositories dynamically import local `.gitignore` rules in memory and index directly into central storage (`${GROUNDCONTROL_CACHE_DIR}/corpora/<name>/`) without polluting git working trees.
-  - *Automated Agent Configuration*: `install.ps1`, `install.sh`, and `groundcontrol install -y` auto-detect installed coding agents and configure zero-arg MCP entries with optional auth tokens via [`run_install`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-cli/src/installer/mod.rs).
+  - *Workspace MCP Configuration*: All agent MCP server configurations for this workspace strictly and exclusively live in `<repo_root>/.agents/mcp_config.json`. Never edit global user-profile configurations (`~/.gemini/antigravity-ide/mcp_config.json`, `~/.gemini/config/mcp_config.json`).
+  - *Automated Agent Configuration*: `install.ps1`, `install.sh`, and `groundcontrol install -y` auto-detect installed coding agents and configure zero-arg MCP entries with optional auth tokens via [`run_install`](file:///c:/dev/ctx/groundcontrol/crates/groundcontrol-cli/src/installer/mod.rs). For this repository, install/benchmark server entries (including head-to-head servers like `codebase-memory`) must always be configured in `.agents\mcp_config.json`.
 - **4-Modality Hybrid Retrieval**: Fused via 3-way Reciprocal Rank Fusion (RRF) across Tantivy Okapi BM25, dense ONNX embeddings (`jina-embeddings-v2-base-code`, 768-dim), and Petgraph typed graph traversal.
 - **Cross-Modal Linking**: Unifies documentation and polyglot source code (Rust, TS/JS, Python, Go, Java, C/C++) in a single graph.
 - **Multi-Corpus Serving**: A central MCP process serves $N$ index roots via `CorpusManager`. Tools accept optional `corpus` or fan-out `corpora` (`["a", "b"]` or `"all"`).
@@ -72,7 +74,7 @@ Authoritative tool registry: `crates/groundcontrol-mcp/src/tools/mod.rs`. Handle
 |---|---|---|
 | **Read** | 3 | `read_file` (Tier 3 polymorphic path/paths batch with line slicing), `get_snippet` (Tier 2 symbol/chunk fetch + grammar-driven relationship handles + symbol definition lookup), `list_notes` (note catalog & single note frontmatter inspection) |
 | **Search** | 2 | `search` (Tier 1 retrieval with Turn 1 hybrid snippets across docs & code via `snippets: usize`; `mode` = `hybrid` \| `bm25` \| `semantic` \| `graph` \| `explain`), `search_related` |
-| **Graph** | 2 | `graph_match` (linear Cypher-Lite ASCII path query compiled to recursive SQLite CTEs with cycle guards), `graph_communities` (`algorithm` = `leiden` \| `louvain`, `view` = `architecture` \| `raw`) |
+| **Graph** | 2 | `graph_match` (linear Cypher-Lite ASCII path query executed via pure in-memory Petgraph traversal with cycle guards), `graph_communities` (`algorithm` = `leiden` \| `louvain`, `view` = `architecture` \| `raw`) |
 | **Write** | 3 | `write_note` (`mode` = `create` \| `overwrite` \| `append` \| `prepend`), `delete_note`, `move_note` (wikilink refactoring) |
 | **Template / Validation** | 2 | `validate` (unified single note template check, corpus scan, and taxonomy check via `check_taxonomy`), `list_templates` |
 | **System / Corpus** | 5 | `status` (unified multi-corpus overview or per-corpus stats, indexing, graph density, coverage via `scope`), `list_corpora`, `sync_corpus` (`mode` = `delta` \| `full` \| `reembed`), `index_corpus`, `unload_corpus` |
@@ -108,6 +110,10 @@ Authoritative tool registry: `crates/groundcontrol-mcp/src/tools/mod.rs`. Handle
 5. **Schema discipline on writes**: Query `list_templates` before authoring, write via `write_note`, and confirm validity with `validate(path="...")`.
 6. **Destructive operations**: `delete_note` permanently removes files and index entries; confirm with user before executing.
 7. **Absolute Git Push Prohibition**: Never run `git push` or attempt automated remote push commands. Remote synchronization is strictly reserved for manual human execution.
+8. **Workspace MCP Configuration Exclusivity (`.agents\mcp_config.json`)**:
+   - Whenever asked to install, update, reconfigure, or add MCP servers, AI agents must **exclusively edit `.agents\mcp_config.json`** in the repository root.
+   - **Never touch global configuration files** such as `~/.gemini/antigravity-ide/mcp_config.json` or `~/.gemini/config/mcp_config.json`.
+   - Co-locate comparative servers (e.g., `groundcontrol` and `codebase-memory`) inside `.agents\mcp_config.json` to enable side-by-side / head-to-head evaluation.
 
 ---
 

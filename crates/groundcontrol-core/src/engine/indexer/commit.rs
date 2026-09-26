@@ -17,9 +17,6 @@ impl Engine {
     /// Commit all pending changes across all registered retrieval algorithms and SQLite.
     pub fn commit(&mut self) -> Result<()> {
         let _ = self.store.commit_batch();
-        let edge_records = self.graph.graph().get_all_edge_records();
-        self.store.clear_all_edges()?;
-        self.store.insert_edges(&edge_records)?;
         self.graph.save(&self.index_dir.join("graph.bin"))?;
         if let Some(ref vi) = self.vector_index() {
             if vi.is_dirty() && !vi.is_empty() {

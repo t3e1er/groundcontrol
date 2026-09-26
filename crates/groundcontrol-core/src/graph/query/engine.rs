@@ -3,6 +3,7 @@
 use groundcontrol_common::types::{GraphImpactSummary, GraphMatchResult, GraphTreeNode};
 use groundcontrol_common::Result;
 
+use crate::graph::KnowledgeGraph;
 use crate::storage::sqlite::Store;
 
 use super::ast::{NodePattern, PathPattern, QueryDirection};
@@ -10,15 +11,16 @@ use super::ast::{NodePattern, PathPattern, QueryDirection};
 /// Threshold beyond which a node's fan-out is capped and flagged as a hub.
 const HUB_FANOUT_THRESHOLD: usize = 10;
 
-/// Execution engine that executes a `PathPattern` against the SQLite store.
+/// Execution engine that executes a `PathPattern` against the in-memory graph.
 pub struct QueryEngine<'a> {
+    graph: &'a KnowledgeGraph,
     store: &'a Store,
 }
 
 impl<'a> QueryEngine<'a> {
-    /// Create a new query engine over the SQLite store.
-    pub fn new(store: &'a Store) -> Self {
-        Self { store }
+    /// Create a new query engine over the in-memory graph and SQLite metadata catalog.
+    pub fn new(graph: &'a KnowledgeGraph, store: &'a Store) -> Self {
+        Self { graph, store }
     }
 
     /// Execute a pattern match with optional class, where filter, and limit constraints.
@@ -151,8 +153,8 @@ impl<'a> QueryEngine<'a> {
             }
         }
 
-        // If no properties or unbound variable, resolve distinct sources from edges table
-        let endpoints = self.store.distinct_edge_sources(100).unwrap_or_default();
+        // If no properties or unbound variable, resolve distinct sources from in-memory graph
+        let endpoints: Vec<String> = self.graph.node_paths().into_iter().take(100).collect();
         if !endpoints.is_empty() {
             return Ok(endpoints);
         }
@@ -315,7 +317,7 @@ impl<'a> QueryEngine<'a> {
             QueryDirection::Incoming => (false, true),
             QueryDirection::Undirected => (false, false),
         };
-        self.store.expand_step_edges(node, edge_types, edge_class_filter, out, inc)
+        Ok(self.graph.expand_step_edges(node, edge_types, edge_class_filter, out, inc))
     }
 
     /// Compute high-signal cardinality summary (direct, transitive, unique files, max depth).

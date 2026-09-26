@@ -224,9 +224,8 @@ impl Engine {
 
         if record.is_code {
             self.store.save_code_symbols(path, &record.symbols)?;
-            self.store.clear_external_refs_for_file(path)?;
             if !record.external_refs.is_empty() {
-                self.store.insert_external_refs(path, &record.external_refs)?;
+                self.external_refs.extend(record.external_refs.iter().cloned());
             }
         }
 
