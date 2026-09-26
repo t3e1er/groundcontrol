@@ -27,6 +27,17 @@ impl Engine {
 
     /// Paginated, resumable full reindex: scans corpus directory in configurable batches.
     pub fn full_reindex_paginated(&mut self, batch_size: usize, resume: bool) -> Result<usize> {
+        self.full_reindex_with_progress(batch_size, resume, None)
+    }
+
+    /// Paginated, resumable full reindex with real-time progress callbacks.
+    pub fn full_reindex_with_progress(
+        &mut self,
+        batch_size: usize,
+        resume: bool,
+        progress: Option<crate::engine::types::ProgressCallback>,
+    ) -> Result<usize> {
+        let start_instant = Instant::now();
         let commit_batch_size = if batch_size == 0 || batch_size == 50 { 500 } else { batch_size };
         let corpus_id = self.config.name.clone();
         let corpus_path = PathBuf::from(&self.config.path);
@@ -34,6 +45,18 @@ impl Engine {
             walk_markdown_files(&corpus_path, &self.exclude_matcher, &self.classifier)?;
         disk_files.sort_by(|a, b| a.0.cmp(&b.0));
         let total_files = disk_files.len();
+
+        if let Some(ref cb) = progress {
+            cb(&crate::engine::types::IndexingProgress {
+                stage: crate::engine::types::IndexingStage::Discovery,
+                processed_files: 0,
+                total_files,
+                current_path: None,
+                embedded_chunks: 0,
+                elapsed_seconds: 0.0,
+                files_per_second: 0.0,
+            });
+        }
 
         self.ensure_vector_index();
         if self.config.index_mode != IndexMode::Fast {
@@ -236,6 +259,22 @@ impl Engine {
                     );
                     uncommitted_count = 0;
                     last_commit_time = Instant::now();
+
+                    if let Some(ref cb) = progress {
+                        let elapsed = start_instant.elapsed().as_secs_f64();
+                        let throughput =
+                            if elapsed > 0.0 { state.indexed_files as f64 / elapsed } else { 0.0 };
+                        let embedded_count = self.vector_index().map(|v| v.len()).unwrap_or(0);
+                        cb(&crate::engine::types::IndexingProgress {
+                            stage: crate::engine::types::IndexingStage::ParsingAndIndexing,
+                            processed_files: state.indexed_files,
+                            total_files,
+                            current_path: state.last_processed_path.clone(),
+                            embedded_chunks: embedded_count,
+                            elapsed_seconds: elapsed,
+                            files_per_second: throughput,
+                        });
+                    }
                 }
             }
 
@@ -243,6 +282,22 @@ impl Engine {
         });
 
         if let Some(mut pipeline) = embedding_pipeline {
+            if let Some(ref cb) = progress {
+                let elapsed = start_instant.elapsed().as_secs_f64();
+                cb(&crate::engine::types::IndexingProgress {
+                    stage: crate::engine::types::IndexingStage::GeneratingEmbeddings,
+                    processed_files: state.indexed_files,
+                    total_files,
+                    current_path: None,
+                    embedded_chunks: self.vector_index().map(|v| v.len()).unwrap_or(0),
+                    elapsed_seconds: elapsed,
+                    files_per_second: if elapsed > 0.0 {
+                        state.indexed_files as f64 / elapsed
+                    } else {
+                        0.0
+                    },
+                });
+            }
             if let Some(ref mut vi) = self.vector_index_mut() {
                 pipeline.finish(vi)?;
             }
@@ -256,7 +311,41 @@ impl Engine {
             self.graph.build_all_tag_edges(&tag_configs, &all_docs);
         }
 
+        if let Some(ref cb) = progress {
+            let elapsed = start_instant.elapsed().as_secs_f64();
+            cb(&crate::engine::types::IndexingProgress {
+                stage: crate::engine::types::IndexingStage::ResolvingGraphEdges,
+                processed_files: state.indexed_files,
+                total_files,
+                current_path: None,
+                embedded_chunks: self.vector_index().map(|v| v.len()).unwrap_or(0),
+                elapsed_seconds: elapsed,
+                files_per_second: if elapsed > 0.0 {
+                    state.indexed_files as f64 / elapsed
+                } else {
+                    0.0
+                },
+            });
+        }
+
         let _ = self.resolve_cross_file_code_edges();
+
+        if let Some(ref cb) = progress {
+            let elapsed = start_instant.elapsed().as_secs_f64();
+            cb(&crate::engine::types::IndexingProgress {
+                stage: crate::engine::types::IndexingStage::Committing,
+                processed_files: state.indexed_files,
+                total_files,
+                current_path: None,
+                embedded_chunks: self.vector_index().map(|v| v.len()).unwrap_or(0),
+                elapsed_seconds: elapsed,
+                files_per_second: if elapsed > 0.0 {
+                    state.indexed_files as f64 / elapsed
+                } else {
+                    0.0
+                },
+            });
+        }
 
         self.commit()?;
         let _ = self.store.checkpoint();
@@ -264,6 +353,19 @@ impl Engine {
         state.updated_at = now_unix();
         state.indexed_files = total_files;
         self.store.update_indexing_state(&state)?;
+
+        if let Some(ref cb) = progress {
+            let elapsed = start_instant.elapsed().as_secs_f64();
+            cb(&crate::engine::types::IndexingProgress {
+                stage: crate::engine::types::IndexingStage::Completed,
+                processed_files: total_files,
+                total_files,
+                current_path: None,
+                embedded_chunks: self.vector_index().map(|v| v.len()).unwrap_or(0),
+                elapsed_seconds: elapsed,
+                files_per_second: if elapsed > 0.0 { total_files as f64 / elapsed } else { 0.0 },
+            });
+        }
 
         info!("Paginated indexing complete: {} total files indexed/verified", total_files);
 

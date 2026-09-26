@@ -26,6 +26,16 @@ impl Engine {
 
     /// Perform a paginated delta scan: compare filesystem against stored file records.
     pub fn delta_scan_paginated(&mut self, batch_size: usize) -> Result<DeltaScanResult> {
+        self.delta_scan_with_progress(batch_size, None)
+    }
+
+    /// Perform a paginated delta scan with real-time progress callbacks.
+    pub fn delta_scan_with_progress(
+        &mut self,
+        batch_size: usize,
+        progress: Option<crate::engine::types::ProgressCallback>,
+    ) -> Result<DeltaScanResult> {
+        let start_instant = Instant::now();
         let commit_batch_size = if batch_size == 0 || batch_size == 50 { 500 } else { batch_size };
         if self.config.index_mode != IndexMode::Fast {
             let _ = self.ensure_embedder();
@@ -40,6 +50,18 @@ impl Engine {
         let corpus_path = PathBuf::from(&self.config.path);
         let disk_files =
             walk_markdown_files(&corpus_path, &self.exclude_matcher, &self.classifier)?;
+
+        if let Some(ref cb) = progress {
+            cb(&crate::engine::types::IndexingProgress {
+                stage: crate::engine::types::IndexingStage::Discovery,
+                processed_files: 0,
+                total_files: disk_files.len(),
+                current_path: None,
+                embedded_chunks: 0,
+                elapsed_seconds: 0.0,
+                files_per_second: 0.0,
+            });
+        }
 
         let mut new_files = Vec::new();
         let mut modified_files = Vec::new();
@@ -96,6 +118,8 @@ impl Engine {
             .collect();
         let mut all_docs: Vec<Document> = Vec::new();
 
+        let total_delta = files_to_index.len();
+
         if !files_to_index.is_empty() {
             let num_cpus = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8);
             let (work_tx, work_rx) = crossbeam_channel::unbounded::<(String, PathBuf)>();
@@ -104,6 +128,7 @@ impl Engine {
             let chunk_tx_opt = embedding_pipeline.as_ref().and_then(|p| p.chunk_sender());
             let chunking_config = self.config.chunking.clone();
             let index_mode = self.config.index_mode;
+            let mut processed_delta_count = 0usize;
 
             for file_entry in files_to_index {
                 let _ = work_tx.send(file_entry);
@@ -197,6 +222,7 @@ impl Engine {
                     }
 
                     uncommitted_count += 1;
+                    processed_delta_count += 1;
 
                     if uncommitted_count >= commit_batch_size
                         || last_commit_time.elapsed() >= commit_time_threshold
@@ -213,6 +239,24 @@ impl Engine {
                         let _ = self.store.begin_batch();
                         uncommitted_count = 0;
                         last_commit_time = Instant::now();
+
+                        if let Some(ref cb) = progress {
+                            let elapsed = start_instant.elapsed().as_secs_f64();
+                            let throughput = if elapsed > 0.0 {
+                                processed_delta_count as f64 / elapsed
+                            } else {
+                                0.0
+                            };
+                            cb(&crate::engine::types::IndexingProgress {
+                                stage: crate::engine::types::IndexingStage::ParsingAndIndexing,
+                                processed_files: processed_delta_count,
+                                total_files: total_delta,
+                                current_path: Some(path),
+                                embedded_chunks: self.vector_index().map(|v| v.len()).unwrap_or(0),
+                                elapsed_seconds: elapsed,
+                                files_per_second: throughput,
+                            });
+                        }
                     }
                 }
 
@@ -238,6 +282,19 @@ impl Engine {
 
         self.commit()?;
         let _ = self.store.checkpoint();
+
+        if let Some(ref cb) = progress {
+            let elapsed = start_instant.elapsed().as_secs_f64();
+            cb(&crate::engine::types::IndexingProgress {
+                stage: crate::engine::types::IndexingStage::Completed,
+                processed_files: total_delta,
+                total_files: total_delta,
+                current_path: None,
+                embedded_chunks: self.vector_index().map(|v| v.len()).unwrap_or(0),
+                elapsed_seconds: elapsed,
+                files_per_second: if elapsed > 0.0 { total_delta as f64 / elapsed } else { 0.0 },
+            });
+        }
 
         info!(
             "Delta scan complete: {} new, {} modified, {} deleted",

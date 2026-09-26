@@ -101,7 +101,5 @@ pub fn initialize_db(conn: &Connection) -> Result<()> {
     )
     .map_err(|e| Error::Database(e.to_string()))?;
     conn.execute_batch(SCHEMA_SQL).map_err(|e| Error::Database(e.to_string()))?;
-    let _ =
-        conn.execute_batch("ALTER TABLE files ADD COLUMN format TEXT NOT NULL DEFAULT 'source';");
     Ok(())
 }

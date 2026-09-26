@@ -1,6 +1,6 @@
 //! CLI entry point: argument parsing, mode selection, startup orchestration.
 
-mod artifacts;
+pub mod artifacts;
 mod commands;
 mod config_cmd;
 mod installer;
@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 
-use groundcontrol_common::config::get_logs_cache_dir;
+use groundcontrol_common::config::{get_logs_cache_dir, write_daemon_pid, DaemonPidInfo};
 use groundcontrol_core::corpus_manager::CorpusManager;
 use groundcontrol_mcp::client::McpClient;
 use groundcontrol_mcp::tools::MultiCorpusToolRegistry;
@@ -162,28 +162,88 @@ enum Commands {
         #[arg(long)]
         auth: bool,
     },
+    /// Manage the background groundcontrol MCP daemon (start, stop, status, sync, restart).
+    Daemon {
+        #[command(subcommand)]
+        action: DaemonAction,
+    },
+    /// Manage central corpus registration, indexing, sync, and portable archives.
+    Corpus {
+        #[command(subcommand)]
+        action: CorpusAction,
+    },
+    /// Run foreground HTTP MCP server (multi-agent, remote).
+    Server {
+        /// Corpus root(s) to serve, repeatable. Each value is either `name=path` or a bare `path`.
+        #[arg(long = "corpus", value_name = "NAME=PATH|PATH")]
+        corpora: Vec<String>,
+        /// Name of the corpus to treat as the default.
+        #[arg(long = "default-corpus", value_name = "NAME")]
+        default_corpus: Option<String>,
+        /// Bind address for HTTP server.
+        #[arg(long, default_value = "127.0.0.1:9090")]
+        bind: String,
+        /// Idle timeout in minutes before auto-shutdown (0 = disabled).
+        #[arg(long, default_value = "30")]
+        idle_timeout: u64,
+        /// Continuously watch corpus directories for file changes and incrementally reindex.
+        #[arg(long)]
+        watch: bool,
+        /// Require valid x-api-key authentication for incoming MCP requests.
+        #[arg(long = "require-auth")]
+        require_auth: bool,
+        /// Tool exposure profile (scout, analysis, all).
+        #[arg(long, default_value = "all")]
+        profile: Profile,
+        /// Run server as a detached background daemon with idle auto-shutdown.
+        #[arg(long)]
+        daemon: bool,
+        /// Run delta sync on startup.
+        #[arg(long)]
+        sync: bool,
+        /// Force full reindex on startup.
+        #[arg(long)]
+        reindex: bool,
+        /// Fast Mode: skip dense embedding and vector indexing for instant BM25+Graph indexing.
+        #[arg(long)]
+        fast: bool,
+        /// Indexing mode: full or fast. Overrides --fast if set.
+        #[arg(long = "index-mode", value_enum)]
+        index_mode: Option<CliIndexMode>,
+        /// Batch size for delta scanning.
+        #[arg(long, default_value = "50")]
+        batch_size: usize,
+        /// Do not resume indexing from previous checkpoint; restart from scratch.
+        #[arg(long)]
+        no_resume: bool,
+        /// Ingest a SCIP protobuf index file into the knowledge graph on startup.
+        #[arg(long = "scip", value_name = "PATH")]
+        scip: Option<PathBuf>,
+        /// Log level.
+        #[arg(long, default_value = "info")]
+        log_level: String,
+        /// Log format: text or json.
+        #[arg(long = "log-format", value_enum)]
+        log_format: Option<LogFormat>,
+    },
+    /// Execute a tool call against a running groundcontrol MCP server.
+    Call {
+        /// Tool name to execute (e.g. search, get_snippet, list_notes, status).
+        tool: String,
+        /// JSON arguments string for tool execution.
+        #[arg(long)]
+        args: Option<String>,
+        /// Query shorthand string for search tool execution.
+        #[arg(long)]
+        query: Option<String>,
+        /// Server endpoint URL.
+        #[arg(long, visible_alias = "remote", default_value = "http://127.0.0.1:9090")]
+        server: String,
+    },
     /// View and edit groundcontrol configuration.
     Config {
         #[command(subcommand)]
         action: ConfigAction,
-    },
-    /// Export repository index into a compressed team sharing artifact (.groundcontrol/vault.tar.zst).
-    ExportArtifact {
-        /// Target corpus name (optional, defaults to current repo or default corpus).
-        #[arg(long)]
-        corpus: Option<String>,
-        /// Destination archive file path (default: .groundcontrol/vault.tar.zst).
-        #[arg(long, short = 'o')]
-        output: Option<PathBuf>,
-    },
-    /// Import a compressed team sharing artifact (.groundcontrol/vault.tar.zst) into local or central cache.
-    ImportArtifact {
-        /// Source archive file path to import (.groundcontrol/vault.tar.zst).
-        #[arg(long, short = 'i')]
-        input: Option<PathBuf>,
-        /// Target corpus name override (optional, defaults to archive manifest name).
-        #[arg(long)]
-        corpus: Option<String>,
     },
     /// Index a corpus directory into central storage (`~/.cache/groundcontrol/indices/<name>/`).
     Index {
@@ -228,14 +288,140 @@ enum Commands {
         daemon_key: Option<String>,
     },
     /// Manage AI agent client profiles and authentication keys.
-    Client {
+    #[command(visible_alias = "client")]
+    Auth {
         #[command(subcommand)]
-        action: ClientAction,
+        action: AuthAction,
     },
 }
 
 #[derive(Subcommand, Debug)]
-enum ClientAction {
+enum DaemonAction {
+    /// Start the background MCP daemon.
+    Start {
+        /// Trigger delta scan on startup.
+        #[arg(long)]
+        sync: bool,
+        /// Bind address for background daemon.
+        #[arg(long, default_value = "127.0.0.1:9090")]
+        bind: String,
+        /// Idle timeout in minutes before auto-shutdown (0 = disabled).
+        #[arg(long, default_value = "30")]
+        idle_timeout: u64,
+        /// Continuously watch corpus directories for file changes.
+        #[arg(long)]
+        watch: bool,
+        /// Require valid x-api-key authentication.
+        #[arg(long = "require-auth")]
+        require_auth: bool,
+    },
+    /// Gracefully stop the running background daemon.
+    Stop {
+        /// Server endpoint URL to stop.
+        #[arg(long, visible_alias = "remote", default_value = "http://127.0.0.1:9090")]
+        server: String,
+    },
+    /// Check the status, uptime, PID, and active corpora of the background daemon.
+    Status {
+        /// Server endpoint URL to probe.
+        #[arg(long, visible_alias = "remote", default_value = "http://127.0.0.1:9090")]
+        server: String,
+    },
+    /// Trigger an incremental delta sync inside the running daemon.
+    Sync {
+        /// Server endpoint URL.
+        #[arg(long, visible_alias = "remote", default_value = "http://127.0.0.1:9090")]
+        server: String,
+        /// Specific corpus name to synchronize (syncs all if omitted).
+        #[arg(value_name = "CORPUS")]
+        corpus: Option<String>,
+    },
+    /// Restart the background MCP daemon.
+    Restart {
+        /// Trigger delta scan on startup.
+        #[arg(long)]
+        sync: bool,
+        /// Bind address for background daemon.
+        #[arg(long, default_value = "127.0.0.1:9090")]
+        bind: String,
+        /// Idle timeout in minutes before auto-shutdown (0 = disabled).
+        #[arg(long, default_value = "30")]
+        idle_timeout: u64,
+        /// Continuously watch corpus directories for file changes.
+        #[arg(long)]
+        watch: bool,
+        /// Require valid x-api-key authentication.
+        #[arg(long = "require-auth")]
+        require_auth: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum CorpusAction {
+    /// List all registered and cached corpora with disk footprints and indexing modes.
+    List,
+    /// Register a repository in central configuration and optionally index it.
+    Add {
+        /// Path to the repository directory.
+        #[arg(value_name = "PATH")]
+        path: PathBuf,
+        /// Custom corpus name (defaults to folder name).
+        #[arg(long)]
+        name: Option<String>,
+        /// Indexing mode: full or fast.
+        #[arg(long = "mode", value_enum)]
+        mode: Option<CliIndexMode>,
+        /// Skip immediate indexing upon registration.
+        #[arg(long = "no-index")]
+        no_index: bool,
+        /// Skip dense embeddings for instant BM25+Graph indexing.
+        #[arg(long)]
+        fast: bool,
+    },
+    /// Deregister a corpus from central configuration with optional cache purging.
+    Remove {
+        /// Name of the corpus to remove.
+        name: String,
+        /// Purge on-disk index cache directory.
+        #[arg(long)]
+        purge: bool,
+    },
+    /// View or update the active default corpus.
+    Default {
+        /// Target corpus name to set as default. If omitted, prints the current default.
+        name: Option<String>,
+    },
+    /// Synchronize a specific corpus or all registered corpora.
+    Sync {
+        /// Specific corpus name to synchronize (syncs all if omitted).
+        #[arg(value_name = "CORPUS")]
+        corpus: Option<String>,
+        /// Batch size for delta scanning (default 50).
+        #[arg(long, default_value = "50")]
+        batch_size: usize,
+    },
+    /// Export repository index into a compressed portable artifact (.groundcontrol/vault.tar.zst).
+    Export {
+        /// Target corpus name (defaults to current directory or default corpus).
+        #[arg(value_name = "CORPUS")]
+        corpus: Option<String>,
+        /// Destination archive file path (default: .groundcontrol/vault.tar.zst).
+        #[arg(long, short = 'o')]
+        output: Option<PathBuf>,
+    },
+    /// Import a compressed portable artifact (.groundcontrol/vault.tar.zst) into central cache.
+    Import {
+        /// Source archive file path to import (.groundcontrol/vault.tar.zst).
+        #[arg(long, short = 'i')]
+        input: Option<PathBuf>,
+        /// Target corpus name override (defaults to archive manifest name).
+        #[arg(value_name = "CORPUS")]
+        corpus: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum AuthAction {
     /// Initialize a fresh clients.json configuration with secure generated API keys.
     Init {
         /// Force overwrite if clients.json already exists.
@@ -411,33 +597,123 @@ async fn main() -> anyhow::Result<()> {
                     return Ok(());
                 }
             },
-            Commands::ExportArtifact { corpus, output } => {
-                let cwd = std::env::current_dir()?;
-                let name = corpus.as_deref().unwrap_or_else(|| {
-                    cwd.file_name().and_then(|n| n.to_str()).unwrap_or("default")
-                });
-                let index_dir = groundcontrol_common::config::get_corpus_index_dir(name);
-                if !index_dir.exists() {
-                    anyhow::bail!(
-                        "No central index found for corpus '{}' at '{}'. Run indexing first.",
+            Commands::Daemon { action } => match action {
+                DaemonAction::Start { sync, bind, idle_timeout, watch, require_auth } => {
+                    return commands::daemon::handle_daemon_start(
+                        sync,
+                        &bind,
+                        idle_timeout,
+                        watch,
+                        require_auth,
+                    )
+                    .await;
+                }
+                DaemonAction::Stop { server } => {
+                    return commands::daemon::handle_daemon_stop(&server).await;
+                }
+                DaemonAction::Status { server } => {
+                    return commands::daemon::handle_daemon_status(&server).await;
+                }
+                DaemonAction::Sync { server, corpus } => {
+                    return commands::daemon::handle_daemon_sync(&server, corpus).await;
+                }
+                DaemonAction::Restart { sync, bind, idle_timeout, watch, require_auth } => {
+                    return commands::daemon::handle_daemon_restart(
+                        sync,
+                        &bind,
+                        idle_timeout,
+                        watch,
+                        require_auth,
+                    )
+                    .await;
+                }
+            },
+            Commands::Corpus { action } => match action {
+                CorpusAction::List => {
+                    return commands::corpus::handle_corpus_list();
+                }
+                CorpusAction::Add { path, name, mode, no_index, fast } => {
+                    return commands::corpus::handle_corpus_add(
+                        path,
                         name,
-                        index_dir.display()
+                        mode.map(Into::into),
+                        no_index,
+                        fast,
                     );
                 }
-                let exported = artifacts::export_artifact(&index_dir, &cwd, output.as_deref())?;
-                println!("[+] Exported artifact to: {}", exported.display());
-                return Ok(());
+                CorpusAction::Remove { name, purge } => {
+                    return commands::corpus::handle_corpus_remove(&name, purge);
+                }
+                CorpusAction::Default { name } => {
+                    return commands::corpus::handle_corpus_default(name);
+                }
+                CorpusAction::Sync { corpus, batch_size } => {
+                    return commands::corpus::handle_corpus_sync(corpus, batch_size);
+                }
+                CorpusAction::Export { corpus, output } => {
+                    return commands::corpus::handle_corpus_export(corpus, output);
+                }
+                CorpusAction::Import { input, corpus } => {
+                    return commands::corpus::handle_corpus_import(input, corpus);
+                }
+            },
+            Commands::Server {
+                corpora,
+                default_corpus,
+                bind,
+                idle_timeout,
+                watch,
+                require_auth,
+                profile,
+                daemon,
+                sync,
+                reindex,
+                fast,
+                index_mode,
+                batch_size,
+                no_resume,
+                scip,
+                log_level,
+                log_format,
+            } => {
+                init_tracing(daemon, &log_level, log_format)?;
+                return run_server_instance(
+                    &corpora,
+                    default_corpus.as_deref(),
+                    index_mode,
+                    fast,
+                    reindex,
+                    sync,
+                    batch_size,
+                    no_resume,
+                    scip.as_deref(),
+                    profile,
+                    &bind,
+                    daemon,
+                    idle_timeout,
+                    watch,
+                    require_auth,
+                    false,
+                )
+                .await;
             }
-            Commands::ImportArtifact { input, corpus } => {
-                let cwd = std::env::current_dir()?;
-                let name = corpus.as_deref().unwrap_or_else(|| {
-                    cwd.file_name().and_then(|n| n.to_str()).unwrap_or("default")
-                });
-                let src_path =
-                    input.unwrap_or_else(|| cwd.join(".groundcontrol").join("vault.tar.zst"));
-                let dest_dir = groundcontrol_common::config::get_corpus_index_dir(name);
-                let imported = artifacts::import_artifact(&src_path, &dest_dir)?;
-                println!("[+] Imported artifact into central storage: {}", imported.display());
+            Commands::Call { tool, args, query, server } => {
+                tracing::info!(server = %server, "connecting MCP client");
+                let client = McpClient::connect_http(&server);
+                let _ = client.initialize().await?;
+                let mut arguments: Value = if let Some(args_str) = &args {
+                    serde_json::from_str(args_str)
+                        .map_err(|e| anyhow::anyhow!("invalid JSON in --args: {e}"))?
+                } else {
+                    serde_json::json!({})
+                };
+                if let Some(q) = &query {
+                    if let Some(obj) = arguments.as_object_mut() {
+                        let _ = obj.insert("query".to_string(), Value::String(q.clone()));
+                    }
+                }
+                let result = client.call_tool(&tool, arguments).await?;
+                println!("{}", serde_json::to_string_pretty(&result)?);
                 return Ok(());
             }
             Commands::Index { path, name, reindex, fast, batch_size } => {
@@ -474,14 +750,14 @@ async fn main() -> anyhow::Result<()> {
                 .await?;
                 return Ok(());
             }
-            Commands::Client { action } => match action {
-                ClientAction::Init { force, path } => {
+            Commands::Auth { action } => match action {
+                AuthAction::Init { force, path } => {
                     return handle_client_init(force, path);
                 }
-                ClientAction::List => {
+                AuthAction::List => {
                     return handle_client_list();
                 }
-                ClientAction::Autopopulate { dry_run, agents, dir } => {
+                AuthAction::Autopopulate { dry_run, agents, dir } => {
                     return handle_client_autopopulate(dry_run, agents, dir);
                 }
             },
@@ -491,59 +767,7 @@ async fn main() -> anyhow::Result<()> {
     // -----------------------------------------------------------------------
     // Tracing Configuration
     // -----------------------------------------------------------------------
-    let log_format =
-        cli.log_format.unwrap_or(if cli.daemon { LogFormat::Json } else { LogFormat::Text });
-
-    if cli.daemon {
-        let log_dir = get_logs_cache_dir();
-        let _ = std::fs::create_dir_all(&log_dir);
-        let log_filename = match log_format {
-            LogFormat::Json => "groundcontrol-daemon.jsonl",
-            LogFormat::Text => "groundcontrol-daemon.log",
-        };
-        let log_file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_dir.join(log_filename))?;
-
-        match log_format {
-            LogFormat::Json => {
-                tracing_subscriber::fmt()
-                    .json()
-                    .flatten_event(true)
-                    .with_current_span(false)
-                    .with_span_list(false)
-                    .with_env_filter(&cli.log_level)
-                    .with_writer(log_file)
-                    .init();
-            }
-            LogFormat::Text => {
-                tracing_subscriber::fmt()
-                    .with_env_filter(&cli.log_level)
-                    .with_writer(log_file)
-                    .init();
-            }
-        }
-    } else {
-        match log_format {
-            LogFormat::Json => {
-                tracing_subscriber::fmt()
-                    .json()
-                    .flatten_event(true)
-                    .with_current_span(false)
-                    .with_span_list(false)
-                    .with_env_filter(&cli.log_level)
-                    .with_writer(std::io::stderr)
-                    .init();
-            }
-            LogFormat::Text => {
-                tracing_subscriber::fmt()
-                    .with_env_filter(&cli.log_level)
-                    .with_writer(std::io::stderr)
-                    .init();
-            }
-        }
-    }
+    init_tracing(cli.daemon, &cli.log_level, cli.log_format)?;
 
     // -----------------------------------------------------------------------
     // Auto Mode Execution (Zero-Arg Launcher with Daemon Autostart)
@@ -626,9 +850,108 @@ async fn main() -> anyhow::Result<()> {
     // -----------------------------------------------------------------------
     // Local / Server Modes
     // -----------------------------------------------------------------------
-    tracing::info!(mode = ?cli.mode, daemon = cli.daemon, "starting groundcontrol engine");
+    let is_stdio = matches!(cli.mode, Mode::Local);
+    run_server_instance(
+        &cli.corpora,
+        cli.default_corpus.as_deref(),
+        cli.index_mode,
+        cli.fast,
+        cli.reindex,
+        cli.sync,
+        cli.batch_size,
+        cli.no_resume,
+        cli.scip.as_deref(),
+        cli.profile,
+        &cli.bind,
+        cli.daemon,
+        cli.idle_timeout,
+        cli.watch,
+        cli.require_auth,
+        is_stdio,
+    )
+    .await?;
 
-    if cli.require_auth {
+    Ok(())
+}
+
+fn init_tracing(
+    daemon: bool,
+    log_level: &str,
+    log_format: Option<LogFormat>,
+) -> anyhow::Result<()> {
+    let format = log_format.unwrap_or(if daemon { LogFormat::Json } else { LogFormat::Text });
+    if daemon {
+        let log_dir = get_logs_cache_dir();
+        let _ = std::fs::create_dir_all(&log_dir);
+        let log_filename = match format {
+            LogFormat::Json => "groundcontrol-daemon.jsonl",
+            LogFormat::Text => "groundcontrol-daemon.log",
+        };
+        let log_file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_dir.join(log_filename))?;
+
+        match format {
+            LogFormat::Json => {
+                tracing_subscriber::fmt()
+                    .json()
+                    .flatten_event(true)
+                    .with_current_span(false)
+                    .with_span_list(false)
+                    .with_env_filter(log_level)
+                    .with_writer(log_file)
+                    .init();
+            }
+            LogFormat::Text => {
+                tracing_subscriber::fmt().with_env_filter(log_level).with_writer(log_file).init();
+            }
+        }
+    } else {
+        match format {
+            LogFormat::Json => {
+                tracing_subscriber::fmt()
+                    .json()
+                    .flatten_event(true)
+                    .with_current_span(false)
+                    .with_span_list(false)
+                    .with_env_filter(log_level)
+                    .with_writer(std::io::stderr)
+                    .init();
+            }
+            LogFormat::Text => {
+                tracing_subscriber::fmt()
+                    .with_env_filter(log_level)
+                    .with_writer(std::io::stderr)
+                    .init();
+            }
+        }
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_server_instance(
+    corpora: &[String],
+    default_corpus: Option<&str>,
+    index_mode: Option<CliIndexMode>,
+    fast: bool,
+    reindex: bool,
+    sync: bool,
+    batch_size: usize,
+    no_resume: bool,
+    scip: Option<&Path>,
+    profile: Profile,
+    bind: &str,
+    daemon: bool,
+    idle_timeout: u64,
+    watch: bool,
+    require_auth: bool,
+    is_stdio: bool,
+) -> anyhow::Result<()> {
+    tracing::info!(daemon, is_stdio, bind, "starting groundcontrol engine");
+
+    if require_auth {
         let (config, path) =
             groundcontrol_common::client::ensure_central_clients_config(true, true)?;
         tracing::info!(path = %path.display(), "authenticated mode active; loaded central clients registry");
@@ -637,12 +960,26 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    if daemon {
+        let started_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let pid_info = DaemonPidInfo {
+            pid: std::process::id(),
+            bind: bind.to_string(),
+            started_at,
+            token: None,
+        };
+        let _ = write_daemon_pid(&pid_info);
+    }
+
     // Build the multi-corpus manager.
     let mut manager = CorpusManager::new();
     let mut corpus_names: Vec<String> = Vec::new();
 
-    if !cli.corpora.is_empty() {
-        for spec in &cli.corpora {
+    if !corpora.is_empty() {
+        for spec in corpora {
             let (name_override, corpus_path, templates_override) = parse_corpus_spec(spec);
             let mut config = load_or_default_config(&corpus_path)?;
             if let Some(name) = name_override {
@@ -651,9 +988,9 @@ async fn main() -> anyhow::Result<()> {
             if let Some(tmpl) = templates_override {
                 config.templates_dir = Some(tmpl);
             }
-            if let Some(mode) = cli.index_mode {
+            if let Some(mode) = index_mode {
                 config.index_mode = mode.into();
-            } else if cli.fast {
+            } else if fast {
                 config.index_mode = groundcontrol_common::config::IndexMode::Fast;
             }
             corpus_names.push(config.name.clone());
@@ -665,37 +1002,34 @@ async fn main() -> anyhow::Result<()> {
             manager.add_corpus_with_index_dir(config, &index_dir)?;
         }
     } else {
-        // When no explicit --corpus arguments are provided, auto-mount all cached corpora
-        // from central storage. No arbitrary fallback to current_dir() — if no central corpora
-        // exist, the manager starts cleanly with 0 corpora.
         let mounted = manager.mount_all_cached_corpora()?;
         for name in mounted {
             corpus_names.push(name);
         }
     }
 
-    if let Some(default_name) = &cli.default_corpus {
+    if let Some(default_name) = default_corpus {
         manager.set_default(default_name)?;
     }
 
     // Startup indexing applies to every configured corpus.
-    if cli.reindex {
+    if reindex {
         for name in &corpus_names {
             tracing::info!(
                 corpus = %name,
-                batch_size = cli.batch_size,
-                resume = !cli.no_resume,
+                batch_size,
+                resume = !no_resume,
                 "performing full reindex (paginated)"
             );
             let engine = manager.get_engine_mut(name)?;
-            let count = engine.full_reindex_paginated(cli.batch_size, !cli.no_resume)?;
+            let count = engine.full_reindex_paginated(batch_size, !no_resume)?;
             tracing::info!(corpus = %name, count, "reindex complete");
         }
-    } else if cli.sync {
+    } else if sync {
         for name in &corpus_names {
-            tracing::info!(corpus = %name, batch_size = cli.batch_size, "running delta scan (paginated)");
+            tracing::info!(corpus = %name, batch_size, "running delta scan (paginated)");
             let engine = manager.get_engine_mut(name)?;
-            let result = engine.delta_scan_paginated(cli.batch_size)?;
+            let result = engine.delta_scan_paginated(batch_size)?;
             tracing::info!(
                 corpus = %name,
                 new = result.new_files.len(),
@@ -712,7 +1046,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Ingest SCIP index if specified
-    if let Some(ref scip_path) = cli.scip {
+    if let Some(scip_path) = scip {
         for name in &corpus_names {
             tracing::info!(corpus = %name, scip = %scip_path.display(), "ingesting SCIP index");
             let engine = manager.get_engine_mut(name)?;
@@ -730,8 +1064,6 @@ async fn main() -> anyhow::Result<()> {
 
     // Cross-corpus symbol linking
     if manager.corpus_count() > 1 {
-        // Doc-frontmatter side: resolve `implements`/`documents` targets to a
-        // unique symbol in a sibling corpus.
         match manager.link_cross_corpus_symbols() {
             Ok(count) => {
                 tracing::info!(cross_corpus_edges = count, "cross-corpus symbol linking complete");
@@ -740,10 +1072,6 @@ async fn main() -> anyhow::Result<()> {
                 tracing::warn!(error = %e, "cross-corpus symbol linking failed");
             }
         }
-        // Code side: resolve captured call/import ExternalRefs to a unique symbol
-        // in a sibling corpus, emitting bidirectional cross-corpus edges. Like the
-        // doc pass this mutates the in-memory graphs only; the daemon serves those
-        // graphs for the session, so no extra persistence is performed here.
         match manager.resolve_external_refs() {
             Ok(count) => {
                 tracing::info!(
@@ -757,31 +1085,18 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let registry = MultiCorpusToolRegistry::with_profile(cli.profile.into());
+    let registry = MultiCorpusToolRegistry::with_profile(profile.into());
 
-    match cli.mode {
-        Mode::Local => {
-            tracing::info!(watch = cli.watch, "starting stdio MCP transport");
-            let manager_arc = std::sync::Arc::new(tokio::sync::RwLock::new(manager));
-            transport::run_stdio_multi(manager_arc, std::sync::Arc::new(registry), cli.watch)
-                .await?;
-        }
-        Mode::Server => {
-            tracing::info!(bind = %cli.bind, daemon = cli.daemon, watch = cli.watch, "starting localhost HTTP MCP server");
-            let idle_dur = if cli.idle_timeout > 0 {
-                Some(Duration::from_secs(cli.idle_timeout * 60))
-            } else {
-                None
-            };
-            let options = transport::ServerOptions {
-                daemon: cli.daemon,
-                idle_timeout: idle_dur,
-                watch: cli.watch,
-            };
-            transport::run_http_server_multi_with_options(&cli.bind, manager, registry, options)
-                .await?;
-        }
-        Mode::Auto | Mode::Client | Mode::Proxy => unreachable!(),
+    if is_stdio {
+        tracing::info!(watch, "starting stdio MCP transport");
+        let manager_arc = std::sync::Arc::new(tokio::sync::RwLock::new(manager));
+        transport::run_stdio_multi(manager_arc, std::sync::Arc::new(registry), watch).await?;
+    } else {
+        tracing::info!(bind, daemon, watch, "starting localhost HTTP MCP server");
+        let idle_dur =
+            if idle_timeout > 0 { Some(Duration::from_secs(idle_timeout * 60)) } else { None };
+        let options = transport::ServerOptions { daemon, idle_timeout: idle_dur, watch };
+        transport::run_http_server_multi_with_options(bind, manager, registry, options).await?;
     }
 
     Ok(())

@@ -736,6 +736,136 @@ pub fn save_global_config(cfg: &GlobalConfig) -> std::io::Result<()> {
     std::fs::write(&path, content)
 }
 
+/// Storage footprint breakdown for a corpus in central cache (`${GROUNDCONTROL_CACHE_DIR}/corpora/<name>`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CorpusDiskFootprint {
+    /// SQLite metadata database size in bytes (`meta.db` + WAL/SHM).
+    pub meta_db_bytes: u64,
+    /// Tantivy inverted index directory size in bytes.
+    pub tantivy_bytes: u64,
+    /// Vector store file size in bytes (`vectors.json` or binary vectors).
+    pub vectors_bytes: u64,
+    /// Graph serialization file size in bytes if present (`graph.bin`).
+    pub graph_bytes: u64,
+    /// Total storage size in bytes across all index components.
+    pub total_bytes: u64,
+}
+
+/// Calculate the disk usage breakdown for an indexed corpus in central cache.
+pub fn calculate_corpus_disk_usage(name: &str) -> CorpusDiskFootprint {
+    let index_dir = get_corpus_index_dir(name);
+    let mut footprint = CorpusDiskFootprint::default();
+    if !index_dir.exists() {
+        return footprint;
+    }
+
+    // SQLite meta.db + WAL + SHM
+    for file in &["meta.db", "meta.db-wal", "meta.db-shm"] {
+        if let Ok(meta) = std::fs::metadata(index_dir.join(file)) {
+            footprint.meta_db_bytes += meta.len();
+        }
+    }
+
+    // Tantivy inverted index directory
+    let tantivy_dir = index_dir.join("tantivy");
+    if tantivy_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&tantivy_dir) {
+            for entry in entries.flatten() {
+                if let Ok(meta) = entry.metadata() {
+                    if meta.is_file() {
+                        footprint.tantivy_bytes += meta.len();
+                    }
+                }
+            }
+        }
+    }
+
+    // Vectors
+    for file in &["vectors.json", "vectors.bin"] {
+        if let Ok(meta) = std::fs::metadata(index_dir.join(file)) {
+            footprint.vectors_bytes += meta.len();
+        }
+    }
+
+    // Graph
+    if let Ok(meta) = std::fs::metadata(index_dir.join("graph.bin")) {
+        footprint.graph_bytes += meta.len();
+    }
+
+    footprint.total_bytes = footprint.meta_db_bytes
+        + footprint.tantivy_bytes
+        + footprint.vectors_bytes
+        + footprint.graph_bytes;
+
+    footprint
+}
+
+/// Format raw byte count into a human-readable string (e.g. `4.2 MB`, `850 KB`).
+pub fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = 1024 * KB;
+    const GB: u64 = 1024 * MB;
+
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.1} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.1} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
+}
+
+/// Path to the daemon PID file: `${GROUNDCONTROL_CACHE_DIR}/daemon.pid`.
+pub fn get_daemon_pid_path() -> PathBuf {
+    get_cache_dir().join("daemon.pid")
+}
+
+/// Information recorded in the daemon PID file.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DaemonPidInfo {
+    /// Process ID of the background daemon.
+    pub pid: u32,
+    /// Bound socket address (e.g. `127.0.0.1:9090`).
+    pub bind: String,
+    /// UNIX timestamp when daemon process was detached.
+    pub started_at: u64,
+    /// Optional daemon API token for authentication.
+    #[serde(default)]
+    pub token: Option<String>,
+}
+
+/// Read and parse active daemon PID file if present.
+pub fn read_daemon_pid() -> Option<DaemonPidInfo> {
+    let path = get_daemon_pid_path();
+    if !path.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(&path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+/// Write daemon PID file to disk upon daemon detachment.
+pub fn write_daemon_pid(info: &DaemonPidInfo) -> std::io::Result<()> {
+    let path = get_daemon_pid_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let content = serde_json::to_string_pretty(info)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    std::fs::write(&path, content)
+}
+
+/// Remove daemon PID file upon graceful daemon shutdown.
+pub fn remove_daemon_pid() -> std::io::Result<()> {
+    let path = get_daemon_pid_path();
+    if path.exists() {
+        std::fs::remove_file(&path)?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

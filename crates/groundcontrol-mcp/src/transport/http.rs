@@ -125,6 +125,12 @@ pub struct MultiCorpusServerState {
     pub activations: tokio::sync::broadcast::Sender<AgentActivation>,
     /// Client authentication and tracking registry.
     pub clients: Arc<groundcontrol_common::ClientsRegistry>,
+    /// Timestamp when server process started (UNIX epoch seconds).
+    pub started_at: u64,
+    /// Channel to signal graceful server shutdown.
+    pub shutdown_tx: tokio::sync::watch::Sender<bool>,
+    /// In-flight indexing progress if an index or sync operation is active.
+    pub active_indexing: Arc<RwLock<Option<groundcontrol_core::engine::IndexingProgress>>>,
 }
 
 impl MultiCorpusServerState {
@@ -132,6 +138,16 @@ impl MultiCorpusServerState {
     pub fn new(
         manager: Arc<RwLock<CorpusManager>>,
         registry: Arc<MultiCorpusToolRegistry>,
+    ) -> Self {
+        let (shutdown_tx, _) = tokio::sync::watch::channel(false);
+        Self::with_shutdown(manager, registry, shutdown_tx)
+    }
+
+    /// Create server state with an explicit shutdown channel.
+    pub fn with_shutdown(
+        manager: Arc<RwLock<CorpusManager>>,
+        registry: Arc<MultiCorpusToolRegistry>,
+        shutdown_tx: tokio::sync::watch::Sender<bool>,
     ) -> Self {
         let now = current_timestamp_secs();
         let (activations, _) = tokio::sync::broadcast::channel(1024);
@@ -143,6 +159,9 @@ impl MultiCorpusServerState {
             active_sessions: Arc::new(AtomicU64::new(0)),
             activations,
             clients,
+            started_at: now,
+            shutdown_tx,
+            active_indexing: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -167,17 +186,12 @@ pub async fn run_http_server_multi_with_options(
     registry: MultiCorpusToolRegistry,
     options: ServerOptions,
 ) -> Result<()> {
-    let now = current_timestamp_secs();
-    let (activations, _) = tokio::sync::broadcast::channel(1024);
-    let clients = Arc::new(groundcontrol_common::client::load_clients_config(None));
-    let state = MultiCorpusServerState {
-        manager: Arc::new(RwLock::new(manager)),
-        registry: Arc::new(registry),
-        last_activity: Arc::new(AtomicU64::new(now)),
-        active_sessions: Arc::new(AtomicU64::new(0)),
-        activations,
-        clients,
-    };
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
+    let state = MultiCorpusServerState::with_shutdown(
+        Arc::new(RwLock::new(manager)),
+        Arc::new(registry),
+        shutdown_tx.clone(),
+    );
 
     let app = Router::new()
         .route("/mcp", post(handle_jsonrpc_multi).get(handle_sse))
@@ -185,6 +199,9 @@ pub async fn run_http_server_multi_with_options(
         .route("/", post(handle_jsonrpc_multi).get(handle_sse))
         .route("/sse", get(handle_sse).post(handle_jsonrpc_multi))
         .route("/health", get(handle_health_multi))
+        .route("/status", get(handle_health_multi))
+        .route("/shutdown", post(handle_shutdown))
+        .route("/sync", post(handle_admin_sync))
         .route("/events/activations", get(handle_activations_sse))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
@@ -232,14 +249,12 @@ pub async fn run_http_server_multi_with_options(
         }
     }
 
-    let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
-
     // If running in daemon mode with idle timeout, spawn background watchdog.
     if options.daemon {
         if let Some(timeout) = options.idle_timeout {
             let last_act = state.last_activity.clone();
             let active_sess = state.active_sessions.clone();
-            let tx = shutdown_tx.clone();
+            let tx = state.shutdown_tx.clone();
             let timeout_secs = timeout.as_secs();
             tokio::spawn(async move {
                 loop {
@@ -274,6 +289,13 @@ pub async fn run_http_server_multi_with_options(
         }
     }
     info!("multi-corpus server shutdown complete; SQLite WAL checkpoints flushed");
+
+    // Remove daemon PID file if it belongs to this process
+    if let Some(pid_info) = groundcontrol_common::config::read_daemon_pid() {
+        if pid_info.pid == std::process::id() {
+            let _ = groundcontrol_common::config::remove_daemon_pid();
+        }
+    }
 
     Ok(())
 }
@@ -665,20 +687,121 @@ pub async fn handle_sse(
         .into_response()
 }
 
-/// Non-blocking liveness health check for multi-corpus server.
+/// Non-blocking liveness health check and status report for multi-corpus server.
 async fn handle_health_multi(State(state): State<MultiCorpusServerState>) -> Json<Value> {
     info!("[HEALTH] --> Multi-corpus health check probe received");
     state.last_activity.store(current_timestamp_secs(), Ordering::Relaxed);
-    let (corpora_count, status) = match state.manager.try_read() {
-        Ok(manager) => (manager.corpus_names().len(), "healthy"),
-        Err(_) => (0, "busy"),
+    let (corpora_count, corpus_names, status) = match state.manager.try_read() {
+        Ok(manager) => {
+            let names: Vec<String> = manager.corpus_names().into_iter().map(String::from).collect();
+            (names.len(), names, "healthy")
+        }
+        Err(_) => (0, Vec::new(), "busy"),
     };
 
-    Json(serde_json::json!({
-        "status": status,
+    let uptime = current_timestamp_secs().saturating_sub(state.started_at);
+    let active_indexing = state.active_indexing.read().await.clone();
+
+    let mut response = serde_json::json!({
+        "status": if active_indexing.is_some() { "indexing" } else { status },
+        "pid": std::process::id(),
+        "uptime_seconds": uptime,
         "server": SERVER_NAME,
         "version": SERVER_VERSION,
         "protocol": PROTOCOL_VERSION,
-        "corpora_count": corpora_count
+        "corpora_count": corpora_count,
+        "corpora": corpus_names,
+        "active_sessions": state.active_sessions.load(Ordering::Relaxed)
+    });
+
+    if let Some(progress) = active_indexing {
+        if let Some(obj) = response.as_object_mut() {
+            obj.insert(
+                "indexing_progress".to_string(),
+                serde_json::to_value(progress).unwrap_or(Value::Null),
+            );
+        }
+    }
+
+    Json(response)
+}
+
+/// Administrative endpoint to trigger graceful server shutdown.
+async fn handle_shutdown(State(state): State<MultiCorpusServerState>) -> Json<Value> {
+    info!("[ADMIN] --> Graceful shutdown signal received via HTTP");
+    let _ = state.shutdown_tx.send(true);
+    Json(serde_json::json!({
+        "status": "shutting_down",
+        "pid": std::process::id()
+    }))
+}
+
+/// Administrative endpoint to trigger incremental delta scan.
+async fn handle_admin_sync(
+    State(state): State<MultiCorpusServerState>,
+    axum::extract::Json(payload): axum::extract::Json<Value>,
+) -> Json<Value> {
+    info!("[ADMIN] --> Sync request received via HTTP");
+    let target = payload.get("corpus").and_then(|v| v.as_str()).map(String::from);
+    let mut manager = state.manager.write().await;
+    let targets: Vec<String> = if let Some(t) = target {
+        if !manager.has_corpus(&t) {
+            return Json(serde_json::json!({
+                "status": "error",
+                "error": format!("corpus '{}' not found", t)
+            }));
+        }
+        vec![t]
+    } else {
+        manager.corpus_names().into_iter().map(String::from).collect()
+    };
+
+    let active_indexing = state.active_indexing.clone();
+    let mut results = serde_json::Map::new();
+
+    for name in targets {
+        if let Ok(engine) = manager.get_engine_mut(&name) {
+            let active_clone = active_indexing.clone();
+            let progress_cb: groundcontrol_core::engine::ProgressCallback =
+                Arc::new(move |p: &groundcontrol_core::engine::IndexingProgress| {
+                    let active = active_clone.clone();
+                    let p_cloned = p.clone();
+                    tokio::spawn(async move {
+                        let mut lock = active.write().await;
+                        *lock = Some(p_cloned);
+                    });
+                });
+
+            match engine.delta_scan_with_progress(50, Some(progress_cb)) {
+                Ok(delta) => {
+                    results.insert(
+                        name.clone(),
+                        serde_json::json!({
+                            "status": "ok",
+                            "new_files": delta.new_files.len(),
+                            "modified_files": delta.modified_files.len(),
+                            "deleted_files": delta.deleted_files.len()
+                        }),
+                    );
+                }
+                Err(e) => {
+                    results.insert(
+                        name.clone(),
+                        serde_json::json!({
+                            "status": "error",
+                            "error": e.to_string()
+                        }),
+                    );
+                }
+            }
+        }
+    }
+
+    let mut lock = state.active_indexing.write().await;
+    *lock = None;
+
+    Json(serde_json::json!({
+        "status": "completed",
+        "corpora": results
     }))
 }
