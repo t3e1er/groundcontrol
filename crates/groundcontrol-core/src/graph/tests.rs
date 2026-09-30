@@ -28,6 +28,7 @@ fn make_doc(path: &str, title: &str, tags: Vec<&str>, wikilinks: Vec<&str>) -> D
         template: None,
         content: String::new(),
         content_hash: String::new(),
+        body_offset: 0,
     }
 }
 

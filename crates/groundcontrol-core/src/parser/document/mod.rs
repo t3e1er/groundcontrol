@@ -10,7 +10,7 @@ pub mod policy;
 pub use chunker::chunk_document;
 pub use docx::DocxExtractor;
 pub use html::HtmlDocExtractor;
-pub use markdown::parse_document;
+pub use markdown::{chunk_markdown_document, parse_document};
 pub use pdf::PdfExtractor;
 pub use policy::classify_document_chunk;
 

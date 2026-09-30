@@ -10,6 +10,7 @@ impl Engine {
     pub fn commit_intermediate(&mut self) -> Result<()> {
         let _ = self.store.commit_batch();
         let _ = self.store.checkpoint_passive();
+        self.bm25.commit()?;
         Ok(())
     }
 

@@ -180,9 +180,10 @@ impl ArtifactParser {
         let content = String::from_utf8_lossy(bytes).into_owned();
         let path = Path::new(rel_path);
         let doc = crate::parser::document::markdown::parse_document(path, &content)?;
-        let chunks = crate::parser::document::chunker::chunk_document(
+        let chunks = crate::parser::document::markdown::chunk_markdown_document(
             rel_path,
-            &doc.content,
+            &content,
+            &doc,
             chunking_config,
         );
 
@@ -229,6 +230,7 @@ impl ArtifactParser {
             template: None,
             content: extracted.normalized_text.clone(),
             content_hash: hash.clone(),
+            body_offset: 0,
         };
 
         let mut graph_edges = Vec::new();

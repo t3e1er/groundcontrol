@@ -16,7 +16,7 @@ use groundcontrol_common::Result;
 /// Extracts frontmatter, cross-reference links, tags, title, and computes content hash.
 pub fn parse_document(path: &Path, content: &str) -> Result<Document> {
     let frontmatter = frontmatter::extract(content);
-    let body = frontmatter::strip_frontmatter(content);
+    let (body, body_offset) = frontmatter::strip_frontmatter_with_offset(content);
     let links = wikilink::extract_all(body);
     let tags = extract_tags(body, &frontmatter);
     let title = extract_title(body, &frontmatter);
@@ -36,7 +36,31 @@ pub fn parse_document(path: &Path, content: &str) -> Result<Document> {
         template,
         content: body.to_string(),
         content_hash,
+        body_offset,
     })
+}
+
+/// Chunk a markdown document into embedding chunks, adjusting chunk byte offsets and line numbers
+/// so they are absolute with respect to the source file on disk.
+pub fn chunk_markdown_document(
+    doc_path: &str,
+    full_content: &str,
+    doc: &Document,
+    config: &groundcontrol_common::config::ChunkingConfig,
+) -> Vec<groundcontrol_common::types::Chunk> {
+    let mut chunks =
+        crate::parser::document::chunker::chunk_document(doc_path, &doc.content, config);
+    if doc.body_offset > 0 && doc.body_offset <= full_content.len() {
+        let line_offset =
+            full_content.as_bytes()[..doc.body_offset].iter().filter(|&&b| b == b'\n').count();
+        for chunk in &mut chunks {
+            chunk.start_byte += doc.body_offset;
+            chunk.end_byte += doc.body_offset;
+            chunk.start_line += line_offset;
+            chunk.end_line += line_offset;
+        }
+    }
+    chunks
 }
 
 /// Extract tags from frontmatter `tags:` field and inline `#tag` references.
@@ -115,5 +139,26 @@ Some #inline-tag here.
         assert_eq!(doc.links[0].target, "another-note");
         assert_eq!(doc.links[1].label, Some("aliased link".to_string()));
         assert_eq!(doc.template, Some("decision-record".to_string()));
+    }
+
+    #[test]
+    fn chunk_markdown_document_aligns_with_file_bytes() {
+        let content =
+            "---\ntitle: Frontmatter Note\ntags: [test]\n---\n\n# Heading\n\nFirst body paragraph.";
+        let doc = parse_document(&PathBuf::from("note.md"), content).unwrap();
+        assert!(doc.body_offset > 0);
+
+        let config = groundcontrol_common::config::ChunkingConfig::default();
+        let chunks = chunk_markdown_document("note.md", content, &doc, &config);
+        assert!(!chunks.is_empty());
+
+        for chunk in &chunks {
+            // Verify that slicing original full file content by start_byte..end_byte matches chunk text
+            let file_slice = &content.as_bytes()[chunk.start_byte..chunk.end_byte];
+            let file_text = std::str::from_utf8(file_slice).unwrap();
+            assert_eq!(file_text, chunk.text);
+            assert!(chunk.start_byte >= doc.body_offset);
+            assert!(chunk.start_line > 4); // Line numbers correctly offset past frontmatter
+        }
     }
 }

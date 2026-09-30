@@ -99,7 +99,7 @@ fn corpus_stats(engine: &Engine) -> Result<Value> {
 pub fn handle_status(engine: &Engine, args: Value) -> Result<Value> {
     let params: StatusParams =
         serde_json::from_value(args).unwrap_or(StatusParams { scope: None, paths: None });
-    let scope = params.scope.as_deref().unwrap_or("all");
+    let scope = params.scope.as_deref().unwrap_or("corpus");
 
     match scope {
         "corpus" => corpus_stats(engine),

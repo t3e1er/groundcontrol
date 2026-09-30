@@ -20,20 +20,28 @@ pub fn extract(content: &str) -> Option<Value> {
     serde_yaml::from_str(yaml_str).ok()
 }
 
-/// Strip the frontmatter block from content, returning just the body.
-pub fn strip_frontmatter(content: &str) -> &str {
-    let content = content.trim_start_matches('\u{feff}');
-    if !content.starts_with("---") {
-        return content;
+/// Strip the frontmatter block from content, returning just the body along with its byte offset in `content`.
+pub fn strip_frontmatter_with_offset(content: &str) -> (&str, usize) {
+    let bom_offset = if content.starts_with('\u{feff}') { '\u{feff}'.len_utf8() } else { 0 };
+    let unbom = &content[bom_offset..];
+    if !unbom.starts_with("---") {
+        return (unbom, bom_offset);
     }
 
-    let after_opening = &content[3..];
+    let after_opening = &unbom[3..];
     if let Some(end_pos) = after_opening.find("\n---") {
-        let remainder = &after_opening[end_pos + 4..];
-        remainder.trim_start_matches(|c| c == '\r' || c == '\n')
+        let after_closing = &after_opening[end_pos + 4..];
+        let trimmed = after_closing.trim_start_matches(|c| c == '\r' || c == '\n');
+        let offset = bom_offset + 3 + end_pos + 4 + (after_closing.len() - trimmed.len());
+        (trimmed, offset)
     } else {
-        content
+        (unbom, bom_offset)
     }
+}
+
+/// Strip the frontmatter block from content, returning just the body.
+pub fn strip_frontmatter(content: &str) -> &str {
+    strip_frontmatter_with_offset(content).0
 }
 
 #[cfg(test)]
@@ -66,5 +74,18 @@ mod tests {
         let content = "\u{feff}---\ntitle: BOM Test\n---\n\nContent";
         let fm = extract(content).unwrap();
         assert_eq!(fm["title"], "BOM Test");
+    }
+
+    #[test]
+    fn strips_frontmatter_with_offset_lf_and_crlf() {
+        let content_lf = "---\ntitle: LF\n---\n\n# Body";
+        let (body_lf, offset_lf) = strip_frontmatter_with_offset(content_lf);
+        assert_eq!(body_lf, "# Body");
+        assert_eq!(&content_lf[offset_lf..], body_lf);
+
+        let content_crlf = "---\r\ntitle: CRLF\r\n---\r\n\r\n# Body";
+        let (body_crlf, offset_crlf) = strip_frontmatter_with_offset(content_crlf);
+        assert_eq!(body_crlf, "# Body");
+        assert_eq!(&content_crlf[offset_crlf..], body_crlf);
     }
 }

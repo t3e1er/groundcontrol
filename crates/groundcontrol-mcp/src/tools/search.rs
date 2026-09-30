@@ -208,8 +208,7 @@ pub fn handle_search(engine: &Engine, args: Value) -> Result<Value> {
         }
 
         let is_lean = params.detail.as_deref() == Some("ids");
-        let k =
-            if is_lean { 0 } else { params.snippets.unwrap_or_else(|| params.limit.unwrap_or(10)) };
+        let k = if is_lean { 0 } else { params.snippets.unwrap_or(3) };
 
         populate_top_snippets(engine, &mut docs_items, k, 20);
         populate_top_snippets(engine, &mut code_items, k, 20);
@@ -228,7 +227,7 @@ pub fn handle_search(engine: &Engine, args: Value) -> Result<Value> {
             for item in &mut docs_items {
                 item.language = None;
                 item.entity_kind = None;
-                item.chunk_index = None;
+                // Preserve chunk_index for Turn 2a get_snippet handles
                 item.symbol = None;
                 item.graph_affordances = None;
                 item.graph = engine.format_cypher_affordances(&item.path, 3);
@@ -300,8 +299,10 @@ pub fn handle_search(engine: &Engine, args: Value) -> Result<Value> {
             item.language = None;
             // 2. Entity kind is omitted (implied by snippet/symbol).
             item.entity_kind = None;
-            // 3. Chunk index is omitted.
-            item.chunk_index = None;
+            // 3. Chunk index is omitted when a symbol identifier is matched.
+            if matched_symbol.is_some() {
+                item.chunk_index = None;
+            }
             // 4. Bare symbol identifier is surfaced only when snippet is omitted (trailing hits or snippets: 0)
             //    or when in lean emission mode for Tier 2 progressive disclosure scent.
             if params.format.as_deref() == Some("lean") || item.snippet.is_none() {

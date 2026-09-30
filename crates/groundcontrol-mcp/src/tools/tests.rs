@@ -5,6 +5,7 @@ use groundcontrol_common::config::{
 };
 use groundcontrol_common::ports::GraphStore;
 use groundcontrol_common::types::EdgeProvenance;
+use groundcontrol_core::corpus_manager::CorpusManager;
 use groundcontrol_core::engine::Engine;
 use serde_json::Value;
 use std::collections::HashSet;
@@ -192,6 +193,34 @@ fn test_tool_profiles_gate_listing() {
     assert!(!analysis_names.contains("sync_corpus"));
     // trace_cross_corpus is an analysis-tier capability, not a scout tool.
     assert!(!scout_names.contains("trace_cross_corpus"));
+}
+
+#[test]
+fn test_tool_profiles_enforce_dispatch() {
+    let tmp = TempDir::new().unwrap();
+    let mut manager = CorpusManager::new();
+    let config = test_config(tmp.path());
+    add_test_corpus(&mut manager, config);
+    let scout = MultiCorpusToolRegistry::with_profile(ToolProfile::Scout);
+
+    // Scout allows status
+    let status_res = scout.execute_read("status", &manager, serde_json::json!({}));
+    assert!(status_res.is_ok());
+
+    // Scout forbids graph_match (analysis-only)
+    let graph_res =
+        scout.execute_read("graph_match", &manager, serde_json::json!({ "pattern": "(:Node)" }));
+    assert!(graph_res.is_err());
+    assert!(graph_res.unwrap_err().to_string().contains("not permitted under the active profile"));
+
+    // Scout forbids write_note
+    let write_res = scout.execute_write(
+        "write_note",
+        &mut manager,
+        serde_json::json!({ "path": "test.md", "content": "hello" }),
+    );
+    assert!(write_res.is_err());
+    assert!(write_res.unwrap_err().to_string().contains("not permitted under the active profile"));
 }
 
 #[test]

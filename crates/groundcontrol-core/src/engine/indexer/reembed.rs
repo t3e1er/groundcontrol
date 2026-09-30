@@ -75,9 +75,10 @@ impl Engine {
                 fs::read_to_string(&full_path).ok().and_then(|content| {
                     let doc =
                         crate::parser::parse_document(Path::new(&file.path), &content).ok()?;
-                    let chunks = crate::parser::chunker::chunk_document(
+                    let chunks = crate::parser::chunk_markdown_document(
                         &file.path,
-                        &doc.content,
+                        &content,
+                        &doc,
                         &self.config.chunking,
                     );
                     Some((chunks, doc.title))

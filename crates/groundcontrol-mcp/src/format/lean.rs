@@ -94,8 +94,16 @@ pub fn format_lean_search(
             let symbol_title = hit.symbol.as_deref().unwrap_or(&hit.path);
             let score_str = format!("{:.3}", hit.score);
             let comps = format_score_components(hit.score_components.as_ref());
+            let corpus_tag = match hit.corpus.as_deref() {
+                Some(c) => format!("[{c}] "),
+                None => String::new(),
+            };
+            let corpus_arg = match hit.corpus.as_deref() {
+                Some(c) => format!(", corpus: \"{c}\""),
+                None => String::new(),
+            };
 
-            out.push_str(&format!("{num}. {symbol_title} (`{}`)", hit.path));
+            out.push_str(&format!("{num}. {corpus_tag}{symbol_title} (`{}`)", hit.path));
             out.push_str(&format!(" [score: {score_str}{comps}]\n"));
 
             if !is_ids_only {
@@ -107,14 +115,16 @@ pub fn format_lean_search(
                 // Turn 2a handle
                 if let Some(chunk_idx) = hit.chunk_index {
                     out.push_str(&format!(
-                        "-> [T2a fetch] get_snippet(path: \"{}\", chunk_index: {})\n",
+                        "-> [T2a fetch] get_snippet(path: \"{}\", chunk_index: {}{corpus_arg})\n",
                         hit.path, chunk_idx
                     ));
                 } else if let Some(ref sym) = hit.symbol {
-                    out.push_str(&format!("-> [T2a fetch] get_snippet(symbol: \"{sym}\")\n"));
+                    out.push_str(&format!(
+                        "-> [T2a fetch] get_snippet(symbol: \"{sym}\"{corpus_arg})\n"
+                    ));
                 } else {
                     out.push_str(&format!(
-                        "-> [T2a fetch] get_snippet(path: \"{}\", chunk_index: 0)\n",
+                        "-> [T2a fetch] get_snippet(path: \"{}\", chunk_index: 0{corpus_arg})\n",
                         hit.path
                     ));
                 }
@@ -138,8 +148,19 @@ pub fn format_lean_search(
             let num = i + 1;
             let score_str = format!("{:.3}", hit.score);
             let comps = format_score_components(hit.score_components.as_ref());
+            let corpus_tag = match hit.corpus.as_deref() {
+                Some(c) => format!("[{c}] "),
+                None => String::new(),
+            };
+            let corpus_arg = match hit.corpus.as_deref() {
+                Some(c) => format!(", corpus: \"{c}\""),
+                None => String::new(),
+            };
 
-            out.push_str(&format!("{num}. `{}` [score: {score_str}{comps}]\n", hit.path));
+            out.push_str(&format!(
+                "{num}. {corpus_tag}`{}` [score: {score_str}{comps}]\n",
+                hit.path
+            ));
 
             if !is_ids_only {
                 if let Some(ref snippet) = hit.snippet {
@@ -148,12 +169,12 @@ pub fn format_lean_search(
 
                 if let Some(chunk_idx) = hit.chunk_index {
                     out.push_str(&format!(
-                        "-> [T2a fetch] get_snippet(path: \"{}\", chunk_index: {})\n",
+                        "-> [T2a fetch] get_snippet(path: \"{}\", chunk_index: {}{corpus_arg})\n",
                         hit.path, chunk_idx
                     ));
                 } else {
                     out.push_str(&format!(
-                        "-> [T2a fetch] get_snippet(path: \"{}\", chunk_index: 0)\n",
+                        "-> [T2a fetch] get_snippet(path: \"{}\", chunk_index: 0{corpus_arg})\n",
                         hit.path
                     ));
                 }

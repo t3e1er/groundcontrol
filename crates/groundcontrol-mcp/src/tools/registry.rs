@@ -243,6 +243,7 @@ impl ToolRegistry {
             serde_json::json!({
                 "type": "object",
                 "properties": {
+                    "symbol": { "type": "string", "description": "Symbol name or qualified name to look up definition for (alias for qualified_name/name)" },
                     "name": { "type": "string", "description": "Symbol name to look up definition for" },
                     "qualified_name": { "type": "string", "description": "Code symbol scope_path (exact) or name (fuzzy) to fetch one symbol's source" },
                     "path": { "type": "string", "description": "Relative path — for a DOC chunk fetch (with chunk_index) or a code FILE hint" },
@@ -440,7 +441,7 @@ impl ToolRegistry {
             serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "scope": { "type": "string", "enum": ["corpus", "indexing", "graph", "coverage", "census", "architecture", "all"], "description": "corpus = per-corpus stats/config; indexing = indexing progress; graph = topology stats & density; coverage = path-level index & parse status; census/architecture = instant structural census (symbols, edges, languages, routes); all (default) = combined." },
+                    "scope": { "type": "string", "enum": ["corpus", "indexing", "graph", "coverage", "census", "architecture", "all"], "description": "corpus (default) = per-corpus stats/config; indexing = indexing progress; graph = topology stats & density; coverage = path-level index & parse status; census/architecture = instant structural census (symbols, edges, languages, routes); all = combined." },
                     "corpus": { "type": "string", "description": "Target a single corpus by name for per-corpus stats/indexing. Omit for the multi-corpus overview across all configured corpora." },
                     "paths": { "type": "array", "items": { "type": "string" }, "description": "Scope 'coverage' only: paths or path prefixes to check for index coverage and parse status." }
                 },
@@ -760,6 +761,13 @@ impl MultiCorpusToolRegistry {
     /// Execute a read-only tool call, routing to one corpus or fanning out across
     /// several with RRF-merged, corpus-tagged results.
     pub fn execute_read(&self, name: &str, manager: &CorpusManager, args: Value) -> Result<Value> {
+        if !self.profile.includes(name) {
+            return Err(Error::NotFound(format!(
+                "tool '{name}' is not permitted under the active profile '{:?}'",
+                self.profile
+            )));
+        }
+
         // `status` without an explicit `corpus` returns the manager-level overview
         // (all corpora). With a `corpus` it routes to that engine's status below.
         if name == "status" && !has_corpus_arg(&args) {
@@ -804,6 +812,14 @@ impl MultiCorpusToolRegistry {
     ) -> Result<Value> {
         let limit =
             clean_args.get("limit").and_then(Value::as_u64).map(|n| n as usize).unwrap_or(10);
+        let is_lean_requested = clean_args.get("format").and_then(Value::as_str) == Some("lean");
+
+        let mut engine_args = clean_args.clone();
+        if is_lean_requested {
+            if let Some(obj) = engine_args.as_object_mut() {
+                obj.remove("format");
+            }
+        }
 
         let mut per_corpus: Vec<(String, Value)> = Vec::new();
         let mut last_err: Option<Error> = None;
@@ -817,7 +833,7 @@ impl MultiCorpusToolRegistry {
                     continue;
                 }
             };
-            match self.registry.execute_read(name, engine, clean_args.clone()) {
+            match self.registry.execute_read(name, engine, engine_args.clone()) {
                 Ok(v) => per_corpus.push((corpus_name.clone(), v)),
                 Err(e) => {
                     tracing::warn!(corpus = %corpus_name, error = %e, "fan-out: tool call failed");
@@ -853,6 +869,22 @@ impl MultiCorpusToolRegistry {
             }
             let merged_docs = search::rrf_fuse_cross_corpus(&docs_tagged, limit);
             let merged_code = search::rrf_fuse_cross_corpus(&code_tagged, limit);
+
+            if is_lean_requested {
+                let query_str = clean_args.get("query").and_then(Value::as_str).unwrap_or("");
+                let mode_str = clean_args.get("mode").and_then(Value::as_str).unwrap_or("hybrid");
+                let is_ids = clean_args.get("detail").and_then(Value::as_str) == Some("ids");
+                let lean_text = crate::format::lean::format_lean_search(
+                    query_str,
+                    mode_str,
+                    None,
+                    &merged_code,
+                    &merged_docs,
+                    is_ids,
+                );
+                return Ok(Value::String(lean_text));
+            }
+
             let docs_partition = if !merged_docs.is_empty() {
                 Some(groundcontrol_common::types::SearchPartition {
                     total_matches: merged_docs.len(),
@@ -914,6 +946,13 @@ impl MultiCorpusToolRegistry {
         manager: &mut CorpusManager,
         args: Value,
     ) -> Result<Value> {
+        if !self.profile.includes(name) {
+            return Err(Error::NotFound(format!(
+                "tool '{name}' is not permitted under the active profile '{:?}'",
+                self.profile
+            )));
+        }
+
         if name == "index_corpus" {
             return handle_index_corpus_manager(manager, args);
         }

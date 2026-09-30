@@ -25,6 +25,9 @@ pub struct Document {
     pub content: String,
     /// Content hash for change detection.
     pub content_hash: String,
+    /// Byte offset where body starts in the original file on disk.
+    #[serde(default)]
+    pub body_offset: usize,
 }
 
 impl Document {

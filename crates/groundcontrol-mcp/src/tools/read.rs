@@ -37,6 +37,7 @@ pub(crate) struct ListNotesParams {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct GetSnippetParams {
+    pub symbol: Option<String>,
     pub name: Option<String>,
     pub path: Option<String>,
     pub chunk_index: Option<usize>,
@@ -285,7 +286,7 @@ pub fn handle_get_snippet(engine: &Engine, args: Value) -> Result<Value> {
     let corpus_root = Path::new(&engine.config().path);
     let is_lean = params.format.as_deref() == Some("lean");
 
-    let target_name = params.qualified_name.or(params.name);
+    let target_name = params.symbol.or(params.qualified_name).or(params.name);
     if let Some(ref qualified_name) = target_name {
         return fetch_code_symbol(
             engine,
@@ -298,24 +299,33 @@ pub fn handle_get_snippet(engine: &Engine, args: Value) -> Result<Value> {
     }
 
     if let Some(path) = params.path.as_deref() {
-        if let Some(chunk_index) = params.chunk_index {
-            return fetch_doc_chunk(
-                engine,
-                path,
-                chunk_index,
-                max_lines,
-                params.include_neighbors,
-                is_lean,
-            );
-        }
-        return Err(Error::Config(format!(
-            "get_snippet needs a chunk_index for a doc fetch on '{path}'. \
-             For a whole file use Tier 3: read_file.",
-        )));
+        let chunk_index = match params.chunk_index {
+            Some(idx) => idx,
+            None => {
+                let chunks = engine.store().get_chunks_for_file(path).unwrap_or_default();
+                if chunks.len() <= 1 {
+                    0
+                } else {
+                    return Err(Error::Config(format!(
+                        "get_snippet needs a chunk_index (0..{}) for a doc fetch on '{path}'. \
+                         For a whole file use Tier 3: read_file.",
+                        chunks.len().saturating_sub(1)
+                    )));
+                }
+            }
+        };
+        return fetch_doc_chunk(
+            engine,
+            path,
+            chunk_index,
+            max_lines,
+            params.include_neighbors,
+            is_lean,
+        );
     }
 
     Err(Error::Config(
-        "get_snippet requires either `name`/`qualified_name` (code) or `path`+`chunk_index` (doc)."
+        "get_snippet requires either `symbol`/`name`/`qualified_name` (code) or `path`+`chunk_index` (doc)."
             .to_string(),
     ))
 }

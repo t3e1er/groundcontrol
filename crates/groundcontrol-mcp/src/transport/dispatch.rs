@@ -209,19 +209,27 @@ pub fn handle_tools_call_multi_read(
         map.entry("format").or_insert_with(|| Value::String("lean".to_string()));
     }
 
-    let result = registry.execute_read(tool_name, manager, arguments)?;
-
-    let text = match result {
-        Value::String(s) => s,
-        other => serde_json::to_string_pretty(&other).unwrap_or_default(),
-    };
-
-    Ok(serde_json::json!({
-        "content": [{
-            "type": "text",
-            "text": text
-        }]
-    }))
+    match registry.execute_read(tool_name, manager, arguments) {
+        Ok(result) => {
+            let text = match result {
+                Value::String(s) => s,
+                other => serde_json::to_string_pretty(&other).unwrap_or_default(),
+            };
+            Ok(serde_json::json!({
+                "content": [{
+                    "type": "text",
+                    "text": text
+                }]
+            }))
+        }
+        Err(e) => Ok(serde_json::json!({
+            "content": [{
+                "type": "text",
+                "text": e.to_string()
+            }],
+            "isError": true
+        })),
+    }
 }
 
 /// Dispatch a `tools/call` request with multi-corpus routing (mutating).
@@ -240,19 +248,27 @@ pub fn handle_tools_call_multi_write(
     let arguments =
         params.get("arguments").cloned().unwrap_or(Value::Object(serde_json::Map::new()));
 
-    let result = registry.execute_write(tool_name, manager, arguments)?;
-
-    let text = match result {
-        Value::String(s) => s,
-        other => serde_json::to_string_pretty(&other).unwrap_or_default(),
-    };
-
-    Ok(serde_json::json!({
-        "content": [{
-            "type": "text",
-            "text": text
-        }]
-    }))
+    match registry.execute_write(tool_name, manager, arguments) {
+        Ok(result) => {
+            let text = match result {
+                Value::String(s) => s,
+                other => serde_json::to_string_pretty(&other).unwrap_or_default(),
+            };
+            Ok(serde_json::json!({
+                "content": [{
+                    "type": "text",
+                    "text": text
+                }]
+            }))
+        }
+        Err(e) => Ok(serde_json::json!({
+            "content": [{
+                "type": "text",
+                "text": e.to_string()
+            }],
+            "isError": true
+        })),
+    }
 }
 
 /// Dispatch a `tools/call` request with multi-corpus routing.
@@ -286,8 +302,9 @@ pub fn format_rpc_response(id: Value, result: Result<Value>) -> JsonRpcResponse 
         }
         Err(e) => {
             let code = match &e {
-                Error::NotFound(_) => -32601, // method not found
-                _ => -32603,                  // internal error
+                Error::NotFound(msg) if msg.starts_with("method not found:") => -32601,
+                Error::Config(_) => -32602,
+                _ => -32603,
             };
             make_error_response(id, code, &e.to_string())
         }
