@@ -5,6 +5,7 @@
 //! [`MultiCorpusToolRegistry`] manage registration, fan-out, and dispatch.
 
 pub mod graph;
+pub mod grep;
 pub mod read;
 pub mod registry;
 pub mod search;

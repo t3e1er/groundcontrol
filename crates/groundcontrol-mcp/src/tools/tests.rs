@@ -58,7 +58,7 @@ fn test_registry_has_all_tools() {
     registry.register_all();
 
     let tools = registry.list();
-    assert_eq!(tools.len(), 18, "Expected 18 tools registered");
+    assert_eq!(tools.len(), 19, "Expected 19 tools registered");
 
     // Verify each expected tool exists.
     let expected = [
@@ -67,6 +67,7 @@ fn test_registry_has_all_tools() {
         "list_notes",
         "search",
         "search_related",
+        "grep",
         "graph_match",
         "graph_communities",
         "write_note",
@@ -82,7 +83,7 @@ fn test_registry_has_all_tools() {
         "unload_corpus",
     ];
 
-    assert_eq!(expected.len(), 18, "expected-name list must match the 18-tool count");
+    assert_eq!(expected.len(), 19, "expected-name list must match the 19-tool count");
 
     for name in expected {
         assert!(registry.get(name).is_some(), "Tool '{}' should be registered", name);
@@ -165,13 +166,15 @@ fn test_tool_profiles_gate_listing() {
     // scout ⊂ analysis ⊂ all.
     assert!(scout_count < analysis_count, "scout must expose fewer tools than analysis");
     assert!(analysis_count < all_count, "analysis must expose fewer tools than all");
-    assert_eq!(all_count, 18, "all profile advertises every registered tool");
-    assert_eq!(analysis_count, 12, "analysis profile advertises scout + analysis tools");
-    assert_eq!(scout_count, 6, "scout profile advertises the minimal set");
+    assert_eq!(all_count, 19, "all profile advertises every registered tool");
+    assert_eq!(analysis_count, 13, "analysis profile advertises scout + analysis tools");
+    assert_eq!(scout_count, 7, "scout profile advertises the minimal set");
 
     // scout includes core retrieval/fetch but not writes or analysis-only tools.
     let scout_names: HashSet<&str> = scout.list().iter().map(|t| t.name.as_str()).collect();
     assert!(scout_names.contains("search"));
+    assert!(scout_names.contains("search_related"));
+    assert!(scout_names.contains("grep"));
     assert!(scout_names.contains("get_snippet"));
     assert!(scout_names.contains("read_file"));
     assert!(scout_names.contains("status"));
@@ -604,7 +607,7 @@ fn test_multi_corpus_registry_has_status() {
     let registry = MultiCorpusToolRegistry::new();
     let tools = registry.list();
 
-    assert_eq!(tools.len(), 18, "Expected 18 tools in multi-corpus registry");
+    assert_eq!(tools.len(), 19, "Expected 19 tools in multi-corpus registry");
     assert!(
         registry.registry().get("status").is_some(),
         "consolidated status tool should be registered"
@@ -2367,4 +2370,80 @@ fn test_document_extractor_and_projections_mcp_flow() {
     assert!(!proj_path.exists(), "Old projection must be gone");
     let new_proj = engine.projection_path("archived_guide.html");
     assert!(new_proj.is_file(), "New projection must exist at {:?}", new_proj);
+}
+
+#[test]
+fn test_grep_tool_regex_and_literal() {
+    let tmp = TempDir::new().unwrap();
+    let corpus_dir = tmp.path().join("corpus");
+    fs::create_dir_all(corpus_dir.join("src")).unwrap();
+    let index_dir = tmp.path().join("index");
+    let config = test_config(&corpus_dir);
+    let mut engine = Engine::open(config, &index_dir).unwrap();
+
+    let file_a = "src/main.rs";
+    let content_a =
+        "fn main() {\n    let status_code = 200;\n    println!(\"OK: {}\", status_code);\n}\n";
+    fs::write(corpus_dir.join(file_a), content_a).unwrap();
+    engine.index_file(file_a, content_a).unwrap();
+
+    let file_b = "src/lib.rs";
+    let content_b =
+        "pub fn check_status() -> bool {\n    let STATUS_OK = true;\n    STATUS_OK\n}\n";
+    fs::write(corpus_dir.join(file_b), content_b).unwrap();
+    engine.index_file(file_b, content_b).unwrap();
+    engine.commit().unwrap();
+
+    let mut registry = ToolRegistry::new();
+    registry.register_all();
+
+    // 1. Basic case-insensitive regex grep
+    let res = registry
+        .execute_read(
+            "grep",
+            &engine,
+            serde_json::json!({ "pattern": "status(_code)?", "format": "json" }),
+        )
+        .unwrap();
+    let grep_resp: crate::tools::grep::GrepResponse = serde_json::from_value(res).unwrap();
+    assert_eq!(grep_resp.total_matches, 5); // 2 in main.rs, 3 in lib.rs ("check_status", "STATUS_OK", "STATUS_OK")
+
+    // 2. Case-sensitive grep
+    let res_case = registry
+        .execute_read(
+            "grep",
+            &engine,
+            serde_json::json!({ "pattern": "STATUS_OK", "case_sensitive": true, "format": "json" }),
+        )
+        .unwrap();
+    let grep_case_resp: crate::tools::grep::GrepResponse =
+        serde_json::from_value(res_case).unwrap();
+    assert_eq!(grep_case_resp.total_matches, 2);
+
+    // 3. Path-filtered grep
+    let res_path = registry
+        .execute_read(
+            "grep",
+            &engine,
+            serde_json::json!({ "pattern": "status", "path": "src/main.rs", "format": "json" }),
+        )
+        .unwrap();
+    let grep_path_resp: crate::tools::grep::GrepResponse =
+        serde_json::from_value(res_path).unwrap();
+    assert_eq!(grep_path_resp.total_matches, 2);
+    assert_eq!(grep_path_resp.matches[0].path, "src/main.rs");
+    assert_eq!(grep_path_resp.matches[0].line_number, 2);
+
+    // 4. Lean format with context lines
+    let res_lean = registry
+        .execute_read(
+            "grep",
+            &engine,
+            serde_json::json!({ "pattern": "status_code", "context_lines": 1, "format": "lean" }),
+        )
+        .unwrap();
+    let lean_text = res_lean.as_str().unwrap();
+    assert!(lean_text.contains("# Grep: \"status_code\""));
+    assert!(lean_text.contains("src/main.rs:2:    let status_code = 200;"));
+    assert!(lean_text.contains("src/main.rs-1-fn main() {"));
 }

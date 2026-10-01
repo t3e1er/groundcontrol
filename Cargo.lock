@@ -1545,6 +1545,7 @@ dependencies = [
  "futures-util",
  "groundcontrol-common",
  "groundcontrol-core",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

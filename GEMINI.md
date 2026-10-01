@@ -64,30 +64,30 @@ Every major concern is defined as a trait (**port**) in `groundcontrol-common::p
 
 ---
 
-## 3. MCP Tool Surface (17 Tools) & Usage Directives
+## 3. MCP Tool Surface (19 Tools) & Usage Directives
 
 Authoritative tool registry: `crates/groundcontrol-mcp/src/tools/mod.rs`. Handlers are `ReadOnly(fn(&Engine, Value))` or `ReadWrite(fn(&mut Engine, Value))`.
 
-### Registered Tool Inventory (17 Tools)
+### Registered Tool Inventory (19 Tools)
 
 | Category | Count | Tools |
 |---|---|---|
 | **Read** | 3 | `read_file` (Tier 3 polymorphic path/paths batch with line slicing), `get_snippet` (Tier 2 symbol/chunk fetch + grammar-driven relationship handles + symbol definition lookup), `list_notes` (note catalog & single note frontmatter inspection) |
-| **Search** | 2 | `search` (Tier 1 retrieval with Turn 1 hybrid snippets across docs & code via `snippets: usize`; `mode` = `hybrid` \| `bm25` \| `semantic` \| `graph` \| `explain`), `search_related` |
-| **Graph** | 2 | `graph_match` (linear Cypher-Lite ASCII path query executed via pure in-memory Petgraph traversal with cycle guards), `graph_communities` (`algorithm` = `leiden` \| `louvain`, `view` = `architecture` \| `raw`) |
+| **Search** | 3 | `search` (Tier 1 retrieval with Turn 1 hybrid snippets across docs & code via `snippets: usize`; `mode` = `hybrid` \| `bm25` \| `semantic` \| `graph` \| `explain`), `search_related`, `grep` (exhaustive line-addressed disk-verified regex & literal pattern matching with line numbers and optional context) |
+| **Graph** | 3 | `graph_match` (linear Cypher-Lite ASCII path query executed via pure in-memory Petgraph traversal with cycle guards), `graph_communities` (`algorithm` = `leiden` \| `louvain`, `view` = `architecture` \| `raw`), `trace_cross_corpus` (federated cross-corpus graph traversal) |
 | **Write** | 3 | `write_note` (`mode` = `create` \| `overwrite` \| `append` \| `prepend`), `delete_note`, `move_note` (wikilink refactoring) |
 | **Template / Validation** | 2 | `validate` (unified single note template check, corpus scan, and taxonomy check via `check_taxonomy`), `list_templates` |
 | **System / Corpus** | 5 | `status` (unified multi-corpus overview or per-corpus stats, indexing, graph density, coverage via `scope`), `list_corpora`, `sync_corpus` (`mode` = `delta` \| `full` \| `reembed`), `index_corpus`, `unload_corpus` |
 
 ### Tool Profiles (`--profile`)
-- **`scout`** (6 tools): Minimal retrieve/navigate set (`search`, `search_related`, `get_snippet`, `read_file`, `list_notes`, `status`).
-- **`analysis`** (11 tools): `scout` + read-only graph (`graph_match`, `graph_communities`), validation (`validate`, `list_templates`), and `list_corpora`.
-- **`all`** (17 tools): Full suite including mutating writes (`write_note`, `delete_note`, `move_note`, `sync_corpus`, `index_corpus`, `unload_corpus`).
+- **`scout`** (7 tools): Minimal retrieve/navigate set (`search`, `search_related`, `grep`, `get_snippet`, `read_file`, `list_notes`, `status`).
+- **`analysis`** (13 tools): `scout` + read-only graph (`graph_match`, `graph_communities`, `trace_cross_corpus`), validation (`validate`, `list_templates`), and `list_corpora`.
+- **`all`** (19 tools): Full suite including mutating writes (`write_note`, `delete_note`, `move_note`, `sync_corpus`, `index_corpus`, `unload_corpus`).
 
 ### Agent Directives
 1. **MCP Retrieval-First Invariant (No Direct File Dumps)**:
-   - **Never** begin code/docs exploration, search, or architectural discovery with raw file reads (`view_file`), full file dumps, or directory-wide grep searches.
-   - **Always** use `groundcontrol` MCP tools (`search`, `get_snippet`, `graph_match`, `search_related`) as the primary intake mechanism for high-signal, token-efficient context.
+   - **Never** begin code/docs exploration, search, or architectural discovery with raw file reads (`view_file`), full file dumps, or unguided grep searches.
+   - **Always** use `groundcontrol` MCP tools (`search`, `grep`, `get_snippet`, `graph_match`, `search_related`) as the primary intake mechanism for high-signal, token-efficient context.
    - Direct file reads (`read_file` or native `view_file`) are strictly a **Tier 3 last resort**, permitted only when actively preparing a code edit or when exhaustive contiguous context is proven necessary after Tier 1 & 2 elaboration. Files on disk remain authoritative for applying modifications, but discovery must be mediated via MCP.
 2. **Select optimal `search` mode & leverage Turn 1 snippets**:
    - `mode="hybrid"`: Default for broad exploratory queries. Respects full vs fast bimodality: fuses BM25 + dense ONNX embeddings + Petgraph for `docs`, and BM25 + 256-bit binary Hamming scan + Petgraph for `code` (3-way RRF).
@@ -99,12 +99,13 @@ Authoritative tool registry: `crates/groundcontrol-mcp/src/tools/mod.rs`. Handle
 
    - `snippets=K`: Search automatically inlines source snippets for the top $K$ results (default 3) directly in Turn 1 across docs and code. Set `snippets=0` for pure handle sweeps.
    - `detail="ids"`: Strips Turn 1 snippets, graph affordances, and zero score breakdowns for minimal token consumption (<250 tokens) during wide identifier sweeps.
+   - `grep`: Use `grep(pattern="...", path="...")` for exhaustive, line-addressed, disk-verified regex & literal string searches across files with line numbers and optional context.
 3. **Turn 1 Affordance Grounding, Path Expansion & Structural Census**:
    - Census: Use `status(scope="census" | "architecture")` for instant (<2ms) whole-repository structural inventory (symbol counts, edge counts, language breakdown, and total file counts).
    - Turn 1: `search` returns partitioned results (`docs` and `code`) enriched with `graph_affordances` (degree counts: `calls_in`, `calls_out`, `implements`, `imports`, `wikilinks_in`, etc.) and `schema_envelope` (active node labels and edge types).
    - Turn 2: Follow information scents with `graph_match` using linear Cypher-Lite ASCII patterns, e.g. `(:CodeSymbol {name: "foo"})-[:calls*1..2]->(target)` or `(:DocNode {path: "adrs/002.md"})-[:supersedes]->(target)`. Use `graph_communities(view="architecture")` for high-level architectural component mapping (summarized key nodes, no full member dump).
 4. **Progressive disclosure (Strict 3-Tier Pipeline)**:
-   - Tier 1: Query `search` (receives top $K$ source snippets + handles + affordance degree counts).
+   - Tier 1: Query `search` (receives top $K$ source snippets + handles + affordance degree counts) or `grep` (line-addressed pattern occurrences).
    - Tier 2: Fetch targeted symbol definitions or doc chunks via `get_snippet(symbol="...")` / `get_snippet(path="...", chunk_id=N)`.
    - Tier 3: Read whole files or bounded line slices (`read_file(path="...", line_range=[start, end])`) *only* when necessary for line-exact editing.
 5. **Schema discipline on writes**: Query `list_templates` before authoring, write via `write_note`, and confirm validity with `validate(path="...")`.

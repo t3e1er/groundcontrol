@@ -13,6 +13,7 @@ use super::graph::{
     handle_graph_communities, handle_graph_match, handle_trace_cross_corpus,
     handle_trace_cross_corpus_dummy,
 };
+use super::grep::handle_grep;
 use super::read::{handle_get_snippet, handle_list_notes, handle_read_file};
 use super::search::{handle_search, handle_search_related};
 use super::system::{
@@ -68,8 +69,8 @@ pub enum ToolProfile {
 }
 
 /// Tools exposed under the `scout` profile (minimal retrieve/navigate set).
-const SCOUT_TOOLS: [&str; 6] =
-    ["search", "search_related", "get_snippet", "read_file", "list_notes", "status"];
+const SCOUT_TOOLS: [&str; 7] =
+    ["search", "search_related", "grep", "get_snippet", "read_file", "list_notes", "status"];
 
 /// Read-only tools added by the `analysis` profile on top of `scout`.
 const ANALYSIS_ONLY_TOOLS: [&str; 6] = [
@@ -310,6 +311,24 @@ impl ToolRegistry {
                 "required": ["seeds"]
             }),
             handle_search_related,
+        );
+
+        self.register_read(
+            "grep",
+            "Exhaustive line-addressed pattern search across corpus files on disk. Returns matching file paths, 1-based line numbers, and line text. Supports regex (default) or literal string matching, case sensitivity, and context lines.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "pattern": { "type": "string", "description": "Regex pattern or literal substring to match" },
+                    "path": { "type": "string", "description": "Optional file path or directory prefix to restrict the search" },
+                    "case_sensitive": { "type": "boolean", "description": "Match case-sensitively (default false)" },
+                    "is_literal": { "type": "boolean", "description": "Treat pattern as literal string instead of regex (default false)" },
+                    "max_matches": { "type": "integer", "description": "Maximum matching lines to return (default 100, max 500)" },
+                    "context_lines": { "type": "integer", "description": "Number of context lines before and after matches (default 0, max 5)" }
+                },
+                "required": ["pattern"]
+            }),
+            handle_grep,
         );
 
         // Graph tools
