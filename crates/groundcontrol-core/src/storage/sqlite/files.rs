@@ -97,4 +97,29 @@ impl Store {
 
         rows.collect::<std::result::Result<Vec<_>, _>>().map_err(|e| Error::Database(e.to_string()))
     }
+
+    /// Return (total_files, text_only, zero_chunks) counts for coverage manifest reporting.
+    pub fn coverage_summary_counts(&self) -> Result<(usize, usize, usize)> {
+        let conn = self.conn();
+        let mut stmt = conn
+            .prepare(
+                "SELECT
+                    count(*),
+                    coalesce(sum(CASE WHEN format = 'generic_text' THEN 1 ELSE 0 END), 0),
+                    coalesce(sum(CASE WHEN (SELECT count(*) FROM chunks WHERE chunks.file_path = files.path) = 0 THEN 1 ELSE 0 END), 0)
+                 FROM files",
+            )
+            .map_err(|e| Error::Database(e.to_string()))?;
+
+        let row = stmt
+            .query_row([], |r| {
+                let total: i64 = r.get(0).unwrap_or(0);
+                let text_only: i64 = r.get(1).unwrap_or(0);
+                let zero_chunks: i64 = r.get(2).unwrap_or(0);
+                Ok((total as usize, text_only as usize, zero_chunks as usize))
+            })
+            .map_err(|e| Error::Database(e.to_string()))?;
+
+        Ok(row)
+    }
 }

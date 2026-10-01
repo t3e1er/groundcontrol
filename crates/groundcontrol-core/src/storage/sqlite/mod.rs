@@ -8,6 +8,7 @@ pub mod chunks;
 pub mod config;
 pub mod edges;
 pub mod files;
+pub mod identifiers;
 pub mod schema;
 pub mod symbols;
 

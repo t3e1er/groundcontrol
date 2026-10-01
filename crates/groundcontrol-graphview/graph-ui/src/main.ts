@@ -84,6 +84,22 @@ class GraphViewApp {
       document.body.classList.toggle('right-sidebar-collapsed', !open);
     };
 
+    this.header.onZoomIn = () => {
+      this.scene.camera.position.multiplyScalar(0.8);
+      this.scene.controls.update();
+    };
+
+    this.header.onZoomOut = () => {
+      this.scene.camera.position.multiplyScalar(1.25);
+      this.scene.controls.update();
+    };
+
+    this.header.onFitView = () => {
+      this.scene.camera.position.set(0, 450, 1200);
+      this.scene.controls.target.set(0, 0, 0);
+      this.scene.controls.update();
+    };
+
     this.header.onSearchModeChange = (mode) => {
       this.currentSearchMode = mode;
       const queryInput = document.getElementById('query-input') as HTMLInputElement;

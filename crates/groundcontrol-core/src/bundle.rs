@@ -248,6 +248,7 @@ mod tests {
             templates_dir: None,
             exclude: Default::default(),
             docs: Default::default(),
+            identifiers: Default::default(),
         };
 
         let mut engine = Engine::open(config, &index_dir).unwrap();

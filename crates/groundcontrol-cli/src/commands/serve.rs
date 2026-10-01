@@ -41,9 +41,7 @@ pub fn spawn_daemon(
     if watch {
         cmd.arg("--watch");
     }
-    if idle_timeout > 0 {
-        cmd.arg(format!("--idle-timeout={}", idle_timeout));
-    }
+    cmd.arg(format!("--idle-timeout={}", idle_timeout));
     if require_auth {
         cmd.arg("--require-auth");
     }
@@ -170,6 +168,7 @@ pub fn load_or_default_config(corpus_path: &Path) -> anyhow::Result<CorpusConfig
             templates_dir: None,
             exclude: groundcontrol_common::config::ExcludeConfig::default(),
             docs: groundcontrol_common::config::DocsConfig::default(),
+            identifiers: Default::default(),
         })
     }
 }

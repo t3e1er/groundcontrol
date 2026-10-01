@@ -648,6 +648,7 @@ async fn main() -> anyhow::Result<()> {
                     return commands::corpus::handle_corpus_default(name);
                 }
                 CorpusAction::Sync { corpus, batch_size } => {
+                    let _ = init_tracing(false, "info", Some(LogFormat::Text));
                     return commands::corpus::handle_corpus_sync(corpus, batch_size);
                 }
                 CorpusAction::Export { corpus, output } => {
@@ -717,9 +718,11 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
             Commands::Index { path, name, reindex, fast, batch_size } => {
+                let _ = init_tracing(false, "info", Some(LogFormat::Text));
                 return handle_index(path, name, reindex, fast, batch_size);
             }
             Commands::Sync { corpus, batch_size } => {
+                let _ = init_tracing(false, "info", Some(LogFormat::Text));
                 return handle_sync(corpus, batch_size);
             }
             Commands::Graphview { bind, corpora_dir, daemon, daemon_key } => {

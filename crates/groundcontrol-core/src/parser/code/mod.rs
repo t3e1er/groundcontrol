@@ -8,8 +8,8 @@ pub mod semantics;
 
 // Facade re-exports: Language subsystem
 pub use languages::{
-    detect_language, get_language_definition, get_language_spec, is_code_file, LanguageDefinition,
-    LanguageSpec, SupportedLanguage, ALL_DEFINITIONS,
+    detect_language, detect_language_with_content, get_language_definition, get_language_spec,
+    is_code_file, LanguageDefinition, LanguageSpec, SupportedLanguage, ALL_DEFINITIONS,
 };
 
 // Backward-compatible module aliases for internal references

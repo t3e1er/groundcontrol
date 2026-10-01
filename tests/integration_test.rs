@@ -18,6 +18,7 @@ fn corpus_config_round_trips_through_toml() {
         templates_dir: Some(".templates".to_string()),
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     };
 
     let toml_str = toml::to_string_pretty(&config).expect("serialize to toml");

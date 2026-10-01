@@ -30,6 +30,7 @@ fn test_kubernetes_traversal_with_code_edge_class() {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     };
 
     let start_open = std::time::Instant::now();

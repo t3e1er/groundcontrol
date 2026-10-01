@@ -59,3 +59,21 @@ pub static SPEC: LanguageSpec = LanguageSpec {
     import_node_kinds: &[],
     call_node_kinds: &["ref_call"],
 };
+
+/// Heuristic check for Oracle PL/SQL dialect keywords in shared `.sql` file contents.
+pub fn is_plsql_dialect(bytes: &[u8]) -> bool {
+    let check_len = bytes.len().min(4096);
+    let sample = &bytes[..check_len];
+    let sample_upper = sample.to_ascii_uppercase();
+    let hay = match std::str::from_utf8(&sample_upper) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    hay.contains("PACKAGE BODY")
+        || hay.contains("CREATE OR REPLACE PACKAGE")
+        || hay.contains("CREATE PACKAGE")
+        || hay.contains("PRAGMA AUTONOMOUS_TRANSACTION")
+        || hay.contains("CREATE OR REPLACE TRIGGER")
+        || hay.contains("CREATE TRIGGER")
+}
+

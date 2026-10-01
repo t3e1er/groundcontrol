@@ -197,7 +197,10 @@ impl Engine {
             Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or(path).to_string()
         });
 
-        // 1. SQLite Store
+        // 1. Broadcast to all retrieval algorithms (BM25, binary, graph)
+        self.broadcast_artifact(&record)?;
+
+        // 2. SQLite Store
         self.store.insert_file(
             path,
             &record.hash,
@@ -207,7 +210,7 @@ impl Engine {
             record.format,
         )?;
 
-        // 2. Chunks and symbols
+        // 3. Chunks and symbols
         self.store.delete_chunks_for_file(path)?;
         let chunk_records: Vec<ChunkRecord> = record
             .chunks
@@ -228,9 +231,6 @@ impl Engine {
                 self.external_refs.extend(record.external_refs.iter().cloned());
             }
         }
-
-        // 3. Broadcast to all retrieval algorithms
-        self.broadcast_artifact(&record)?;
 
         // 4. Document edge rules & Tag edge accumulation
         if let Some(mut doc) = record.doc_metadata {

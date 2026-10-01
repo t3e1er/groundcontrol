@@ -215,4 +215,7 @@ pub struct GraphTreeNode {
     /// Whether this node was identified and capped as a high-degree hub.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hub: Option<bool>,
+    /// Resolution confidence for the edge leading to this node ("high", "medium", "speculative").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<String>,
 }

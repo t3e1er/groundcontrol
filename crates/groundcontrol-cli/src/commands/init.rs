@@ -43,6 +43,7 @@ pub fn handle_init(path: Option<PathBuf>, force: bool) -> anyhow::Result<()> {
                 "architecture/**".to_string(),
             ],
         },
+        identifiers: Default::default(),
     };
 
     let toml_str = toml::to_string_pretty(&corpus_config)?;

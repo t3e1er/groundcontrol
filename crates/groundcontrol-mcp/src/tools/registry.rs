@@ -22,6 +22,7 @@ use super::system::{
     handle_unload_corpus_dummy, handle_unload_corpus_manager,
 };
 use super::template::{handle_list_templates, handle_validate};
+use super::where_tool::{handle_where_corpus_manager, handle_where_engine};
 use super::write::{handle_delete_note, handle_move_note, handle_write_note};
 
 /// MCP tool handler function signature for read-only vs mutating tools.
@@ -56,10 +57,11 @@ impl ToolInfo {
 /// Tool exposure profile: gates which tools `tools/list` advertises to keep the
 /// listing footprint small for narrow agent roles.
 ///
-/// The sets are nested: `Scout` ⊂ `Analysis` ⊂ `All`. Profiles only gate what the
-/// listing advertises — a tool called directly still executes regardless of profile.
+/// The sets are nested: `Lean` ⊂ `Scout` ⊂ `Analysis` ⊂ `All`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolProfile {
+    /// Minimal 5-tool read-only profile: search, grep, where, read_file, status.
+    Lean,
     /// Minimal retrieve/navigate set for lightweight scout agents.
     Scout,
     /// Scout plus read-only graph/validation/analysis/code-intel tools.
@@ -68,9 +70,12 @@ pub enum ToolProfile {
     All,
 }
 
+/// Tools exposed under the `lean` profile (5 minimal read-only tools).
+const LEAN_TOOLS: [&str; 5] = ["search", "grep", "where", "read_file", "status"];
+
 /// Tools exposed under the `scout` profile (minimal retrieve/navigate set).
-const SCOUT_TOOLS: [&str; 7] =
-    ["search", "search_related", "grep", "get_snippet", "read_file", "list_notes", "status"];
+const SCOUT_TOOLS: [&str; 8] =
+    ["search", "search_related", "grep", "where", "get_snippet", "read_file", "list_notes", "status"];
 
 /// Read-only tools added by the `analysis` profile on top of `scout`.
 const ANALYSIS_ONLY_TOOLS: [&str; 6] = [
@@ -87,6 +92,7 @@ impl ToolProfile {
     /// for unknown values.
     pub fn from_str_name(name: &str) -> Self {
         match name {
+            "lean" => ToolProfile::Lean,
             "scout" => ToolProfile::Scout,
             "analysis" => ToolProfile::Analysis,
             _ => ToolProfile::All,
@@ -94,10 +100,6 @@ impl ToolProfile {
     }
 
     /// Whether `tools/list` under this profile should advertise `tool_name`.
-    ///
-    /// `All` admits every registered tool (so newly added tools appear without a
-    /// list edit). `Analysis` admits the scout set plus the read-only analysis
-    /// additions. `Scout` admits only the scout set.
     pub fn includes(&self, tool_name: &str) -> bool {
         match self {
             ToolProfile::All => true,
@@ -105,6 +107,7 @@ impl ToolProfile {
                 SCOUT_TOOLS.contains(&tool_name) || ANALYSIS_ONLY_TOOLS.contains(&tool_name)
             }
             ToolProfile::Scout => SCOUT_TOOLS.contains(&tool_name),
+            ToolProfile::Lean => LEAN_TOOLS.contains(&tool_name),
         }
     }
 }
@@ -159,8 +162,8 @@ impl ToolRegistry {
 
     /// Read tools that are corpus-scoped or manager-level and therefore must NOT
     /// accept the fan-out `corpus`/`corpora` discrimination args.
-    const NON_DISCRIMINATED_READ_TOOLS: [&'static str; 3] =
-        ["status", "list_corpora", "trace_cross_corpus"];
+    const NON_DISCRIMINATED_READ_TOOLS: [&'static str; 4] =
+        ["status", "list_corpora", "trace_cross_corpus", "where"];
 
     /// Write tools that operate at the manager level and don't accept corpus arg.
     const MANAGER_WRITE_TOOLS: [&'static str; 2] = ["index_corpus", "unload_corpus"];
@@ -231,7 +234,8 @@ impl ToolRegistry {
                     },
                     "start_line": { "type": "integer", "description": "Optional 1-based start line (applies when reading a single file)" },
                     "end_line": { "type": "integer", "description": "Optional 1-based end line (inclusive, applies when reading a single file)" },
-                    "max_lines": { "type": "integer", "description": "Hard cap on returned lines (default 1000 for single file, 500 per file in batch)" }
+                    "max_lines": { "type": "integer", "description": "Hard cap on returned lines (default 1000 for single file, 500 per file in batch)" },
+                    "max_tokens": { "type": "integer", "description": "Optional token budget cap. Automatically truncates output and includes continuation hints." }
                 },
                 "required": []
             }),
@@ -250,6 +254,7 @@ impl ToolRegistry {
                     "path": { "type": "string", "description": "Relative path — for a DOC chunk fetch (with chunk_index) or a code FILE hint" },
                     "chunk_index": { "type": "integer", "description": "With path, fetch that specific doc chunk (zero-based)" },
                     "max_lines": { "type": "integer", "description": "Hard cap on returned lines (default 500)" },
+                    "max_tokens": { "type": "integer", "description": "Optional token budget cap. Automatically truncates output and includes continuation hints." },
                     "include_neighbors": { "type": "boolean", "description": "Include neighbor context: code relationships (incoming/outgoing grouped by edge type) as handles, or adjacent doc chunks (default false)" }
                 },
                 "required": []
@@ -331,6 +336,30 @@ impl ToolRegistry {
             handle_grep,
         );
 
+        self.register_read(
+            "where",
+            "Cross-corpus identifier lookup: locate every occurrence, definition, or mention of a symbol, model, or table identifier across all corpora with line-level provenance and occurrence role.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "identifier": { "type": "string", "description": "Identifier name to look up" },
+                    "corpora": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional list of corpus names to restrict the lookup (default all mounted corpora)"
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "Optional role filter (e.g. 'defines', 'reads', 'updates', 'mentions')"
+                    },
+                    "max_results": { "type": "integer", "description": "Maximum records to return (default 50)" },
+                    "format": { "type": "string", "enum": ["lean", "json"], "description": "Output format ('lean' markdown or 'json', default 'json')" }
+                },
+                "required": ["identifier"]
+            }),
+            handle_where_engine,
+        );
+
         // Graph tools
         self.register_read(
             "graph_match",
@@ -358,6 +387,11 @@ impl ToolRegistry {
                     "max_depth": {
                         "type": "number",
                         "description": "Hard cap on recursive traversal depth (default 3, max 5)"
+                    },
+                    "min_confidence": {
+                        "type": "string",
+                        "enum": ["high", "medium", "speculative"],
+                        "description": "Minimum resolution confidence threshold for returned edges (default: 'medium', hides speculative edges)"
                     }
                 },
                 "required": ["pattern"]
@@ -372,7 +406,7 @@ impl ToolRegistry {
                 "type": "object",
                 "properties": {
                     "algorithm": { "type": "string", "enum": ["leiden", "louvain"], "description": "Community detection algorithm (default: leiden)" },
-                    "view": { "type": "string", "enum": ["architecture", "raw"], "description": "View mode: 'architecture' for high-level components with top key nodes, 'raw' for raw community clusters (default: 'raw')" },
+                    "view": { "type": "string", "enum": ["architecture", "raw"], "description": "View mode: 'architecture' for high-level components with top key nodes, 'raw' for raw community clusters (default: 'architecture')" },
                     "include_density": { "type": "boolean", "description": "Include per-community density statistics (default false)" },
                     "community_id": { "type": "integer", "description": "Optional community ID to inspect member nodes for that specific community" },
                     "limit": { "type": "integer", "description": "Maximum number of communities to return in overview (default 10) or member nodes when community_id is specified (default 50)" }
@@ -802,6 +836,10 @@ impl MultiCorpusToolRegistry {
         // dispatch. It takes an explicit `start_corpus`, not the fan-out args.
         if name == "trace_cross_corpus" {
             return handle_trace_cross_corpus(manager, args);
+        }
+
+        if name == "where" {
+            return handle_where_corpus_manager(manager, args);
         }
 
         // Parse both discrimination args out of the call, resolving the target set.

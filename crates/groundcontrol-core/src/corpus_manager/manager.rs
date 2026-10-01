@@ -155,6 +155,7 @@ impl CorpusManager {
                 templates_dir: None,
                 exclude,
                 docs: groundcontrol_common::config::DocsConfig::default(),
+                identifiers: std::collections::BTreeMap::new(),
             }
         };
 
@@ -223,9 +224,6 @@ impl CorpusManager {
                                         if let Ok(engine) =
                                             crate::engine_builder::EngineBuilder::open(cfg, &path)
                                         {
-                                            if self.default_corpus.is_none() {
-                                                self.default_corpus = Some(folder_name.to_string());
-                                            }
                                             self.engines.insert(folder_name.to_string(), engine);
                                             mounted.push(folder_name.to_string());
                                             if let Some(ref cb) = self.on_corpus_mounted {
@@ -253,12 +251,17 @@ impl CorpusManager {
                 }
             }
         }
-        if self.default_corpus.is_none() {
-            if let Some(ref def) = global.corpora.default {
-                if self.engines.contains_key(def) {
-                    self.default_corpus = Some(def.clone());
-                }
+        // 1. Consult global config default first
+        if let Some(ref def) = global.corpora.default {
+            if self.engines.contains_key(def) {
+                self.default_corpus = Some(def.clone());
             }
+        }
+        // 2. Deterministic alphabetical fallback across mounted engines
+        if self.default_corpus.is_none() {
+            let mut sorted_keys: Vec<String> = self.engines.keys().cloned().collect();
+            sorted_keys.sort();
+            self.default_corpus = sorted_keys.into_iter().next();
         }
         mounted.sort();
         Ok(mounted)
@@ -324,6 +327,7 @@ impl CorpusManager {
             templates_dir: None,
             exclude: groundcontrol_common::config::ExcludeConfig::default(),
             docs: groundcontrol_common::config::DocsConfig::default(),
+            identifiers: std::collections::BTreeMap::new(),
         };
 
         self.add_corpus_with_index_dir(config, &target_index_dir)?;
@@ -360,6 +364,43 @@ impl CorpusManager {
     ) -> Result<crate::engine::DeltaScanResult> {
         let engine = self.resolve_engine_mut(corpus)?;
         engine.sync_delta_paths(paths)
+    }
+
+    /// Cross-corpus identifier search across mounted corpora (`where` tool).
+    pub fn where_identifier(
+        &self,
+        identifier: &str,
+        corpora: Option<&[String]>,
+        role: Option<&str>,
+        max_results: usize,
+    ) -> Result<Vec<serde_json::Value>> {
+        let mut results = Vec::new();
+        let mut sorted_corpora: Vec<&String> = self.engines.keys().collect();
+        sorted_corpora.sort();
+
+        let filtered_corpora: Vec<&String> = match corpora {
+            Some(selected) => sorted_corpora.into_iter().filter(|k| selected.contains(k)).collect(),
+            None => sorted_corpora,
+        };
+
+        for corpus_name in filtered_corpora {
+            if let Some(engine) = self.engines.get(corpus_name) {
+                if let Ok(records) = engine.find_identifiers(identifier, role, max_results) {
+                    for r in records {
+                        results.push(serde_json::json!({
+                            "corpus": corpus_name,
+                            "identifier": r.identifier,
+                            "file_path": r.file_path,
+                            "line": r.line,
+                            "role": r.role,
+                            "kind": r.kind,
+                        }));
+                    }
+                }
+            }
+        }
+        results.truncate(max_results);
+        Ok(results)
     }
 }
 

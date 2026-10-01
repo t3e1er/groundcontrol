@@ -13,6 +13,9 @@ export class HeaderControls {
   public onUnfocus?: () => void;
   public onToggleLeftSidebar?: (open: boolean) => void;
   public onToggleRightSidebar?: (open: boolean) => void;
+  public onZoomIn?: () => void;
+  public onZoomOut?: () => void;
+  public onFitView?: () => void;
   public currentSearchMode: SearchMode = 'symbol';
   public leftSidebarOpen: boolean = true;
   public rightSidebarOpen: boolean = true;
@@ -121,7 +124,12 @@ export class HeaderControls {
           </div>
         </div>
 
-        <div class="header-right">
+          <div class="hud-zoom-controls" style="display: flex; align-items: center; gap: 4px;">
+            <button id="zoom-in-btn" class="hud-btn" title="Zoom In" style="width: 24px; height: 24px; padding: 0; font-size: 14px; font-weight: bold;">+</button>
+            <button id="zoom-out-btn" class="hud-btn" title="Zoom Out" style="width: 24px; height: 24px; padding: 0; font-size: 14px; font-weight: bold;">&minus;</button>
+            <button id="fit-view-btn" class="hud-btn" title="Fit to View" style="padding: 0 6px; height: 24px; font-size: 11px;">Fit</button>
+          </div>
+
           <div class="stats-badge">
             <span class="stat-highlight">${nodeCount.toLocaleString()}</span> nodes
             <span class="stat-sep" style="color: rgba(255,255,255,0.2); margin: 0 4px;">/</span>
@@ -140,6 +148,10 @@ export class HeaderControls {
     `;
 
     // Wire events
+    this.container.querySelector('#zoom-in-btn')?.addEventListener('click', () => this.onZoomIn?.());
+    this.container.querySelector('#zoom-out-btn')?.addEventListener('click', () => this.onZoomOut?.());
+    this.container.querySelector('#fit-view-btn')?.addEventListener('click', () => this.onFitView?.());
+
     const toggleLeftBtn = this.container.querySelector('#toggle-left-btn') as HTMLButtonElement;
     toggleLeftBtn?.addEventListener('click', () => {
       this.leftSidebarOpen = !this.leftSidebarOpen;

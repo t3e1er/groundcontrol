@@ -160,8 +160,15 @@ impl SearchService for CoreSearchService<'_> {
                 // Try to get a query embedding for full 3-signal hybrid.
                 // If the embedder is unavailable, fall back to BM25+graph only.
                 let embedder_opt = self.embedder.as_deref();
-                let query_embedding =
-                    embedder_opt.and_then(|embedder| embedder.embed_query(&query.query).ok());
+                let query_embedding = embedder_opt.and_then(|embedder| {
+                    match embedder.embed_query(&query.query) {
+                        Ok(emb) => Some(emb),
+                        Err(e) => {
+                            tracing::warn!("Hybrid search embedder unavailable or query inference failed: {e}. Falling back gracefully to BM25 + graph fusion.");
+                            None
+                        }
+                    }
+                });
 
                 let results_raw = if let Some(vector_index) = self.vector_index {
                     if query.decompose == Some(true) {

@@ -235,6 +235,9 @@ pub struct SearchResult {
     /// Code symbol identifier (provided when snippet is omitted).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
+    /// Number of additional matched chunks collapsed into this best-matching hit from the same file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collapsed_chunks: Option<usize>,
 }
 
 impl SearchResult {
@@ -253,6 +256,7 @@ impl SearchResult {
             graph_affordances: None,
             graph: None,
             symbol: None,
+            collapsed_chunks: None,
         }
     }
 

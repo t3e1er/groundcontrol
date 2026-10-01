@@ -11,7 +11,7 @@ use groundcontrol_common::types::{Chunk, ChunkEmbedPolicy, CodeSymbol, CodeSymbo
 use tree_sitter::{Node, Parser};
 
 use super::grammar::{AstGrammarExtractor, ExtractedGrammarSemantics, GenericAstGrammarExtractor};
-use super::languages::{detect_language, SupportedLanguage};
+use super::languages::{detect_language_with_content, SupportedLanguage};
 
 /// Result of parsing a code file: chunks for embedding/BM25 and extracted code symbols.
 #[derive(Debug, Clone)]
@@ -49,7 +49,7 @@ impl CodeChunker {
             return None;
         }
 
-        let lang = detect_language(file_path)?;
+        let lang = detect_language_with_content(file_path, Some(content.as_bytes()))?;
         let mut parser = Parser::new();
         if let Err(e) = parser.set_language(&lang.tree_sitter_language()) {
             tracing::warn!("Failed to set language for {}: {:?}", file_path.display(), e);
@@ -302,48 +302,90 @@ impl<'a> AstExtractor<'a> {
 
             // Large container nodes (e.g. large impl blocks) have their child functions emitted separately.
             // For the container itself, emit header up to max_chars to describe the container.
-            let emit_text = if is_container && raw_node_text.len() > self.max_chars {
+            let is_oversized_leaf = !is_container && chunk_text.len() > self.max_chars;
+            let (first_emit_text, remainder_slices) = if is_oversized_leaf {
+                let mut rem = Vec::new();
+                let first_limit = self.max_chars.saturating_sub(breadcrumb.len() + docstring.as_ref().map_or(0, |d| d.len() + 1));
+                let first_end = match raw_node_text.char_indices().nth(first_limit) {
+                    Some((idx, _)) => idx,
+                    None => raw_node_text.len(),
+                };
+                let first_text = if let Some(ref doc) = docstring {
+                    format!("{breadcrumb}{doc}\n{}", &raw_node_text[..first_end])
+                } else {
+                    format!("{breadcrumb}{}", &raw_node_text[..first_end])
+                };
+                let mut current_offset = first_end;
+                let mut part = 2;
+                while current_offset < raw_node_text.len() {
+                    let next_limit = self.max_chars.saturating_sub(breadcrumb.len() + 60);
+                    let rem_slice = &raw_node_text[current_offset..];
+                    let step = match rem_slice.char_indices().nth(next_limit) {
+                        Some((idx, _)) => idx,
+                        None => rem_slice.len(),
+                    };
+                    let slice_text = &raw_node_text[current_offset..current_offset + step];
+                    let cont_header = format!("{breadcrumb}// Continuation (part {part}) of {full_scope}\n");
+                    rem.push((current_offset, current_offset + step, format!("{cont_header}{slice_text}")));
+                    current_offset += step;
+                    part += 1;
+                }
+                (first_text, rem)
+            } else if is_container && raw_node_text.len() > self.max_chars {
                 let mut truncated = raw_node_text;
                 if let Some((idx, _)) =
                     truncated.char_indices().nth(self.max_chars.saturating_sub(breadcrumb.len()))
                 {
                     truncated = &truncated[..idx];
                 }
-                format!("{breadcrumb}{truncated}")
-            } else if chunk_text.len() > self.max_chars {
-                let mut truncated = &chunk_text[..];
-                if let Some((idx, _)) = truncated.char_indices().nth(self.max_chars) {
-                    truncated = &truncated[..idx];
-                }
-                truncated.to_string()
+                (format!("{breadcrumb}{truncated}"), Vec::new())
             } else {
-                chunk_text
+                (chunk_text, Vec::new())
             };
 
             // Extract AST pattern tokens & normalized identifier expansions (Pillar 1)
             let sem_tokens =
                 super::patterns::extract_semantic_tokens(raw_node_text, &name, &full_scope);
             let final_emit_text = if sem_tokens.is_empty() {
-                emit_text
+                first_emit_text
             } else {
-                format!("{emit_text}\n// Semantic tokens: {}", sem_tokens.join(" "))
+                format!("{first_emit_text}\n// Semantic tokens: {}", sem_tokens.join(" "))
             };
 
             // Register AST chunk
             let embed_policy =
                 classify_embed_policy(sym_type, raw_node_text, lang, &self.file_path);
+            let first_end_byte = if remainder_slices.is_empty() {
+                end_byte
+            } else {
+                start_byte + remainder_slices[0].0
+            };
             let chunk = Chunk::new(
                 &self.file_path,
                 self.chunk_index,
                 final_emit_text,
                 start_byte,
-                end_byte,
+                first_end_byte,
             )
             .with_code_metadata(lang.name(), &full_scope, start_line, end_line)
             .with_embed_policy(embed_policy)
             .with_skeleton_text(skeleton_text);
             self.chunks.push(chunk);
             self.chunk_index += 1;
+
+            for (rel_start, rel_end, cont_text) in remainder_slices {
+                let cont_chunk = Chunk::new(
+                    &self.file_path,
+                    self.chunk_index,
+                    cont_text,
+                    start_byte + rel_start,
+                    start_byte + rel_end,
+                )
+                .with_code_metadata(lang.name(), &full_scope, start_line, end_line)
+                .with_embed_policy(embed_policy);
+                self.chunks.push(cont_chunk);
+                self.chunk_index += 1;
+            }
 
             if is_container {
                 self.scope_stack.push(name);

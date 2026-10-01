@@ -139,7 +139,7 @@ impl Engine {
             let mut last_commit_time = Instant::now();
             let commit_time_threshold = Duration::from_secs(30);
 
-            std::thread::scope(|s| {
+            std::thread::scope(|s| -> Result<()> {
                 for i in 0..num_cpus {
                     let work_rx_clone = work_rx.clone();
                     let ast_tx_clone = ast_tx.clone();
@@ -232,9 +232,9 @@ impl Engine {
                                 let _ = pipeline.try_recv_completed(vi);
                             }
                         }
-                        let _ = self.store.commit_batch();
                         if let Err(e) = self.commit_intermediate() {
-                            warn!("Intermediate commit failed: {}", e);
+                            self.abandon_uncommitted_batch();
+                            return Err(e);
                         }
                         let _ = self.store.begin_batch();
                         uncommitted_count = 0;
@@ -259,9 +259,8 @@ impl Engine {
                         }
                     }
                 }
-
-                let _ = self.store.commit_batch();
-            });
+                Ok(())
+            })?;
 
             if let Some(mut pipeline) = embedding_pipeline {
                 if let Some(ref mut vi) = self.vector_index_mut() {

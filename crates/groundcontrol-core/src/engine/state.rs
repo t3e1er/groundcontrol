@@ -397,4 +397,25 @@ impl Engine {
     pub fn stored_model_version(&self) -> Option<&str> {
         self.dense.as_ref().and_then(|d| d.vector_index().model_version())
     }
+
+    /// Return a compact one-line coverage summary:
+    /// e.g. "coverage: X files; Y unparsed (A text-only, B zero-chunks); 0 BM25 shortfall"
+    pub fn coverage_summary(&self) -> String {
+        let (total_files, text_only, zero_chunks) =
+            self.store.coverage_summary_counts().unwrap_or((0, 0, 0));
+        let unparsed = text_only + zero_chunks;
+        format!(
+            "coverage: {total_files} files; {unparsed} unparsed ({text_only} text-only, {zero_chunks} zero-chunks); 0 BM25 shortfall"
+        )
+    }
+
+    /// Find identifier occurrences in this corpus (`where` query).
+    pub fn find_identifiers(
+        &self,
+        identifier: &str,
+        role: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<groundcontrol_common::types::IdentifierRecord>> {
+        self.store.find_identifiers(identifier, role, limit)
+    }
 }

@@ -40,6 +40,7 @@ fn test_config(corpus_path: &std::path::Path) -> CorpusConfig {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     }
 }
 
@@ -58,7 +59,7 @@ fn test_registry_has_all_tools() {
     registry.register_all();
 
     let tools = registry.list();
-    assert_eq!(tools.len(), 19, "Expected 19 tools registered");
+    assert_eq!(tools.len(), 20, "Expected 20 tools registered");
 
     // Verify each expected tool exists.
     let expected = [
@@ -68,6 +69,7 @@ fn test_registry_has_all_tools() {
         "search",
         "search_related",
         "grep",
+        "where",
         "graph_match",
         "graph_communities",
         "write_note",
@@ -83,7 +85,7 @@ fn test_registry_has_all_tools() {
         "unload_corpus",
     ];
 
-    assert_eq!(expected.len(), 19, "expected-name list must match the 19-tool count");
+    assert_eq!(expected.len(), 20, "expected-name list must match the 20-tool count");
 
     for name in expected {
         assert!(registry.get(name).is_some(), "Tool '{}' should be registered", name);
@@ -158,17 +160,21 @@ fn test_tool_profiles_gate_listing() {
     let all = MultiCorpusToolRegistry::with_profile(ToolProfile::All);
     let analysis = MultiCorpusToolRegistry::with_profile(ToolProfile::Analysis);
     let scout = MultiCorpusToolRegistry::with_profile(ToolProfile::Scout);
+    let lean = MultiCorpusToolRegistry::with_profile(ToolProfile::Lean);
 
     let all_count = all.list().len();
     let analysis_count = analysis.list().len();
     let scout_count = scout.list().len();
+    let lean_count = lean.list().len();
 
-    // scout ⊂ analysis ⊂ all.
+    // lean ⊂ scout ⊂ analysis ⊂ all.
+    assert!(lean_count < scout_count, "lean must expose fewer tools than scout");
     assert!(scout_count < analysis_count, "scout must expose fewer tools than analysis");
     assert!(analysis_count < all_count, "analysis must expose fewer tools than all");
-    assert_eq!(all_count, 19, "all profile advertises every registered tool");
-    assert_eq!(analysis_count, 13, "analysis profile advertises scout + analysis tools");
-    assert_eq!(scout_count, 7, "scout profile advertises the minimal set");
+    assert_eq!(all_count, 20, "all profile advertises every registered tool");
+    assert_eq!(analysis_count, 14, "analysis profile advertises scout + analysis tools");
+    assert_eq!(scout_count, 8, "scout profile advertises the scout set");
+    assert_eq!(lean_count, 5, "lean profile advertises the minimal 5 tools");
 
     // scout includes core retrieval/fetch but not writes or analysis-only tools.
     let scout_names: HashSet<&str> = scout.list().iter().map(|t| t.name.as_str()).collect();
@@ -607,7 +613,7 @@ fn test_multi_corpus_registry_has_status() {
     let registry = MultiCorpusToolRegistry::new();
     let tools = registry.list();
 
-    assert_eq!(tools.len(), 19, "Expected 19 tools in multi-corpus registry");
+    assert_eq!(tools.len(), 20, "Expected 20 tools in multi-corpus registry");
     assert!(
         registry.registry().get("status").is_some(),
         "consolidated status tool should be registered"
@@ -644,6 +650,7 @@ fn test_multi_corpus_routing_default() {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     };
     add_test_corpus(&mut manager, config);
 
@@ -694,6 +701,7 @@ fn test_multi_corpus_routing_explicit() {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     };
     let docs_config = CorpusConfig {
         name: "docs".to_string(),
@@ -706,6 +714,7 @@ fn test_multi_corpus_routing_explicit() {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     };
 
     add_test_corpus(&mut manager, wiki_config);
@@ -792,6 +801,7 @@ fn test_multi_corpus_fan_out_tags_by_corpus() {
             templates_dir: None,
             exclude: groundcontrol_common::config::ExcludeConfig::default(),
             docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
         };
         add_test_corpus(&mut manager, config);
     }
@@ -878,6 +888,7 @@ fn fast_corpus_config(name: &str, dir: &Path) -> CorpusConfig {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     }
 }
 
@@ -1078,6 +1089,7 @@ fn test_multi_corpus_get_status() {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     };
     add_test_corpus(&mut manager, config);
 
@@ -1110,6 +1122,7 @@ fn test_multi_corpus_invalid_corpus_returns_error() {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     };
     add_test_corpus(&mut manager, config);
 
@@ -2446,4 +2459,45 @@ fn test_grep_tool_regex_and_literal() {
     assert!(lean_text.contains("# Grep: \"status_code\""));
     assert!(lean_text.contains("src/main.rs:2:    let status_code = 200;"));
     assert!(lean_text.contains("src/main.rs-1-fn main() {"));
+}
+
+#[test]
+fn test_where_tool_identifier_lookup() {
+    let tmp = TempDir::new().unwrap();
+    let mut engine = create_test_engine(&tmp);
+    let corpus_dir = tmp.path().join("corpus");
+
+    let code = "pub fn process_order() {\n    let order_id = 42;\n}\n";
+    fs::write(corpus_dir.join("order.rs"), code).unwrap();
+    engine.index_file("order.rs", code).unwrap();
+    engine.commit().unwrap();
+
+    let mut registry = ToolRegistry::new();
+    registry.register_all();
+
+    // 1. Where tool finding defined symbol
+    let res = registry
+        .execute_read(
+            "where",
+            &engine,
+            serde_json::json!({ "identifier": "process_order", "format": "json" }),
+        )
+        .unwrap();
+    assert_eq!(res["identifier"], "process_order");
+    assert!(res["total_matches"].as_u64().unwrap() >= 1);
+    let results = res["results"].as_array().unwrap();
+    assert_eq!(results[0]["file_path"], "order.rs");
+    assert_eq!(results[0]["role"], "defines");
+
+    // 2. Where tool lean format
+    let res_lean = registry
+        .execute_read(
+            "where",
+            &engine,
+            serde_json::json!({ "identifier": "process_order", "format": "lean" }),
+        )
+        .unwrap();
+    let lean_str = res_lean.as_str().unwrap();
+    assert!(lean_str.contains("# Where: \"process_order\""));
+    assert!(lean_str.contains("`order.rs:L1`"));
 }

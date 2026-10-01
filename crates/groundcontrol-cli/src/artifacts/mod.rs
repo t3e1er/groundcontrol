@@ -37,6 +37,7 @@ pub fn export_artifact(
         templates_dir: None,
         exclude: Default::default(),
         docs: Default::default(),
+        identifiers: Default::default(),
     };
 
     let mut engine = groundcontrol_core::engine::Engine::open(config, index_dir)?;

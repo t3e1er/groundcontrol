@@ -133,7 +133,8 @@ pub fn handle_grep(engine: &Engine, args: Value) -> Result<Value> {
     }
 
     if is_lean {
-        let lean_output = format_lean_grep(&params.pattern, &matches, truncated, context_lines > 0);
+        let mut lean_output = format_lean_grep(&params.pattern, &matches, truncated, context_lines > 0);
+        lean_output.push_str(&format!("\n---\n{}\n", engine.coverage_summary()));
         Ok(Value::String(lean_output))
     } else {
         let resp = GrepResponse {
@@ -142,7 +143,9 @@ pub fn handle_grep(engine: &Engine, args: Value) -> Result<Value> {
             matches,
             truncated,
         };
-        serde_json::to_value(resp).map_err(|e| Error::Config(format!("serialize error: {}", e)))
+        let mut val = serde_json::to_value(resp).map_err(|e| Error::Config(format!("serialize error: {}", e)))?;
+        val["coverage"] = serde_json::Value::String(engine.coverage_summary());
+        Ok(val)
     }
 }
 

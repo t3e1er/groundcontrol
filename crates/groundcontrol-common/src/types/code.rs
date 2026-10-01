@@ -174,6 +174,22 @@ pub struct CodeSymbol {
 /// Alias for code symbol and document node identifiers.
 pub type SymbolId = String;
 
+/// An identifier occurrence recorded for cross-corpus lookup (`where` tool).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct IdentifierRecord {
+    /// Matched identifier string.
+    pub identifier: String,
+    /// Corpus-relative file path.
+    pub file_path: String,
+    /// 1-based line number.
+    pub line: usize,
+    /// Role in relation to this identifier (defines | reads | updates | mentions | documents).
+    pub role: String,
+    /// Optional pattern kind / tag name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+}
+
 /// The kind of unresolved reference captured as an [`ExternalRef`].
 ///
 /// Both variants capture ordinary intra-language references that failed to

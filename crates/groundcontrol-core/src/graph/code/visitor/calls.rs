@@ -190,6 +190,19 @@ impl<'a> CallAndImportVisitor<'a> {
             }
         }
 
+        // Filter candidate symbols by language compatibility and exclude data format symbols
+        let valid_candidates: Vec<&CodeSymbol> = match self.symbol_index.get(clean_name) {
+            Some(candidates) => candidates
+                .iter()
+                .copied()
+                .filter(|c| {
+                    !is_data_format_symbol(&c.language)
+                        && is_compatible_language(self.language.name(), &c.language)
+                })
+                .collect(),
+            None => Vec::new(),
+        };
+
         // 2. Tier 2: Receiver-guided resolution via lexical scope & import table
         if let Some(rec) = receiver {
             let rec_clean = rec.trim();
@@ -217,9 +230,10 @@ impl<'a> CallAndImportVisitor<'a> {
                 }
 
                 // Check workspace symbol catalog
-                if let Some(candidates) = self.symbol_index.get(clean_name) {
-                    let type_matches: Vec<&&CodeSymbol> = candidates
+                if !valid_candidates.is_empty() {
+                    let type_matches: Vec<&CodeSymbol> = valid_candidates
                         .iter()
+                        .copied()
                         .filter(|s| {
                             s.scope_path.contains(type_name.as_str())
                                 || s.scope_path == format!("{type_name} > {clean_name}")
@@ -251,8 +265,8 @@ impl<'a> CallAndImportVisitor<'a> {
 
             // B. Receiver is a module/namespace import (e.g. `api.fetchData()` or `server.Handle()`)
             if let Some(mod_res) = self.import_table.modules.get(rec_clean) {
-                if let Some(candidates) = self.symbol_index.get(clean_name) {
-                    if let Some(matched) = candidates.iter().find(|c| {
+                if !valid_candidates.is_empty() {
+                    if let Some(matched) = valid_candidates.iter().find(|c| {
                         if let Some(ref prefix) = mod_res.target_path_prefix {
                             let norm_c = c.file_path.replace('\\', "/");
                             norm_c.starts_with(prefix) || norm_c.contains(prefix)
@@ -267,9 +281,9 @@ impl<'a> CallAndImportVisitor<'a> {
         }
 
         // 3. Tier 2: Direct call to an explicitly imported function/symbol
-        if let Some(candidates) = self.symbol_index.get(clean_name) {
+        if !valid_candidates.is_empty() {
             if self.import_table.symbols.contains_key(clean_name) {
-                if let Some(import_match) = candidates
+                if let Some(import_match) = valid_candidates
                     .iter()
                     .find(|c| self.import_table.matches_target_path(clean_name, &c.file_path))
                 {
@@ -284,18 +298,19 @@ impl<'a> CallAndImportVisitor<'a> {
         }
 
         // 5. Tier 3: Intra-Module / Same-Package Resolution
-        if let Some(candidates) = self.symbol_index.get(clean_name) {
-            if candidates.len() == 1 {
-                return Some((candidates[0], ResolutionConfidence::High));
+        if !valid_candidates.is_empty() {
+            // Unique bare-name match across workspace is Medium confidence (not High)
+            if valid_candidates.len() == 1 {
+                return Some((valid_candidates[0], ResolutionConfidence::Medium));
             }
             let file_dir = Path::new(&self.file_path).parent().unwrap_or_else(|| Path::new(""));
-            if let Some(dir_match) = candidates.iter().find(|c| {
+            if let Some(dir_match) = valid_candidates.iter().find(|c| {
                 Path::new(&c.file_path).parent().unwrap_or_else(|| Path::new("")) == file_dir
             }) {
                 return Some((dir_match, ResolutionConfidence::Medium));
             }
             // 6. Tier 4: Speculative fallback
-            return candidates.first().map(|c| (*c, ResolutionConfidence::Speculative));
+            return valid_candidates.first().map(|c| (*c, ResolutionConfidence::Speculative));
         }
 
         None
@@ -350,4 +365,25 @@ impl<'a> CallAndImportVisitor<'a> {
             || callee.starts_with("assert_eq!")
             || callee.starts_with("assert_ne!")
     }
+}
+
+/// Checks if two languages are compatible for cross-file call resolution.
+fn is_compatible_language(source_lang: &str, target_lang: &str) -> bool {
+    if source_lang.eq_ignore_ascii_case(target_lang) {
+        return true;
+    }
+    let is_js = |l: &str| matches!(l, "typescript" | "tsx" | "javascript");
+    if is_js(source_lang) && is_js(target_lang) {
+        return true;
+    }
+    let is_c = |l: &str| matches!(l, "c" | "cpp");
+    if is_c(source_lang) && is_c(target_lang) {
+        return true;
+    }
+    false
+}
+
+/// Checks if a symbol belongs to a data serialization format (e.g. YAML, XML, JSON).
+fn is_data_format_symbol(language: &str) -> bool {
+    matches!(language, "json" | "yaml" | "xml" | "toml")
 }

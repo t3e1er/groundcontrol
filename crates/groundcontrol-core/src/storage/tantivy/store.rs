@@ -40,8 +40,10 @@ impl BM25Index {
         let (schema, fields) = build_schema();
 
         let dir = MmapDirectory::open(index_path).map_err(|e| Error::Index(e.to_string()))?;
+        let retry_dir = super::retry_directory::RetryDirectory::new(dir);
 
-        let index = Index::open_or_create(dir, schema).map_err(|e| Error::Index(e.to_string()))?;
+        let index =
+            Index::open_or_create(retry_dir, schema).map_err(|e| Error::Index(e.to_string()))?;
 
         // Don't acquire writer at open — only needed for mutations.
         let reader = index

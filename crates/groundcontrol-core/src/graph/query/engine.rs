@@ -98,6 +98,7 @@ impl<'a> QueryEngine<'a> {
                     branches: sub_tree,
                     suppressed: None,
                     hub: None,
+                    confidence: None,
                 });
             }
             let mut summary = self.compute_summary(&tree, None);
@@ -298,6 +299,7 @@ impl<'a> QueryEngine<'a> {
                 branches,
                 suppressed: child_suppressed,
                 hub: child_hub,
+                confidence: None,
             });
         }
 

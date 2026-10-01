@@ -185,8 +185,15 @@ pub fn get_language_spec(lang: SupportedLanguage) -> &'static LanguageSpec {
     lang.spec()
 }
 
-/// Detect programming or configuration language from a file path extension or exact filename.
-pub fn detect_language(path: &Path) -> Option<SupportedLanguage> {
+/// Declarative dialect disambiguation rules when file extensions overlap.
+///
+/// Maps (extension, language, heuristic_predicate).
+pub static DIALECT_DISAMBIGUATORS: &[(&str, SupportedLanguage, fn(&[u8]) -> bool)] = &[
+    ("sql", SupportedLanguage::PlSql, plsql::is_plsql_dialect),
+];
+
+/// Detect programming or configuration language from a file path and optional sample content.
+pub fn detect_language_with_content(path: &Path, content: Option<&[u8]>) -> Option<SupportedLanguage> {
     if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
         let lower = filename.to_ascii_lowercase();
         for def in ALL_DEFINITIONS {
@@ -197,6 +204,14 @@ pub fn detect_language(path: &Path) -> Option<SupportedLanguage> {
     }
 
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
+    if let Some(bytes) = content {
+        for (target_ext, lang, disambiguate) in DIALECT_DISAMBIGUATORS {
+            if *target_ext == ext && disambiguate(bytes) {
+                return Some(*lang);
+            }
+        }
+    }
+
     for def in ALL_DEFINITIONS {
         if def.extensions.contains(&ext.as_str()) {
             return Some(def.language);
@@ -204,6 +219,11 @@ pub fn detect_language(path: &Path) -> Option<SupportedLanguage> {
     }
 
     None
+}
+
+/// Detect programming or configuration language from a file path extension or exact filename.
+pub fn detect_language(path: &Path) -> Option<SupportedLanguage> {
+    detect_language_with_content(path, None)
 }
 
 /// Check if a file path belongs to any supported code or configuration language.

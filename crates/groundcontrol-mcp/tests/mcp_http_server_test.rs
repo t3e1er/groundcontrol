@@ -31,6 +31,7 @@ fn build_manager(name: &str, corpus_path: &std::path::Path) -> CorpusManager {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     };
 
     let mut manager = CorpusManager::new();

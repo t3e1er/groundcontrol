@@ -14,7 +14,7 @@ use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use groundcontrol_common::config::CorpusConfig;
 use groundcontrol_common::types::FileFormat;
 
-use crate::parser::code::{detect_language, is_code_file, SupportedLanguage};
+use crate::parser::code::{detect_language_with_content, is_code_file, SupportedLanguage};
 
 /// Categorization of a file discovered in a corpus root.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -112,7 +112,7 @@ impl FileClassifier {
 
         // 3. Polyglot source code files (including HTML web components not promoted to docs)
         if is_code_file(path) {
-            if let Some(lang) = detect_language(path) {
+            if let Some(lang) = detect_language_with_content(path, sample_bytes) {
                 return FileClassification::Code(lang);
             }
         }
@@ -229,6 +229,19 @@ mod tests {
         assert_eq!(
             classifier.classify(Path::new("config/settings.ini"), Some(b"[settings]\nport=8080\n")),
             FileClassification::GenericText
+        );
+
+        // Dialect disambiguation
+        assert_eq!(
+            classifier.classify(Path::new("db/query.sql"), Some(b"SELECT 1 FROM dual;")),
+            FileClassification::Code(SupportedLanguage::Sql)
+        );
+        assert_eq!(
+            classifier.classify(
+                Path::new("db/package.sql"),
+                Some(b"CREATE OR REPLACE PACKAGE BODY my_pkg IS ...")
+            ),
+            FileClassification::Code(SupportedLanguage::PlSql)
         );
 
         // Dotfiles and extensionless files ignored by fallback

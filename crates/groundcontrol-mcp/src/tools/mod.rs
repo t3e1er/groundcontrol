@@ -11,6 +11,7 @@ pub mod registry;
 pub mod search;
 pub mod system;
 pub mod template;
+pub mod where_tool;
 pub mod write;
 
 #[cfg(test)]

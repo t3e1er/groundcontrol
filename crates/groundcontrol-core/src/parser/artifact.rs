@@ -54,7 +54,7 @@ impl ArtifactParser {
         hash: String,
         chunking_config: &ChunkingConfig,
     ) -> Result<ParsedArtifact> {
-        let content = String::from_utf8_lossy(bytes).into_owned();
+        let content = decode_text_lossy(bytes);
         let path = Path::new(rel_path);
         let file_title = path.file_name().and_then(|n| n.to_str()).map(|s| s.to_string());
         let parse_res = CodeChunker::parse_and_chunk(path, &content, chunking_config);
@@ -104,7 +104,7 @@ impl ArtifactParser {
         hash: String,
         _chunking_config: &ChunkingConfig,
     ) -> Result<ParsedArtifact> {
-        let content = String::from_utf8_lossy(bytes).into_owned();
+        let content = decode_text_lossy(bytes);
         let path = Path::new(rel_path);
         let file_title = path.file_name().and_then(|n| n.to_str()).map(|s| s.to_string());
 
@@ -177,7 +177,7 @@ impl ArtifactParser {
         hash: String,
         chunking_config: &ChunkingConfig,
     ) -> Result<ParsedArtifact> {
-        let content = String::from_utf8_lossy(bytes).into_owned();
+        let content = decode_text_lossy(bytes);
         let path = Path::new(rel_path);
         let doc = crate::parser::document::markdown::parse_document(path, &content)?;
         let chunks = crate::parser::document::markdown::chunk_markdown_document(
@@ -268,11 +268,81 @@ impl ArtifactParser {
     }
 }
 
+/// Decode raw bytes to String, gracefully handling UTF-8 BOM, UTF-16LE, UTF-16BE, and fallback to UTF-8 lossy.
+pub fn decode_text_lossy(bytes: &[u8]) -> String {
+    // 1. UTF-8 BOM
+    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        return String::from_utf8_lossy(&bytes[3..]).into_owned();
+    }
+    // 2. UTF-16 LE BOM
+    if bytes.starts_with(&[0xFF, 0xFE]) {
+        let u16_slice: Vec<u16> = bytes[2..]
+            .chunks_exact(2)
+            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+            .collect();
+        return char::decode_utf16(u16_slice)
+            .map(|r| r.unwrap_or(char::REPLACEMENT_CHARACTER))
+            .collect();
+    }
+    // 3. UTF-16 BE BOM
+    if bytes.starts_with(&[0xFE, 0xFF]) {
+        let u16_slice: Vec<u16> = bytes[2..]
+            .chunks_exact(2)
+            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+            .collect();
+        return char::decode_utf16(u16_slice)
+            .map(|r| r.unwrap_or(char::REPLACEMENT_CHARACTER))
+            .collect();
+    }
+    // 4. Heuristic UTF-16LE without BOM (e.g. ASCII characters in UTF-16: byte 0 non-zero, byte 1 is 0x00, byte 2 non-zero, byte 3 is 0x00)
+    if bytes.len() >= 4 && bytes[1] == 0 && bytes[3] == 0 && bytes[0] != 0 && bytes[2] != 0 {
+        let u16_slice: Vec<u16> = bytes
+            .chunks_exact(2)
+            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+            .collect();
+        return char::decode_utf16(u16_slice)
+            .map(|r| r.unwrap_or(char::REPLACEMENT_CHARACTER))
+            .collect();
+    }
+
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use groundcontrol_common::config::CorpusConfig;
     use tempfile::TempDir;
+
+    #[test]
+    fn test_decode_text_lossy_encodings() {
+        // UTF-8 with BOM
+        let mut utf8_bom = vec![0xEF, 0xBB, 0xBF];
+        utf8_bom.extend_from_slice(b"SELECT 1 FROM dual;");
+        assert_eq!(decode_text_lossy(&utf8_bom), "SELECT 1 FROM dual;");
+
+        // UTF-16LE with BOM
+        let text = "CREATE TABLE users;";
+        let mut utf16_le = vec![0xFF, 0xFE];
+        for b in text.encode_utf16() {
+            utf16_le.extend_from_slice(&b.to_le_bytes());
+        }
+        assert_eq!(decode_text_lossy(&utf16_le), text);
+
+        // UTF-16BE with BOM
+        let mut utf16_be = vec![0xFE, 0xFF];
+        for b in text.encode_utf16() {
+            utf16_be.extend_from_slice(&b.to_be_bytes());
+        }
+        assert_eq!(decode_text_lossy(&utf16_be), text);
+
+        // UTF-16LE without BOM (ASCII heuristic)
+        let mut utf16_nobom = Vec::new();
+        for b in text.encode_utf16() {
+            utf16_nobom.extend_from_slice(&b.to_le_bytes());
+        }
+        assert_eq!(decode_text_lossy(&utf16_nobom), text);
+    }
 
     #[test]
     fn test_parse_generic_text_fallback() {

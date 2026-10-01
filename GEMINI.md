@@ -64,25 +64,26 @@ Every major concern is defined as a trait (**port**) in `groundcontrol-common::p
 
 ---
 
-## 3. MCP Tool Surface (19 Tools) & Usage Directives
+## 3. MCP Tool Surface (20 Tools) & Usage Directives
 
 Authoritative tool registry: `crates/groundcontrol-mcp/src/tools/mod.rs`. Handlers are `ReadOnly(fn(&Engine, Value))` or `ReadWrite(fn(&mut Engine, Value))`.
 
-### Registered Tool Inventory (19 Tools)
+### Registered Tool Inventory (20 Tools)
 
 | Category | Count | Tools |
 |---|---|---|
 | **Read** | 3 | `read_file` (Tier 3 polymorphic path/paths batch with line slicing), `get_snippet` (Tier 2 symbol/chunk fetch + grammar-driven relationship handles + symbol definition lookup), `list_notes` (note catalog & single note frontmatter inspection) |
-| **Search** | 3 | `search` (Tier 1 retrieval with Turn 1 hybrid snippets across docs & code via `snippets: usize`; `mode` = `hybrid` \| `bm25` \| `semantic` \| `graph` \| `explain`), `search_related`, `grep` (exhaustive line-addressed disk-verified regex & literal pattern matching with line numbers and optional context) |
+| **Search / Lookup** | 4 | `search` (Tier 1 retrieval with Turn 1 hybrid snippets across docs & code via `snippets: usize`; `mode` = `hybrid` \| `bm25` \| `semantic` \| `graph` \| `explain`), `search_related`, `grep` (exhaustive line-addressed disk-verified regex & literal pattern matching with line numbers and optional context), `where` (cross-corpus identifier lookup across tables/models/symbols with line provenance and occurrence roles) |
 | **Graph** | 3 | `graph_match` (linear Cypher-Lite ASCII path query executed via pure in-memory Petgraph traversal with cycle guards), `graph_communities` (`algorithm` = `leiden` \| `louvain`, `view` = `architecture` \| `raw`), `trace_cross_corpus` (federated cross-corpus graph traversal) |
 | **Write** | 3 | `write_note` (`mode` = `create` \| `overwrite` \| `append` \| `prepend`), `delete_note`, `move_note` (wikilink refactoring) |
 | **Template / Validation** | 2 | `validate` (unified single note template check, corpus scan, and taxonomy check via `check_taxonomy`), `list_templates` |
 | **System / Corpus** | 5 | `status` (unified multi-corpus overview or per-corpus stats, indexing, graph density, coverage via `scope`), `list_corpora`, `sync_corpus` (`mode` = `delta` \| `full` \| `reembed`), `index_corpus`, `unload_corpus` |
 
 ### Tool Profiles (`--profile`)
-- **`scout`** (7 tools): Minimal retrieve/navigate set (`search`, `search_related`, `grep`, `get_snippet`, `read_file`, `list_notes`, `status`).
-- **`analysis`** (13 tools): `scout` + read-only graph (`graph_match`, `graph_communities`, `trace_cross_corpus`), validation (`validate`, `list_templates`), and `list_corpora`.
-- **`all`** (19 tools): Full suite including mutating writes (`write_note`, `delete_note`, `move_note`, `sync_corpus`, `index_corpus`, `unload_corpus`).
+- **`lean`** (5 tools): Minimal 5-tool read-only profile (`search`, `grep`, `where`, `read_file`, `status`).
+- **`scout`** (8 tools): `lean` + navigation (`search_related`, `get_snippet`, `list_notes`).
+- **`analysis`** (14 tools): `scout` + read-only graph (`graph_match`, `graph_communities`, `trace_cross_corpus`), validation (`validate`, `list_templates`), and `list_corpora`.
+- **`all`** (20 tools): Full suite including mutating writes (`write_note`, `delete_note`, `move_note`, `sync_corpus`, `index_corpus`, `unload_corpus`).
 
 ### Agent Directives
 1. **MCP Retrieval-First Invariant (No Direct File Dumps)**:

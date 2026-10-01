@@ -85,6 +85,17 @@ CREATE INDEX IF NOT EXISTS idx_code_symbols_name ON code_symbols(name);
 CREATE INDEX IF NOT EXISTS idx_code_symbols_file ON code_symbols(file_path);
 CREATE INDEX IF NOT EXISTS idx_code_symbols_scope ON code_symbols(scope_path);
 CREATE INDEX IF NOT EXISTS idx_code_symbols_file_covering ON code_symbols(file_path, scope_path, symbol_type, start_line, end_line);
+
+CREATE TABLE IF NOT EXISTS identifiers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    identifier TEXT NOT NULL,
+    file_path TEXT NOT NULL REFERENCES files(path) ON DELETE CASCADE,
+    line INTEGER NOT NULL,
+    role TEXT NOT NULL DEFAULT 'mentions',
+    kind TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_identifiers_id ON identifiers(identifier);
+CREATE INDEX IF NOT EXISTS idx_identifiers_file ON identifiers(file_path);
 "#;
 
 /// Apply pragmatic configurations and initialize schema tables.

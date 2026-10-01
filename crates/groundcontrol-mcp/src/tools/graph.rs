@@ -19,6 +19,31 @@ pub(crate) struct GraphMatchParams {
     pub limit: Option<usize>,
     pub max_depth: Option<usize>,
     pub format: Option<String>,
+    pub min_confidence: Option<String>,
+}
+
+fn filter_tree_confidence(
+    nodes: Vec<groundcontrol_common::types::GraphTreeNode>,
+    threshold: u8,
+) -> Vec<groundcontrol_common::types::GraphTreeNode> {
+    nodes
+        .into_iter()
+        .filter_map(|mut node| {
+            if let Some(ref conf) = node.confidence {
+                let lvl = match conf.to_ascii_lowercase().as_str() {
+                    "high" => 3,
+                    "medium" => 2,
+                    "speculative" => 1,
+                    _ => 2,
+                };
+                if lvl < threshold {
+                    return None;
+                }
+            }
+            node.branches = filter_tree_confidence(node.branches, threshold);
+            Some(node)
+        })
+        .collect()
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,13 +63,24 @@ pub fn handle_graph_match(engine: &Engine, args: Value) -> Result<Value> {
     let limit = params.limit.unwrap_or(20);
     let max_depth = params.max_depth.unwrap_or(3);
 
-    let match_result = engine.graph_match(
+    let mut match_result = engine.graph_match(
         &params.pattern,
         params.edge_class.as_deref(),
         params.where_clause.as_deref(),
         limit,
         max_depth,
     )?;
+
+    let min_conf = params.min_confidence.as_deref().unwrap_or("medium");
+    let threshold = match min_conf.to_ascii_lowercase().as_str() {
+        "high" => 3,
+        "speculative" => 1,
+        _ => 2, // default medium
+    };
+
+    if threshold > 1 {
+        match_result.tree = filter_tree_confidence(match_result.tree, threshold);
+    }
 
     if params.format.as_deref() == Some("lean") {
         Ok(Value::String(crate::format::lean::format_lean_graph_match(&match_result)))
@@ -59,7 +95,7 @@ pub fn handle_graph_communities(engine: &Engine, args: Value) -> Result<Value> {
     let params: GraphCommunitiesParams = serde_json::from_value(args)
         .map_err(|e| Error::Config(format!("invalid params: {}", e)))?;
 
-    let view = params.view.as_deref().unwrap_or("raw");
+    let view = params.view.as_deref().unwrap_or("architecture");
     if view == "architecture" {
         let result = engine.graph().detect_communities_leiden();
         let densities = engine.graph().community_densities();

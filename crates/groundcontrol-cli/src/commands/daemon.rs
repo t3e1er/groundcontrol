@@ -88,9 +88,7 @@ pub async fn handle_daemon_start(
     if watch {
         cmd.arg("--watch");
     }
-    if idle_timeout > 0 {
-        cmd.arg(format!("--idle-timeout={}", idle_timeout));
-    }
+    cmd.arg(format!("--idle-timeout={}", idle_timeout));
     if require_auth {
         cmd.arg("--require-auth");
     }

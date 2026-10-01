@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 /// Top-level corpus configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CorpusConfig {
     /// Human-readable corpus name.
     pub name: String,
@@ -43,6 +44,9 @@ pub struct CorpusConfig {
     /// Rich documentation promotion configuration.
     #[serde(default)]
     pub docs: DocsConfig,
+    /// Cross-corpus regex identifier extraction patterns: [identifiers]
+    #[serde(default)]
+    pub identifiers: BTreeMap<String, String>,
 }
 
 impl Default for CorpusConfig {
@@ -58,6 +62,7 @@ impl Default for CorpusConfig {
             templates_dir: None,
             exclude: ExcludeConfig::default(),
             docs: DocsConfig::default(),
+            identifiers: BTreeMap::new(),
         }
     }
 }
@@ -1028,5 +1033,16 @@ mod tests {
         // Verify re-loading loads the exact same config from disk
         let loaded = load_global_config();
         assert_eq!(loaded.auth.daemon_key, cfg.auth.daemon_key);
+    }
+
+    #[test]
+    fn test_reject_unconsumed_config_keys() {
+        let toml_str = r#"
+            name = "typo-test"
+            path = "./repo"
+            embedders = "invalid"
+        "#;
+        let res: std::result::Result<CorpusConfig, _> = toml::from_str(toml_str);
+        assert!(res.is_err());
     }
 }

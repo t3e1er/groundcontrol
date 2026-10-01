@@ -24,6 +24,7 @@ fn fast_corpus_config(name: &str, corpus_path: &Path) -> CorpusConfig {
         templates_dir: None,
         exclude: groundcontrol_common::config::ExcludeConfig::default(),
         docs: groundcontrol_common::config::DocsConfig::default(),
+        identifiers: Default::default(),
     }
 }
 
