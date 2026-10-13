@@ -111,7 +111,7 @@ tree-sitter-wgsl-bevy = "0.1.4"
 tree-sitter-erlang = "0.20"
 tree-sitter-xml = "0.7.0"
 tree-sitter-vb6 = "0.0.2"
-tree-sitter-plsql-sqry = "31.0.0"
+tree-sitter-plsql-sqry = "33.0.1"
 arborium-cobol = "2.18.2"
 
 
